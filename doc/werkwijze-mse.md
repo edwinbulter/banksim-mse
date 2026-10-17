@@ -1,0 +1,1085 @@
+# BankSim – Werkwijze volgens Modern Software Engineering
+
+Oct 17, 2026 · @Edwin
+
+Dit document beschrijft hoe je [BankSim](https://github.com/edwinbulter/banksim) opnieuw bouwt volgens de werkwijze uit *Modern Software Engineering* van Dave Farley: in kleine, deploybare stappen, gestuurd door uitvoerbare voorbeelden (BDD), met double-loop outside-in TDD en met architectuurbeslissingen die pas worden vastgelegd (ADR) op het moment dat een stap erom vraagt.
+
+Het eindpunt is dezelfde applicatie als in de originele repo: dezelfde schermen, dezelfde regels en dezelfde techstack. Het verschil zit in de weg ernaartoe.
+
+**Techstack (gelijk aan het origineel, TO §1.1 en §16)**
+
+| Laag | Keuze |
+| --- | --- |
+| Backend | Java 21, Spring Boot 4.0.x, Spring Security, Spring JDBC (`JdbcClient`), Spring Modulith, Resilience4j, Bucket4j, Spring Session JDBC |
+| BFF | Spring Cloud Gateway (Server WebMVC) + Spring Security OAuth2 Client |
+| Identiteit en opslag | Keycloak, PostgreSQL met Flyway |
+| Frontend | Angular (standalone components, signals), TypeScript strict, `big.js`, ESLint, Vitest, OpenAPI-generator voor de client |
+| Backend-tests | JUnit 5, AssertJ, Testcontainers, jqwik, ArchUnit, Toxiproxy, PIT, openapi-diff |
+| Acceptatietests | **Playwright Test (TypeScript)** in `e2e/`, net als het origineel |
+| Build en deploy | Maven, npm, Jib, Helm, kind (OrbStack), ingress-nginx, GitHub Actions |
+| Supply chain | CycloneDX, OWASP Dependency-Check, `npm audit`, Trivy, Renovate |
+
+Er is één bewuste uitbreiding: voor het test-first bouwen van de infrastructuur komen er testtools bij die het origineel niet had (helm-unittest, kubeconform, conftest, bats, shellcheck, hadolint en actionlint; zie hoofdstuk 9). Daar hoort een ADR bij. Verder komt er geen nieuwe taal, framework of testtool bij; ook geen Gherkin of Cucumber.
+
+## 1. Waarom een andere aanpak
+
+De originele BankSim is in één keer gegenereerd uit een vooraf geschreven [functioneel ontwerp](https://github.com/edwinbulter/banksim/blob/main/doc/functioneel-ontwerp.md) (FO) en [technisch ontwerp](https://github.com/edwinbulter/banksim/blob/main/doc/technisch-ontwerp.md) (TO). Alle beslissingen zijn genomen voordat er één regel code draaide. Dat werkt, maar je leert niets onderweg: of een keuze goed was, blijkt pas als alles af is, en de tests zijn achteraf gemaakt bij code die al bestond.
+
+| Onderwerp | FO/TO vooraf (origineel) | MSE-werkwijze (dit project) |
+| --- | --- | --- |
+| Specificatie | FO met schermen en regels, vooraf compleet | Uitvoerbare voorbeelden in domeintaal (Playwright-specs met Gegeven/Als/Dan), per slice geschreven; het FO is een bron van voorbeelden |
+| Architectuur | TO met 17 hoofdstukken, vooraf compleet | ADR's, geschreven op het moment dat een slice de beslissing afdwingt |
+| Tests | Teststrategie in het TO, tests naast de code gegenereerd | Test eerst: acceptatietest stuurt de slice, unittest stuurt elke klasse |
+| Oplevering | Alles in fases, aan het eind werkend | Na elke slice een werkende, gedeployde app |
+| Feedback | Na afronding van een fase | Binnen minuten (commit stage) en binnen een kwartier (acceptance stage) |
+| Documentatie | Documenten die kunnen verouderen | Specs en ADR-log die door de pipeline actueel blijven |
+
+Het FO en TO van het origineel zijn niet weggegooid: ze zijn de **voorraad kennis** waaruit je voorbeelden en kandidaat-beslissingen haalt. Je neemt ze alleen niet als blauwdruk over, maar laat elke keuze opnieuw verdienen door een falende test.
+
+## 2. Uitgangspunten uit Modern Software Engineering
+
+Farley verdeelt engineering in twee pijlers. Beide vertalen zich direct naar hoe je BankSim bouwt.
+
+**Optimaliseren voor leren** – iteratief, incrementeel, met snelle feedback, empirisch en experimenteel.
+
+- Werk in dunne verticale slices die van browser tot database lopen en elk iets zichtbaars opleveren.
+- Elke stap is een experiment met een hypothese ("dit scenario wordt groen met deze wijziging") en een meetbare uitkomst (de pipeline).
+- Commit vaak, direct op `main` (trunk-based), achter een groene pipeline. Geen langlevende branches.
+- De deployment pipeline is je belangrijkste feedbackinstrument: als die traag of onbetrouwbaar is, is dat het eerste wat je repareert.
+
+**Complexiteit beheersen** – modulariteit, cohesie, separation of concerns, information hiding en lage koppeling.
+
+- Testbaarheid is ontwerpdruk: als iets moeilijk te testen is, is het ontwerp verkeerd. Dat dwingt vanzelf `bank-domain` zonder Spring, een `SimulationClock` in plaats van `LocalDate.now()`, en één `LedgerService` voor alle geldbewegingen.
+- Package-by-feature (`account`, `transaction`, `payment`, `savings`, …); modulegrenzen worden bewaakt door tests, niet door afspraken.
+- Deploybaarheid is ook ontwerpdruk: de app moet vanaf dag 1 in kind draaien, dus configuratie, migraties en opstartgedrag ontwerp je mee.
+
+## 3. Stap 0 – Walking skeleton en deployment pipeline
+
+Voordat er één bankfunctie bestaat, bouw je het dunste mogelijke systeem dat van begin tot eind werkt én automatisch wordt getest en gedeployed. Alles wat daarna komt, wordt in dit skelet ingeschoven.
+
+**Inhoud van het skelet**
+
+- Maven multi-module met alleen `bank-domain` (leeg) en `bank-api` (één endpoint `GET /api/versie`).
+- Angular-app `bank-web` die de versie toont.
+- Een Helm-chart met `bank-api`, `bank-web` en een Ingress, installeerbaar met `deploy/scripts/install.sh` in namespace `banksim-mse` van het bestaande cluster `kind-single-node` (zie "Doelomgeving" hieronder).
+- Het acceptatietest-project `e2e/` (Playwright Test, TypeScript; zie hoofdstuk 5) met één scenario:
+
+```ts
+// e2e/specs/skelet.spec.ts
+import { test } from '../dsl/fixtures';
+
+test('De startpagina toont de versie', async ({ bank }) => {
+  const bezoeker = bank.bezoeker();
+  await bank.als('een bezoeker BankSim opent', () => bezoeker.opentBankSim());
+  await bank.dan('wordt de versie van BankSim getoond', () => bezoeker.verwachtVersie());
+});
+```
+
+**Doelomgeving: bestaand cluster, eigen namespace**
+
+BankSim-MSE draait in het **bestaande** kind-cluster `single-node` (OrbStack, kubectl-context `kind-single-node`). Alles komt in **één namespace: `banksim-mse`**. Er wordt geen nieuw cluster gemaakt en niets buiten die namespace geïnstalleerd of gewijzigd. Het origineel draait in namespace `banksim` in hetzelfde cluster; beide installaties moeten naast elkaar kunnen bestaan.
+
+| Onderwerp | Afspraak |
+| --- | --- |
+| Context | `install.sh`, `uninstall.sh` en `reset-data.sh` weigeren elke andere context dan `kind-single-node`, tenzij je expliciet `--context` meegeeft. Dat laatste doet alleen de CI. |
+| Namespace | Alle resources staan in `banksim-mse`: apps, Jobs, Keycloak, PostgreSQL (met PVC), Secrets, ConfigMaps, Ingresses, NetworkPolicies en PodDisruptionBudgets. |
+| Cluster-brede resources | Geen. Dus geen CRD's, ClusterRoles, IngressClasses, operators of service mesh, en geen wijzigingen in namespace `ingress-nginx`. Alleen de bestaande ingress-nginx en storage class `standard` worden gebruikt. |
+| Hostnamen | Eigen hosts, omdat ingress-nginx per host maar één Ingress kan bedienen en het origineel `bank.localtest.me` en `auth.localtest.me` al gebruikt: **`bank-mse.localtest.me`** en **`auth-mse.localtest.me`**. `*.localtest.me` wijst naar 127.0.0.1, dus `/etc/hosts` hoeft niet te worden aangepast. |
+| Helm-release | `banksim-mse`, in namespace `banksim-mse`. |
+| Images | Eigen namen, zoals `banksim-mse/bank-api:<git-sha>`, geladen met `kind load docker-image --name single-node`, zodat ze niet botsen met de images van het origineel op dezelfde node. |
+| Certificaten | Een eigen CA voor BankSim-MSE. Die staat los van de BankSim-CA van het origineel, en de sleutel blijft lokaal in `deploy/.secrets/` (in `.gitignore`). |
+| Verwijderen | `uninstall.sh` doet `helm uninstall` en verwijdert namespace `banksim-mse` met alle data. Het origineel en de rest van het cluster blijven onaangeroerd. |
+| Capaciteit | Het origineel vraagt ongeveer 3 GB geheugen. Houd BankSim-MSE in dezelfde orde, zodat beide passen binnen de ongeveer 12 GB van de node. |
+
+De CI kan vanaf een GitHub-runner niet bij je lokale cluster. Daarom maakt de acceptance stage een **tijdelijk kind-cluster** `banksim-mse-ci` dat `single-node` nabootst: zelfde kind-versie, zelfde ingress-nginx-versie, poort 80/443. Daarin installeert hij met hetzelfde `install.sh --context kind-banksim-mse-ci`, in dezelfde namespace `banksim-mse` en met dezelfde hostnamen. Het enige verschil met lokaal is dus de context.
+
+De afspraken hierboven worden net als andere architectuurbeslissingen bewaakt door uitvoerbare checks (fitness functions). Hoofdstuk 9 beschrijft hoe je die infrastructuur test-first opbouwt.
+
+- Een check in de commit stage op `helm template`: elke gerenderde resource heeft namespace `banksim-mse`, en de output bevat geen cluster-brede resources.
+- `install.sh` met een andere context dan `kind-single-node` en zonder `--context` faalt (test met `bats`).
+- Een installatiescenario in de acceptance stage: na `uninstall.sh` is namespace `banksim-mse` weg en staan er nergens in het cluster nog resources met het label `app.kubernetes.io/instance=banksim-mse`.
+
+**De pipeline**
+
+```mermaid
+flowchart LR
+    C["Commit<br/>(trunk)"] --> CS["Commit stage<br/>&lt; 5 min<br/>compile, unit, ArchUnit,<br/>lint, Vitest"]
+    CS -->|artefacten: images + chart| AS["Acceptance stage<br/>tijdelijk kind-cluster banksim-mse-ci<br/>namespace banksim-mse<br/>install.sh + Playwright"]
+    AS --> D["Deploy<br/>kind-single-node<br/>namespace banksim-mse"]
+    CS -. rood .-> F["Stop de lijn:<br/>eerst repareren"]
+    AS -. rood .-> F
+```
+
+- **Commit stage** (GitHub Actions, elke push): `mvnw verify` (unit, slice, ArchUnit), `ng lint`, Vitest, en de chart- en scripttests uit hoofdstuk 9. Doel: binnen 5 minuten weten of de commit deugt. Bouwt de images één keer met Jib; latere stages hergebruiken exact die artefacten.
+- **Acceptance stage**: maakt het tijdelijke kind-cluster `banksim-mse-ci`, installeert met hetzelfde `install.sh` in namespace `banksim-mse` en draait de Playwright-acceptatietests tegen die installatie.
+- **Deploy**: lokaal `install.sh` op het bestaande cluster `kind-single-node`, in namespace `banksim-mse`; dezelfde scripts, dezelfde chart. Je kunt de acceptatietests ook lokaal tegen deze installatie draaien. Ze maken hun eigen data via aliassen (hoofdstuk 5), dus de bestaande data blijft heel.
+- Regel: een rode pipeline heeft voorrang op alles. Niemand bouwt verder op rood.
+
+**Eerste ADR's**
+
+- `0001-architectuurbeslissingen-vastleggen.md` – we gebruiken ADR's (dit proces).
+- `0002-deployment-pipeline-en-kind.md` – één pipeline, artefacten één keer bouwen, kind als doelomgeving in CI en lokaal.
+- `0003-testdata-via-seed-cli.md` – hoe scenario's hun data opzetten zonder test-only endpoints (zie hoofdstuk 5). Je kunt deze ook pas in slice 1 schrijven, als het eerste scenario data nodig heeft.
+- `0004-installatie-in-namespace-banksim-mse.md` – het bestaande cluster `kind-single-node`, alles in namespace `banksim-mse`, eigen hostnamen, geen cluster-brede resources, naast het origineel in `banksim`.
+- `0005-acceptatietests-in-playwright-met-interne-dsl.md` – BDD-scenario's als Playwright-specs in TypeScript met een interne DSL, binnen de stack van het origineel; geen Gherkin.
+
+Pas als dit skelet groen door de pipeline gaat, begin je aan de eerste functionaliteit.
+
+## 4. De double loop
+
+Elke slice doorloopt twee geneste TDD-lussen. De buitenste lus beschrijft **wat** het systeem moet doen, vanuit de gebruiker; de binnenste lus bepaalt **hoe**, klasse voor klasse.
+
+```mermaid
+flowchart TB
+    subgraph buiten["Buitenste lus – acceptatietest (uren tot een dag)"]
+        A1["Kies een voorbeeld uit het FO<br/>en schrijf een scenario"] --> A2["Draai het scenario:<br/>het faalt om de goede reden"]
+        A3["Scenario groen"] --> A4["Refactor, ADR bijwerken,<br/>commit, pipeline groen"]
+        A4 --> A1
+    end
+    subgraph binnen["Binnenste lus – unittest (minuten)"]
+        R["Rood:<br/>falende unittest"] --> G["Groen:<br/>kleinste code die slaagt"]
+        G --> RF["Refactor<br/>op groen"]
+        RF -->|volgende unit| R
+    end
+    A2 --> R
+    RF -->|alle lagen klaar| A3
+```
+
+**Outside-in**
+
+1. Begin aan de buitenkant: het scenario faalt, bijvoorbeeld omdat `GET /api/me/accounts` nog niet bestaat.
+2. Schrijf een test voor de buitenste klasse die je nodig hebt (controller in JUnit, of component in Vitest). Collaborators die nog niet bestaan (service, repository) vervang je in die test door een test double; zo ontdek je hun interface vanuit het gebruik.
+3. Ga een laag naar binnen en implementeer de collaborator met zijn eigen test, tot je bij de domeinlogica en de database bent.
+4. Het scenario wordt groen zodra alle lagen echt bestaan. Test doubles blijven alleen staan waar ze een echte grens afschermen (tijd, Keycloak, netwerk).
+
+**Regels**
+
+- Nooit meer dan één falend acceptatiescenario tegelijk waar je aan werkt. Scenario's voor later krijgen de Playwright-tag `@wip`; de pipeline draait met `--grep-invert @wip`, dus ze tellen niet mee.
+- Schrijf een unittest pas als er een falende unittest nodig is om verder te komen; schrijf productiecode alleen om een falende test groen te maken.
+- Refactor alleen op groen, en refactor ook de tests.
+- Commit na elke groene stap van de binnenste lus als die zinvol is; het scenario hoeft daarvoor nog niet groen te zijn (`@wip`).
+- Een domeinregel die je in de binnenste lus ontdekt maar die niet in het scenario staat ("bedrag mag niet meer dan 2 decimalen hebben") krijgt óf een extra scenario, óf een expliciete unittest. Nooit ongetest gedrag.
+
+## 5. Acceptatietests: het vierlaagse model
+
+Acceptatietests zijn het duurste onderdeel om te onderhouden. Farley lost dat op met vier lagen, zodat een wijziging in de UI of de API maar één laag raakt. Alle vier de lagen zitten in `e2e/`, in TypeScript met Playwright Test, net als de e2e-suite van het origineel.
+
+```mermaid
+flowchart TB
+    T["1. Testcases<br/>Playwright-specs in domeintaal<br/>bijv. specs/betalen.spec.ts"] --> DSL["2. Domain Specific Language<br/>bank.klant(#quot;Jan#quot;).betaalt(...)<br/>termen uit het domein, geen techniek"]
+    DSL --> PD1["3a. REST driver<br/>Playwright APIRequestContext<br/>via ingress en BFF"]
+    DSL --> PD2["3b. UI driver<br/>Playwright page objects<br/>tegen bank-web"]
+    PD1 --> SUT["4. System under test<br/>BankSim, namespace banksim-mse"]
+    PD2 --> SUT
+```
+
+| Laag | Wat erin staat | Wat er níet in mag |
+| --- | --- | --- |
+| Testcases | Het voorbeeld in domeintaal, als stappen Gegeven / Als / Dan | URL's, selectors, JSON, SQL |
+| DSL | Methodes als `heeftBetaalrekening`, `betaalt`, `verwachtSaldo`; aliassen voor testdata; bedragen als string en vergeleken met `big.js` | Hoe het systeem wordt aangestuurd |
+| Protocol drivers | HTTP-calls via `APIRequestContext`, Playwright page objects, inloggen bij Keycloak | Beweringen over gedrag (die zitten in de DSL) |
+| System under test | De echte, gedeployde applicatie | Test-only endpoints of testcode |
+
+**Hoe een scenario eruitziet**
+
+Een scenario is een gewone Playwright-test. De DSL biedt `gegeven`, `als`, `dan`, `en` en `maar`; die wikkelen elke stap in `test.step`, zodat het Playwright-rapport het scenario leest als een BDD-specificatie. De tekst van de stap is voor mensen, de code erin roept alleen de DSL aan.
+
+```ts
+// e2e/dsl/fixtures.ts
+import { test as basis } from '@playwright/test';
+import { Bank } from './bank';
+import { RestDriver } from '../drivers/rest/rest-driver';
+import { UiDriver } from '../drivers/ui/ui-driver';
+
+export type Opties = { driver: 'rest' | 'ui' };
+
+export const test = basis.extend<Opties & { bank: Bank }>({
+  driver: ['rest', { option: true }],
+  bank: async ({ driver, page, request }, use) => {
+    const bankDriver = driver === 'ui' ? new UiDriver(page) : new RestDriver(request);
+    await use(new Bank(bankDriver, basis.step));
+  },
+});
+export { expect } from '@playwright/test';
+```
+
+```ts
+// e2e/dsl/bank.ts (fragment)
+async gegeven(tekst: string, stap: () => Promise<unknown>) {
+  await this.step(`Gegeven ${tekst}`, stap);
+}
+// als, dan, en en maar werken hetzelfde
+```
+
+**Keuzes**
+
+- **Spec-taal:** Playwright Test in TypeScript met een interne DSL, binnen de stack van het origineel (ADR 0005). Er is geen Gherkin: de specs zelf zijn het leesbare voorbeeld. Wil je later toch `.feature`-bestanden, dan kan dat met één extra dev-dependency (`playwright-bdd`) op dezelfde DSL; dat is dan een nieuwe ADR.
+- **Twee drivers, één scenario:** `playwright.config.ts` heeft een project `rest` (optie `driver: 'rest'`, snel, geen browser) en de projecten `chromium`, `firefox` en `webkit` (optie `driver: 'ui'`). Hetzelfde scenario draait dus via de API en via de browser. Scenario's die alleen over de UI gaan ("De knop heet nu Verberg zoeken") krijgen de tag `@ui`; het project `rest` sluit die uit met `grepInvert: /@ui/`.
+- **Waar de REST driver op aanspreekt:** altijd via de ingress en de publieke API-paden, net als de browser. Zodra er in slice 6 een BFF en Keycloak zijn, logt een setup-project één keer per gebruiker in via het echte Keycloak-scherm en bewaart de sessie als `storageState`, zoals het origineel in `e2e/tests/auth.setup.ts` doet. De REST driver gebruikt die sessiecookie en het CSRF-token van de BFF. De driver roept `bank-api` nooit rechtstreeks aan; na de CFR-slices voor mTLS en NetworkPolicies zou dat ook niet meer kunnen.
+- **Isolatie:** elk scenario maakt zijn eigen rekeninghouders en rekeningen via de DSL. De DSL vertaalt een alias ("Jan") naar een unieke naam en IBAN per testrun. Zo zitten scenario's elkaars data niet in de weg en is de gedeelde datagen-seed niet nodig.
+- **Testdata opzetten:** het FO heeft geen scherm om rekeninghouders, rekeningen of willekeurige historische boekingen (incasso, betaalautomaat) aan te maken; dat doet in het origineel alleen de datagenerator. Kies daarom in stap 0 of slice 1 één expliciet mechanisme en leg het vast in een ADR (`0003-testdata-via-seed-cli.md`). Voorstel: een kleine **seed-CLI** in Java, in een eigen Maven-module, die met de regels van `bank-domain` rekeninghouders, rekeningen en overboekingen in de database zet (en later ook Keycloak-gebruikers). De DSL start die als Kubernetes Job in `banksim-mse` via een kleine shell-driver (`kubectl` vanuit Node). Er komt dus geen test-only endpoint in de applicatie zelf. In slice 11 groeit deze seed-CLI uit tot `bank-datagen`: dezelfde code, nu aangestuurd door profielen in plaats van door scenario's.
+- **Tijd:** scenario's zetten de simulatiedatum zelf (`bank.gegeven('de simulatiedatum is 5 oktober 2026', …)`), want BankSim heeft die functie toch nodig. De simulatiedatum geldt voor alle gebruikers tegelijk, dus unieke aliassen isoleren wel de data maar niet de klok. Scenario's die de datum zetten krijgen de tag `@simulatiedatum` en draaien in een aparte run met `--grep @simulatiedatum --workers=1`; de overige scenario's draaien parallel met `--grep-invert @simulatiedatum`. Dit is een bewuste afweging (ADR); het origineel draaide de hele suite met één worker.
+
+In de originele repo is `e2e/pages/*` (`LoginPagina`, `RekeningPagina`, `BetalenPagina`, …) de protocol-driver-laag; de specs in `e2e/tests/*` mengen testcase en DSL. Hier houd je die lagen vanaf het begin gescheiden.
+
+**Projectindeling**
+
+```text
+e2e/
+├── playwright.config.ts    projecten: setup, rest, chromium, firefox, webkit, infra
+├── specs/                  testcases: overzicht.spec.ts, betaalrekening.spec.ts, zoeken.spec.ts, …
+│   └── infra/              installatie.spec.ts, upgrade.spec.ts, netwerk.spec.ts (hoofdstuk 9)
+├── dsl/                    fixtures.ts, bank.ts, klant.ts, beheerder.ts, aliassen.ts, omgeving.ts
+└── drivers/
+    ├── rest/               RestDriver op APIRequestContext
+    ├── ui/                 UiDriver en page objects: LoginPagina, OverzichtPagina, …
+    └── shell/              kubectl, helm en de scripts via child_process (seed-CLI, infra)
+```
+
+## 6. Architecture Decision Records
+
+Een ADR legt één beslissing vast, met de context waarin hij genomen is en de gevolgen. Je schrijft een ADR op het *laatste verantwoorde moment*: als een slice niet verder kan zonder de keuze. Niet eerder, want dan kies je zonder kennis; niet later, want dan is de keuze impliciet al gemaakt.
+
+**Template** (`doc/adr/NNNN-korte-titel.md`, naar Michael Nygard)
+
+```markdown
+# NNNN. Titel als beslissing geformuleerd
+
+Datum: 2026-10-17
+Status: Voorgesteld | Geaccepteerd | Vervangen door [NNNN](NNNN-...md)
+
+## Context
+Welk scenario of welke kracht dwingt deze keuze af? Welke opties waren er?
+
+## Beslissing
+Wat we doen, in één of twee zinnen.
+
+## Gevolgen
+Wat makkelijker wordt, wat moeilijker wordt, wat we daarvoor accepteren.
+
+## Bewaking
+Welk scenario of welke fitness function (ArchUnit, contracttest, rooktest) faalt als we hiervan afwijken.
+```
+
+**Regels**
+
+- Eén beslissing per ADR. Een ADR wordt nooit herschreven: een nieuwe beslissing krijgt een nieuw nummer en zet de oude op "Vervangen door".
+- Elke ADR noemt de **bewaking**: waar mogelijk een geautomatiseerde fitness function, zodat de beslissing niet stilletjes wordt losgelaten.
+- De ADR gaat mee in dezelfde commit als de code die de beslissing invoert.
+
+**Verwachte ADR's (backlog uit TO §1.2 en §17)**
+
+Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandidaten*; je schrijft ze pas als de slice in de kolom ernaast erom vraagt, en mag tot een andere uitkomst komen.
+
+| Kandidaat-ADR | Origineel | Verwacht bij slice |
+| --- | --- | --- |
+| Acceptatietests in Playwright Test (TypeScript) met interne DSL, geen Gherkin | TO §14 | Stap 0 (ADR 0005) |
+| Testdata via een seed-CLI op `bank-domain`, geen test-only endpoints | TO §9, §14 | Stap 0 / 1 Overzicht |
+| Scenario's met `@simulatiedatum` draaien serieel | TO §14 (1 worker) | 3 Simulatiedatum |
+| Bedragen als `BigDecimal`, `NUMERIC(19,2)` en string in JSON | TO §5 | 1 Overzicht |
+| Saldo berekenen, niet opslaan | TO §1.2, §4 | 1 Overzicht / 3 Simulatiedatum |
+| PostgreSQL met Flyway, `JdbcClient` in plaats van JPA | TO §3.1, §4 | 1 Overzicht |
+| Keyset-paginering met HMAC-ondertekende cursor | TO §3.2 | 2 Transactielijst |
+| `SimulationClock` vervangt systeemtijd | TO §8 | 3 Simulatiedatum |
+| Zoeken met `pg_trgm` en vaste SQL-fragmenten | TO §4, §11 (A05) | 5 Zoeken |
+| Keycloak als identity provider | TO §1.1, §17 | 6 Inloggen |
+| Backend-for-Frontend in plaats van tokens in de browser | TO §1.2, §10 | 6 Inloggen |
+| BFF-sessie versleuteld in PostgreSQL | TO §2 | 6 Inloggen (zodra er 2 replica's zijn) |
+| Eigenaarschap in de query; andermans IBAN geeft 404 | TO §10.3 | 6 Inloggen |
+| Eén grootboek, double-entry, alleen via `LedgerService` | TO §1.2, §6 | 7 Betalen |
+| Nooit rood: minimum lopend saldo vanaf D | TO §6 | 7 Betalen |
+| Idempotency-Key op boekende requests | TO §6 | 7 Betalen |
+| Rentecorrectie via event `OverboekingGeboekt` (Spring Modulith) | TO §3.1, §7 | 9 Overschrijven |
+| Eén Angular-app met rolafhankelijke routes | TO §1.2 | 10 Admin |
+| Audit log append-only | TO §4, §11 (A09) | 10 Admin |
+| Deterministische datagenerator op domeinregels | TO §9 | 11 Realistische data |
+| Migraties als aparte Job | TO §1.2, §12.1 | CFR Resilience |
+| Infrastructuur testen met helm-unittest, kubeconform, conftest en bats (uitbreiding op de stack) | — (ontbrak in het origineel) | Stap 0 |
+| Alles in namespace `banksim-mse` van het bestaande cluster `kind-single-node`, eigen hostnamen, Helm-chart, geen operators of cluster-brede resources | TO §15, §17 | Stap 0 (ADR 0004) |
+| mTLS in de applicaties met eigen CA, geen service mesh | TO §10.1, §17 | CFR Zero trust |
+| Default-deny NetworkPolicies | TO §10.1 | CFR Zero trust |
+| Rate limiting met Bucket4j in de BFF | TO §10, §17 | CFR Rate limiting |
+| Contract-first OpenAPI, gegenereerde Angular-client | TO §3.2, §16 | 2 Transactielijst of zodra de frontend de API vaker aanroept |
+| MFA instelbaar, standaard uit; geen transactielimiet naast "nooit rood" | TO §17 | 6 Inloggen / 7 Betalen |
+| Supply chain: vaste versies, SBOM, Trivy, Renovate | TO §16 | CFR Supply chain |
+
+## 7. Stap voor stap: de slices
+
+Elke slice is een verticaal stuk functionaliteit dat na afloop gedeployed en bruikbaar is. Per slice staat beschreven:
+
+- **Voorbeelden** – scenario's als Playwright-specs, afgeleid uit het FO.
+- **Binnenste lus** – de units die je naar verwachting test-first bouwt.
+- **ADR's** – beslissingen die deze slice afdwingt.
+- **Fitness functions** – geautomatiseerde bewaking die in deze slice wordt toegevoegd.
+- **Origineel** – waar dit in de oude repo terechtkwam.
+
+De volgorde is gekozen zodat elke slice zo weinig mogelijk nieuwe techniek tegelijk introduceert. Afwijken mag; schrijf dan op waarom.
+
+In de voorbeelden hieronder staan de imports niet steeds herhaald; elke spec begint met `import { test } from '../dsl/fixtures';`. Bedragen gaan als string de DSL in (`'1842.17'`), nooit als `number`, net als in de rest van de stack.
+
+```mermaid
+flowchart LR
+    S0["0 Skelet +<br/>pipeline"] --> S1["1 Overzicht"]
+    S1 --> S2["2 Transactie-<br/>lijst"]
+    S2 --> S3["3 Simulatie-<br/>datum"]
+    S3 --> S4["4 Uitklap-<br/>details"]
+    S4 --> S5["5 Zoeken"]
+    S5 --> S6["6 Inloggen<br/>en rollen"]
+    S6 --> S7["7 Betalen"]
+    S7 --> S8["8 Spaarrekening<br/>en rente"]
+    S8 --> S9["9 Over-<br/>schrijven"]
+    S9 --> S10["10 Admin"]
+    S10 --> S11["11 Realistische<br/>data"]
+    S11 --> CFR["CFR-slices:<br/>zero trust, resilience,<br/>rate limiting, supply chain"]
+```
+
+### Slice 1 – Overzicht met saldo
+
+De kleinste waardevolle functie: een klant ziet de eigen rekeningen met saldo. Er is nog geen login; de API gebruikt een vaste identiteit achter een interface `IngelogdeGebruiker`, zodat inloggen later alleen een nieuwe implementatie is.
+
+```ts
+// e2e/specs/overzicht.spec.ts
+test('Klant ziet betaal- en spaarrekening met saldo', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.842,17',
+    () => jan.heeftBetaalrekening({ saldo: '1842.17' }));
+  await bank.en('Jan heeft een spaarrekening met saldo € 12.405,63',
+    () => jan.heeftSpaarrekening({ saldo: '12405.63' }));
+  await bank.als('Jan het overzicht opent', () => jan.opentOverzicht());
+  await bank.dan('ziet Jan de betaalrekening met saldo € 1.842,17',
+    () => jan.verwachtRekeningInOverzicht('betaal', '1842.17'));
+  await bank.en('ziet Jan de spaarrekening met saldo € 12.405,63',
+    () => jan.verwachtRekeningInOverzicht('spaar', '12405.63'));
+  await bank.en('wordt het IBAN getoond in blokken van 4 tekens',
+    () => jan.verwachtIbanInBlokken());
+});
+```
+
+- **Binnenste lus:** `RekeningController` → `RekeningService` → `RekeningRepository` (in de unittests eerst als in-memory test double, daarna de echte implementatie op PostgreSQL); `Money` (optellen, 2 decimalen, `HALF_EVEN`), `Iban` (mod-97-checksum, weergave in blokken), Angular `OverzichtComponent` en een `MoneyPipe` op basis van `big.js` (Vitest).
+- **ADR's:** bedragen als `BigDecimal`/string; saldo = openingssaldo + som boekingen; PostgreSQL + Flyway + `JdbcClient`; testdata via de seed-CLI.
+- **Nieuw in het skelet:** PostgreSQL in de chart, `bank-migrate` als Job, de seed-CLI, Testcontainers in de commit stage voor repositorytests. Dit komt al in slice 1 binnen, omdat het eerste scenario data op het gedeployde systeem nodig heeft.
+- **Fitness functions:** jqwik-properties voor `Money` (`a + b − b = a`, nooit meer dan 2 decimalen) en `Iban`; ArchUnit: geen `double`/`float` in geldcode; ArchUnit: `bank-domain` hangt niet af van Spring; ESLint: geen `parseFloat`/`Number()` in de geldcode van de frontend.
+- **Origineel:** `bank-domain/geld/Money`, `rekening/Iban`, `account/*`, `frontend/klant/overzicht`.
+
+### Slice 2 – Transactielijst van de betaalrekening
+
+```ts
+// e2e/specs/betaalrekening.spec.ts
+test('Transacties per datum, nieuw naar oud, met teken', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening());
+  await bank.en('op 1 oktober 2026 betaalde Jan € 812,40 aan Woningstichting Thuis',
+    () => jan.heeftBetaald({ op: '2026-10-01', bedrag: '812.40', aan: 'Woningstichting Thuis' }));
+  await bank.en('op 2 oktober 2026 ontving Jan € 3.215,00 van Werkgever B.V.',
+    () => jan.heeftOntvangen({ op: '2026-10-02', bedrag: '3215.00', van: 'Werkgever B.V.' }));
+  await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
+  await bank.dan('ziet Jan de transacties per datum, nieuw naar oud, met teken', () =>
+    jan.verwachtTransactielijst([
+      { datumregel: 'Vrijdag 2 oktober 2026', regels: ['Werkgever B.V. +3.215,00'] },
+      { datumregel: 'Donderdag 1 oktober 2026', regels: ['Woningstichting Thuis -812,40'] },
+    ]));
+});
+
+test('Toon meer laadt per 50 transacties', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft 120 transacties op de betaalrekening',
+    () => jan.heeftTransacties(120));
+  await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
+  await bank.dan('ziet Jan 50 transacties en "Toon meer"', () => jan.verwachtAantalTransacties(50, { meer: true }));
+  await bank.als('Jan twee keer "Toon meer" kiest', () => jan.toontMeer(2));
+  await bank.dan('ziet Jan 120 transacties en geen "Toon meer"', () => jan.verwachtAantalTransacties(120, { meer: false }));
+});
+```
+
+In de REST driver betekent "Toon meer" de volgende pagina met `nextCursor`; in de UI driver een klik op de knop. De DSL weet dat niet.
+
+- **Binnenste lus:** `TransactieController`, `Cursor` (encoderen, HMAC, manipulatie geweigerd), `TransactieRepository` met keyset-query; frontend `TransactieLijst` (groeperen per datum, geen dubbele datumregel over de grens van 50).
+- **ADR's:** keyset-paginering met ondertekende cursor; contract-first OpenAPI met gegenereerde Angular-client.
+- **Fitness functions:** repositorytests tegen echte PostgreSQL; contract-check van `openapi.yaml` tegen de vorige versie (openapi-diff); check dat de gegenereerde client actueel is.
+- **Origineel:** `transaction/*`, `bank-migrate/V2__grootboek.sql`, `frontend/klant/transactie-lijst`, `e2e/tests/betaalrekening.spec.ts`.
+
+### Slice 3 – Simulatiedatum
+
+```ts
+// e2e/specs/simulatiedatum.spec.ts
+test.describe('Simulatiedatum', { tag: '@simulatiedatum' }, () => {
+  test.beforeEach(async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.gegeven('Jan heeft een betaalrekening met openingssaldo € 100,00',
+      () => jan.heeftBetaalrekening({ openingssaldo: '100.00' }));
+    await bank.en('op 1 oktober 2026 ontving Jan € 50,00',
+      () => jan.heeftOntvangen({ op: '2026-10-01', bedrag: '50.00' }));
+    await bank.en('op 10 oktober 2026 ontving Jan € 25,00',
+      () => jan.heeftOntvangen({ op: '2026-10-10', bedrag: '25.00' }));
+  });
+
+  test('Transacties na de simulatiedatum zijn onzichtbaar', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.gegeven('de simulatiedatum is 5 oktober 2026', () => bank.zetSimulatiedatum('2026-10-05'));
+    await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
+    await bank.dan('is het saldo € 150,00', () => jan.verwachtSaldo('150.00'));
+    await bank.en('ziet Jan de transactie van 10 oktober niet', () => jan.verwachtGeenTransactieOp('2026-10-10'));
+  });
+
+  test('Vooruitzetten maakt transacties weer zichtbaar', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.gegeven('de simulatiedatum is 5 oktober 2026', () => bank.zetSimulatiedatum('2026-10-05'));
+    await bank.als('de simulatiedatum naar 15 oktober 2026 gaat', () => bank.zetSimulatiedatum('2026-10-15'));
+    await bank.dan('is het saldo van Jan € 175,00', () => jan.verwachtSaldo('175.00'));
+  });
+});
+```
+
+- **Binnenste lus:** `SimulationClock` (met vaste `Clock` in tests), tabel `instelling`, filter `boekdatum <= D` in alle queries; kopbalk toont de datum.
+- **ADR's:** `SimulationClock` vervangt systeemtijd; scenario's met `@simulatiedatum` draaien serieel.
+- **Fitness functions:** ArchUnit: geen `LocalDate.now()`/`Instant.now()` zonder `Clock`.
+- **Origineel:** `simulation/*`, TO §8. Het admin-scherm om de datum te zetten komt pas in slice 10; tot dan zet de DSL de datum via `PUT /api/admin/simulation-date`. Dat is het echte productie-endpoint, alleen nog zonder beveiliging; in slice 6 komt het onder de rol `admin` en logt de driver daarvoor als beheerder in. Zolang er geen login is, draait de app alleen lokaal en in het tijdelijke CI-cluster.
+
+### Slice 4 – Uitklapdetails
+
+```ts
+// e2e/specs/betaalrekening.spec.ts (vervolg)
+test('Details van een incasso', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('op 1 oktober 2026 om 06:02 incasseerde Woningstichting Thuis € 812,40 bij Jan', () =>
+    jan.heeftBetaald({ op: '2026-10-01T06:02', bedrag: '812.40', aan: 'Woningstichting Thuis', type: 'INCASSO' }));
+  await bank.als('Jan deze transactie uitklapt', () => jan.klaptTransactieUit('Woningstichting Thuis'));
+  await bank.dan('ziet Jan de details van de incasso', () =>
+    jan.verwachtDetails({
+      transactietype: 'Incasso',
+      van: { naam: 'Jan', metIban: true },
+      naar: { naam: 'Woningstichting Thuis', metIban: true },
+      datumTransactie: '1 oktober 2026 om 06:02',
+      uitgevoerdOp: '1 oktober 2026',
+    }));
+});
+
+test('Betaalautomaat zonder tegen-IBAN', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan betaalde € 63,48 bij Albert Heijn met de betaalautomaat', () =>
+    jan.heeftBetaald({ bedrag: '63.48', aan: 'Albert Heijn', type: 'BETAALAUTOMAAT', zonderIban: true }));
+  await bank.als('Jan deze transactie uitklapt', () => jan.klaptTransactieUit('Albert Heijn'));
+  await bank.dan('ziet Jan geen IBAN bij Naar', () => jan.verwachtDetails({ naar: { metIban: false } }));
+});
+```
+
+- **Binnenste lus:** `TransactieType` (7 typen), `Partij`, uitbreiding van `TransactieRij`; frontend-component voor de details, datumopmaak in Europe/Amsterdam.
+- **Origineel:** `domain/transactie/*`, `e2e/tests/betaalrekening.spec.ts` (uitklappen).
+
+### Slice 5 – Zoeken in transacties
+
+Voorbeeldtabellen zijn gewoon een lijst in TypeScript met een test per regel.
+
+```ts
+// e2e/specs/zoeken.spec.ts
+const voorbeelden = [
+  { criterium: 'tekst "albert"', zoek: { tekst: 'albert' }, aantal: 3 },
+  { criterium: 'IBAN zonder spaties', zoek: { tekst: 'NL12SIMB0123456789' }, aantal: 2 },
+  { criterium: 'bedrag van 50 t/m 100', zoek: { van: '50', tm: '100' }, aantal: 4 },
+  { criterium: 'type Incasso', zoek: { type: 'INCASSO' }, aantal: 5 },
+  { criterium: 'inkomende transacties', zoek: { richting: 'IN' }, aantal: 2 },
+] as const;
+
+for (const v of voorbeelden) {
+  test(`Filteren op ${v.criterium}`, async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.gegeven('Jan heeft de transactieset "zoeken"', () => jan.heeftTransactieset('zoeken'));
+    await bank.als(`Jan zoekt op ${v.criterium}`, () => jan.zoekt(v.zoek));
+    await bank.dan(`vindt Jan ${v.aantal} transacties`, () => jan.verwachtAantalResultaten(v.aantal));
+  });
+}
+
+test('Ongeldig bedragbereik', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening());
+  await bank.als('Jan zoekt met bedrag van 100 t/m 50', () => jan.zoekt({ van: '100', tm: '50' }));
+  await bank.dan('krijgt Jan een melding over het bereik', () => jan.verwachtWeigering('ongeldig-bedragbereik'));
+});
+
+test('Zoekformulier openen en wissen', { tag: '@ui' }, async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft de betaalrekening open', () => jan.opentBetaalrekening());
+  await bank.als('Jan "Zoeken in transacties" kiest', () => jan.opentZoeken());
+  await bank.dan('heet de knop "Verberg zoeken"', () => jan.verwachtZoekknop('Verberg zoeken'));
+  await bank.als('Jan een zoekopdracht invult en wist', () => jan.vultZoekenInEnWist({ tekst: 'albert' }));
+  await bank.dan('zijn alle velden leeg en is "Alle transacties" gekozen', () => jan.verwachtLeegZoekformulier());
+});
+```
+
+- **Binnenste lus:** `Zoekfilter` (validatie, komma als decimaalteken), `Zoektekst` (ge-escapete jokertekens), SQL uit vaste fragmenten; frontend `ZoekFormulier`.
+- **ADR's:** zoeken met `pg_trgm`-index en geparametriseerde fragmenten.
+- **Fitness functions:** test dat invoer met `%`, `_` en `'` geen andere resultaten of fouten geeft (injectie).
+- **Origineel:** `transaction/Zoekfilter`, `account/Zoektekst`, `e2e/tests/zoeken.spec.ts`.
+
+### Slice 6 – Inloggen en rollen
+
+Nu er straks een tweede klant (de ontvanger van een betaling) en een admin bij komen, moet het systeem weten wie er is ingelogd. Dit is het moment voor identiteit, niet eerder.
+
+```ts
+// e2e/specs/inloggen.spec.ts en toegang.spec.ts
+test('Klant komt na inloggen op het overzicht', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.als('Jan inlogt', () => jan.logtIn());
+  await bank.dan('ziet Jan het overzicht met de eigen rekeningen', () => jan.verwachtEigenOverzicht());
+});
+
+test('Verkeerd wachtwoord', { tag: '@ui' }, async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.als('Jan inlogt met een verkeerd wachtwoord', () => jan.logtIn({ wachtwoord: 'fout' }));
+  await bank.dan('blijft Jan op het inlogscherm met een foutmelding', () => jan.verwachtInlogFout());
+});
+
+test('Andermans rekening bestaat niet', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await bank.gegeven('Sanne heeft een betaalrekening', () => sanne.heeftBetaalrekening());
+  await bank.als('Jan de betaalrekening van Sanne probeert te openen',
+    () => jan.opentRekening(bank.betaalrekeningVan('Sanne')));
+  await bank.dan('ziet Jan "Rekening is niet gevonden."', () => jan.verwachtNietGevonden());
+});
+
+test('Uitloggen', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan is ingelogd', () => jan.logtIn());
+  await bank.als('Jan uitlogt', () => jan.logtUit());
+  await bank.dan('moet Jan opnieuw inloggen om het overzicht te zien', () => jan.verwachtNietIngelogd());
+});
+```
+
+- **Binnenste lus:** API als OAuth2 resource server; `IngelogdeGebruiker` uit het JWT; eigenaarschap in elke rekeningquery; BFF met OIDC + PKCE, sessiecookie, CSRF; frontend `SessionService`, guards en de interceptor voor een verlopen sessie.
+- **ADR's:** Keycloak; BFF in plaats van tokens in de browser; versleutelde sessie in PostgreSQL; andermans IBAN geeft 404.
+- **Fitness functions:** ArchUnit: elke controller-methode heeft `@PreAuthorize` (deny by default); slicetests per endpoint: 401 zonder token, 403 met verkeerde rol, 404 op andermans IBAN; POST zonder CSRF-token geeft 403.
+- **Driver-impact:** alleen de protocol drivers en het setup-project leren inloggen; de specs van slice 1–5 veranderen niet. Dat is de toets of je lagen goed gescheiden zijn.
+- **Origineel:** `bank-bff/*`, `bank-api/security/*`, `deploy/banksim/files/realm-banksim.json`, `e2e/tests/auth.setup.ts`, `e2e/tests/inloggen.spec.ts`, `e2e/tests/toegang.spec.ts`.
+
+### Slice 7 – Betalen
+
+```ts
+// e2e/specs/betalen.spec.ts
+test.beforeEach(async ({ bank }) => {
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 500,00',
+    () => bank.klant('Jan').heeftBetaalrekening({ saldo: '500.00' }));
+  await bank.en('Sanne is een contact met een betaalrekening',
+    () => bank.klant('Sanne').heeftBetaalrekening({ contact: true }));
+});
+
+test('Betaling naar een contact', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await bank.als('Jan € 25,00 betaalt aan Sanne met omschrijving "Etentje" en bevestigt',
+    () => jan.betaalt({ bedrag: '25.00', aan: 'Sanne', omschrijving: 'Etentje' }));
+  await bank.dan('staat de betaling bovenaan de transacties van Jan als -25,00',
+    () => jan.verwachtBovensteTransactie('Sanne', '-25.00'));
+  await bank.en('is het saldo van Jan € 475,00', () => jan.verwachtSaldo('475.00'));
+  await bank.en('ziet Sanne een bijschrijving van +25,00 van Jan',
+    () => sanne.verwachtBovensteTransactie('Jan', '25.00'));
+});
+
+test('Betaling naar een rekening die geen contact is wordt geweigerd', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const piet = bank.rekeninghouder('Piet');
+  await bank.gegeven('Piet heeft een betaalrekening, maar is geen contact',
+    () => piet.heeftBetaalrekening({ contact: false }));
+  await bank.als('Jan € 25,00 probeert te betalen aan de betaalrekening van Piet',
+    () => jan.probeertTeBetalen({ bedrag: '25.00', naar: bank.betaalrekeningVan('Piet') }));
+  await bank.dan('wordt de betaling geweigerd', () => jan.verwachtWeigering('onbekend-contact'));
+  await bank.en('is het saldo van Jan € 500,00', () => jan.verwachtSaldo('500.00'));
+  await bank.en('heeft Piet geen bijschrijving ontvangen', () => piet.verwachtGeenBijschrijvingen());
+});
+
+test('Rood staan is niet toegestaan', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.als('Jan € 500,01 probeert te betalen aan Sanne',
+    () => jan.probeertTeBetalen({ bedrag: '500.01', aan: 'Sanne' }));
+  await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
+});
+
+test('Een betaling mag een latere boeking niet rood laten staan', { tag: '@simulatiedatum' }, async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('de simulatiedatum is 5 oktober 2026', () => bank.zetSimulatiedatum('2026-10-05'));
+  await bank.en('op 10 oktober 2026 wordt € 450,00 van Jan geïncasseerd',
+    () => jan.heeftBetaald({ op: '2026-10-10', bedrag: '450.00', type: 'INCASSO' }));
+  await bank.als('Jan op 5 oktober € 100,00 probeert te betalen aan Sanne',
+    () => jan.probeertTeBetalen({ bedrag: '100.00', aan: 'Sanne' }));
+  await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
+});
+
+test('Dubbel verzonden betaling wordt één keer geboekt', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.als('Jan dezelfde betaling twee keer verstuurt met dezelfde idempotency-sleutel',
+    () => jan.betaaltTweeKeerMetZelfdeSleutel({ bedrag: '25.00', aan: 'Sanne' }));
+  await bank.dan('is er één betaling geboekt', () => jan.verwachtAantalBetalingenAan('Sanne', 1));
+});
+```
+
+Werk deze scenario's **één voor één** af; de rest staat op `@wip`. Het vierde scenario laat zien hoe een ontwerp groeit: de eerste implementatie van "nooit rood" controleert alleen het saldo op D en is daarmee voor het derde scenario genoeg. Pas als het vierde faalt, verfijn je de regel naar "minimum lopend saldo vanaf D". Dat is de beslissing die het TO vooraf nam; hier ontdek je hem.
+
+- **Binnenste lus:** `Overboeking` en `Boeking` (altijd twee kanten, som 0), `NooitRoodRegel`, `SaldoVerloop`, `LedgerService.boek` (locking in IBAN-volgorde), `BetaalService` (contact- en naamcontrole), `Idempotency`, `ContactService` (suggesties); frontend `Betalen` met controlescherm, max-lengtes 70/34/140/25/35.
+- **ADR's:** één grootboek met double-entry, alleen via `LedgerService`; nooit rood als minimum lopend saldo vanaf D; Idempotency-Key.
+- **Fitness functions:**
+  - Concurrency-test: 100 gelijktijdige overboekingen kriskras, geen deadlock, totaal ongewijzigd, nooit negatief.
+  - jqwik: na willekeurige reeksen overboekingen blijft de som van alle saldi gelijk.
+  - Deferred constraint-trigger in de database: elke overboeking bestaat uit precies twee boekingen met som 0.
+  - ArchUnit: alleen `LedgerService` schrijft boekingen.
+- **Origineel:** `domain/grootboek/*`, `ledger/LedgerService`, `payment/*`, `contact/*`, `e2e/tests/betalen.spec.ts`, `integratie/GelijktijdigheidTests`.
+
+### Slice 8 – Spaarrekening en rente
+
+```ts
+// e2e/specs/spaarrekening.spec.ts
+test.describe('Spaarrekening en rente', { tag: '@simulatiedatum' }, () => {
+  test('Rente wordt maandelijks bijgeschreven', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.gegeven('Jan heeft op 1 januari 2026 een spaarrekening met saldo € 10.000,00',
+      () => jan.heeftSpaarrekening({ geopendOp: '2026-01-01', saldo: '10000.00' }));
+    await bank.en('de simulatiedatum is 1 februari 2026', () => bank.zetSimulatiedatum('2026-02-01'));
+    await bank.dan('staat er op 31 januari 2026 een mutatie "Rente" van +25,48',
+      () => jan.verwachtSpaarmutatie({ op: '2026-01-31', type: 'Rente', bedrag: '25.48' }));
+  });
+
+  test('Lopende rente wordt apart getoond', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.gegeven('Jan heeft sinds 1 januari 2026 € 10.000,00 op de spaarrekening',
+      () => jan.heeftSpaarrekening({ geopendOp: '2026-01-01', saldo: '10000.00' }));
+    await bank.en('de simulatiedatum is 15 februari 2026', () => bank.zetSimulatiedatum('2026-02-15'));
+    await bank.als('Jan de spaarrekening opent', () => jan.opentSpaarrekening());
+    await bank.dan('ziet Jan de opgebouwde, nog niet bijgeschreven rente', () => jan.verwachtLopendeRente());
+  });
+
+  test('Jaartal-tussenregel', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.gegeven('Jan heeft mutaties in 2025 en 2026', () => jan.heeftSpaarmutatiesIn([2025, 2026]));
+    await bank.als('Jan de spaarrekening opent', () => jan.opentSpaarrekening());
+    await bank.dan('staat er een tussenregel "2025" voor de eerste mutatie uit 2025',
+      () => jan.verwachtJaartalregel(2025));
+  });
+});
+```
+
+De bedragen in de voorbeelden bereken je vooraf met de hand of met een spreadsheet: dat is het eigenlijke ontwerpwerk van deze slice.
+
+- **Binnenste lus:** `RenteCalculator` (dagelijks over eindsaldo, 365/366 dagen, scale 10, afronden bij bijschrijven), `LopendeRente`, `RenteService`; frontend `Spaarrekening` met jaar- en datumregels.
+- **Fitness functions:** jqwik: rente is monotoon in saldo, nooit negatief; PIT mutation testing op `bank-domain` met drempel.
+- **Origineel:** `domain/rente/RenteCalculator`, `savings/RenteService`, `account/LopendeRente`, `e2e/tests/spaarrekening.spec.ts`.
+
+### Slice 9 – Overschrijven (inleggen en opnemen)
+
+```ts
+// e2e/specs/overschrijven.spec.ts
+test.beforeEach(async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft € 1.000,00 op de betaalrekening en € 5.000,00 op de spaarrekening', async () => {
+    await jan.heeftBetaalrekening({ saldo: '1000.00' });
+    await jan.heeftSpaarrekening({ saldo: '5000.00' });
+  });
+});
+
+test('Inleggen', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.als('Jan € 250,00 inlegt', () => jan.legtIn('250.00'));
+  await bank.dan('is het betaalsaldo € 750,00 en het spaarsaldo € 5.250,00',
+    () => jan.verwachtSaldi({ betaal: '750.00', spaar: '5250.00' }));
+  await bank.en('staat op de betaalrekening een "Overschrijving" en op de spaarrekening een "Inleg"',
+    () => jan.verwachtGekoppeldeBoekingen('Overschrijving', 'Inleg'));
+});
+
+test('Opnemen kan niet meer dan het spaarsaldo', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.als('Jan € 5.000,01 probeert op te nemen', () => jan.probeertOpTeNemen('5000.01'));
+  await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
+});
+
+test('Opname in het verleden corrigeert de latere rente', { tag: '@simulatiedatum' }, async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft sinds 1 januari 2026 € 5.000,00 op de spaarrekening, met rente bijgeschreven t/m december 2026',
+    () => jan.heeftSpaarrekening({ geopendOp: '2026-01-01', saldo: '5000.00', renteTot: '2026-12-31' }));
+  await bank.en('de simulatiedatum is 15 februari 2026', () => bank.zetSimulatiedatum('2026-02-15'));
+  await bank.als('Jan € 1.000,00 opneemt', () => jan.neemtOp('1000.00'));
+  await bank.dan('worden de rentebijschrijvingen vanaf februari gecorrigeerd met een "Rentecorrectie"',
+    () => jan.verwachtRentecorrectiesVanaf('2026-02'));
+});
+```
+
+- **Binnenste lus:** overschrijfopdracht via dezelfde `LedgerService`; event `OverboekingGeboekt`; `RenteService` luistert en boekt correcties; frontend `Overschrijven` met wisselknop.
+- **ADR's:** rentecorrectie via een domeinevent, zodat `ledger` niet van `savings` afhangt (Spring Modulith).
+- **Fitness functions:** Spring Modulith `verify()`: modules praten alleen via hun publieke API.
+- **Origineel:** `ledger/OverboekingGeboekt`, `savings/*`, `frontend/klant/overschrijven`.
+
+### Slice 10 – Admin
+
+```ts
+// e2e/specs/beheer.spec.ts
+test('Admin komt na inloggen op het beheerscherm', async ({ bank }) => {
+  const beheerder = bank.beheerder();
+  await bank.als('de beheerder inlogt', () => beheerder.logtIn());
+  await bank.dan('ziet de beheerder alle rekeninghouders met hun saldi', () => beheerder.verwachtRekeninghouders());
+});
+
+test('Admin bekijkt een klant alleen-lezen', async ({ bank }) => {
+  const beheerder = bank.beheerder();
+  await bank.gegeven('Jan heeft een betaalrekening met transacties', () => bank.klant('Jan').heeftTransacties(3));
+  await bank.als('de beheerder het overzicht van Jan opent', () => beheerder.opentOverzichtVan('Jan'));
+  await bank.dan('ziet de beheerder de transacties van Jan', () => beheerder.verwachtTransactiesVan('Jan', 3));
+  await bank.maar('kan de beheerder niet betalen, opnemen of inleggen', () => beheerder.verwachtAlleenLezen());
+});
+
+test('Admin zet de simulatiedatum', { tag: '@simulatiedatum' }, async ({ bank }) => {
+  const beheerder = bank.beheerder();
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan had op 1 januari 2025 € 200,00', () => jan.heeftSaldoOp('2025-01-01', '200.00'));
+  await bank.als('de beheerder de simulatiedatum op 1 januari 2025 zet',
+    () => beheerder.zetSimulatiedatum('2025-01-01'));
+  await bank.dan('ziet Jan het saldo van 1 januari 2025', () => jan.verwachtSaldo('200.00'));
+});
+
+test('Klant kan niet bij beheer', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.als('Jan het beheerscherm probeert te openen', () => jan.opentBeheer());
+  await bank.dan('komt Jan op het eigen overzicht', () => jan.verwachtGeenToegangTotBeheer());
+});
+```
+
+In de REST driver betekent `verwachtAlleenLezen` dat `POST /api/payments` en `/api/transfers` voor de beheerder een 403 geven; in de UI driver dat de knoppen Betalen, Opnemen en Inleggen ontbreken.
+
+- **Binnenste lus:** `AdminController` (overzicht, zoeken op naam, simulatiedatum binnen het beschikbare bereik, "Terug naar vandaag"); aparte query voor admin-inzage alleen op huishoudens; `AuditLog`; frontend `Admin`, rolafhankelijke routes en alleen-lezen modus.
+- **ADR's:** één Angular-app met rolafhankelijke routes; audit log append-only.
+- **Fitness functions:** admin kan nooit `POST /payments` of `/transfers` (403); de applicatie-user heeft geen UPDATE/DELETE op `audit_log`.
+- **Origineel:** `admin/AdminController`, `audit/AuditLog`, `frontend/admin`, `e2e/tests/beheer.spec.ts`.
+
+### Slice 11 – Realistische data
+
+Tot nu toe maakten de scenario's hun eigen data via de seed-CLI. Een demo met 10 huishoudens en 5 jaar historie is een eigen gebruikersbehoefte, en krijgt dus een eigen slice.
+
+```ts
+// e2e/specs/infra/huishoudens.spec.ts
+test('Na installatie zijn er 10 huishoudens met historie', { tag: '@installatie' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is net geïnstalleerd', () => omgeving.installeerVers());
+  await omgeving.dan('kunnen 10 klanten en een beheerder inloggen', () => omgeving.verwachtGebruikers(10, 1));
+  await omgeving.en('heeft elke klant transacties van 1 oktober 2021 t/m 31 december 2026',
+    () => omgeving.verwachtHistorie('2021-10-01', '2026-12-31'));
+  await omgeving.en('staat geen enkele rekening op enige dag rood', () => omgeving.verwachtNooitRood());
+});
+```
+
+- **Binnenste lus:** de seed-CLI groeit uit tot `bank-datagen`: `Generator` met vaste seed, `Profielen`, `Kalender`, `Bedrijven`; hergebruikt `bank-domain` (`Overboeking`, `NooitRoodRegel`, `RenteCalculator`); `DatabaseSchrijver` met `COPY`; Keycloak-gebruikers via de Admin API.
+- **ADR's:** deterministische generator die dezelfde domeinregels gebruikt als de API.
+- **Fitness functions:** golden master (checksum van eindsaldi en aantal overboekingen bij seed 42); invariantencontrole na het genereren.
+- **Origineel:** `bank-datagen/*`, `deploy/scripts/reset-data.sh`.
+
+### Cross-functional requirements als slices
+
+Niet-functionele eisen uit het TO (zero trust, OWASP, resilience) zijn geen fase aan het eind, maar ook slices: elk met een uitvoerbare bewering die faalt zolang de eis niet gehaald is. Plan ze tussen de functionele slices zodra het risico relevant wordt; de volgorde hieronder is een voorstel.
+
+| CFR-slice | Uitvoerbare bewering (fitness function) | ADR | Origineel |
+| --- | --- | --- | --- |
+| Resilience: opstarten | API en BFF starten zonder database of Keycloak en worden ready zodra die er zijn | Migraties als Job, geen discovery bij startup | TO §12.1 |
+| Resilience: storing | `storing.spec.ts` (alleen Chromium): API geschaald naar 0 → nette melding met "Opnieuw proberen"; Toxiproxy: DB weg midden in een overboeking → rollback en 503 | Circuit breaker en timeouts | `e2e/tests/storing.spec.ts`, `DatabaseUitvalTests` |
+| Zero trust: mTLS | Integratietest: een aanroep zonder of met verkeerd clientcertificaat wordt geweigerd | mTLS in de applicaties, eigen CA | `bank-platform/mtls/*`, `deploy/scripts/certs.sh` |
+| Zero trust: netwerk | `netwerk.spec.ts` (uitgewerkt in hoofdstuk 9.3): een pod zonder toestemming in `banksim-mse` bereikt `bank-api` niet, en een pod in een andere namespace (bijvoorbeeld `banksim` van het origineel) ook niet. Alleen namespace `ingress-nginx` komt binnen. | Default-deny NetworkPolicies in `banksim-mse` | `templates/networkpolicies.yaml` |
+| Rate limiting | Scenario: na N mislukte logins per minuut volgt 429 | Bucket4j in de BFF | `bank-bff/ratelimit/*` |
+| Frontend-hardening | Test op response-headers (CSP met nonce, `nosniff`, `no-referrer`); ESLint verbiedt `innerHTML` | — | TO §10.4 |
+| OWASP Top 10 | Per categorie een test of check; de matrix uit TO §11 groeit mee per slice in plaats van achteraf | — | TO §11 |
+| Supply chain | CI faalt op een kwetsbaarheid ≥ high (Trivy, Dependency-Check, `npm audit`); SBOM als artefact (CycloneDX) | Vaste versies en Renovate | TO §16 |
+| Container-hardening | Template- of policy-check: non-root, read-only rootfs, `drop: [ALL]` | — | TO §15.3 |
+
+## 8. Eén iteratie in de praktijk
+
+Uitgewerkt voor het scenario "Betaling naar een rekening die geen contact is wordt geweigerd" uit slice 7. De aanname is dat het eerste scenario, "Betaling naar een contact", al groen is. Dat scenario betaalt aan een geldig contact, dus outside-in was er nog geen reden om te controleren *of* de ontvanger een contact is. Die controle ontbreekt dus nog, en dit scenario moet hem afdwingen.
+
+**1. Scenario** – staat al in `e2e/specs/betalen.spec.ts` met de tag `@wip`. Haal de tag weg en draai het (`npx playwright test betalen --project rest`). Vraag je daarbij af: faalt het om de goede reden?
+
+Het scenario gebruikt bewust een IBAN dat wél een rekening in het grootboek is (Piet heeft een betaalrekening), maar niet in de contactenlijst staat. `LedgerService` kan daar dus gewoon naar boeken. De API antwoordt met 201 en Piet krijgt het geld: het scenario faalt precies omdat de regel "alleen naar contacten" ontbreekt. In productie is de interne BankSim-renterekening zo'n rekening.
+
+Had je een IBAN gekozen dat helemaal niet bestaat, dan faalde het scenario ook, maar om de verkeerde reden. `LedgerService` vindt de rekening niet en de API geeft een 404 of 500. Dat laat vooral zien dat er foutafhandeling ontbreekt, en niet dat de contactregel ontbreekt. Wil je dat geval ook vastleggen, maak er dan een apart scenario van.
+
+**2. DSL en driver** – meestal bestaan de DSL-methodes al; anders voeg je er één toe. Voor dit scenario zijn er twee nodig:
+
+```ts
+// e2e/dsl/rekeninghouder.ts (fragment)
+async heeftBetaalrekening(opties: { saldo?: string; contact?: boolean } = {}) {
+  await this.seed.rekening({ houder: this.alias.naam, soort: 'BETAAL', ...opties });   // via de seed-CLI
+}
+
+// e2e/dsl/klant.ts (fragment)
+async verwachtWeigering(probleemtype: string) {
+  const fout = await this.driver.laatsteFout();
+  expect(fout?.type).toContain(probleemtype);
+}
+```
+
+De DSL weet niet of het via REST of de UI werkt; `verwachtWeigering` vraagt de driver naar de laatste fout en vergelijkt het probleemtype. De REST driver leest de RFC 9457-`ProblemDetail` uit de response; de UI driver leest de foutmelding op het scherm en vertaalt die terug naar een probleemtype.
+
+**3. Binnenste lus, buitenste klasse** – de REST driver krijgt 201 in plaats van 422. Schrijf een falende JUnit-test voor de service, met een test double voor de contactenlijst. Hoe het IBAN in de echte database staat doet hier niet ter zake: voor `BetaalService` telt alleen of het een contact is.
+
+```java
+@Test
+void weigertBetalingNaarIbanDatGeenContactIs() {
+    var contacten = new InMemoryContacten();           // leeg
+    var service = new BetaalService(contacten, ledger, klok);
+
+    assertThatThrownBy(() -> service.betaal(opdracht().naar(Iban.of("NL91SIMB0000000001"))))
+        .isInstanceOf(OnbekendContactException.class);
+    verifyNoInteractions(ledger);
+}
+```
+
+**4. Groen** – de kleinste wijziging: `BetaalService` zoekt het contact op en gooit de exception als het ontbreekt. `ProblemAdvice` vertaalt die naar een 422 met type `onbekend-contact`; daar hoort een eigen slicetest bij.
+
+**5. Refactor** – bijvoorbeeld de opzoeking van het contact verplaatsen naar een methode `Contacten.vereis(Iban)`, zodat de service leesbaar blijft. De controle of de naam bij het contact past komt later, met een eigen scenario, op dezelfde plek terecht. Alle tests blijven groen.
+
+**6. Buitenste lus groen** – het scenario slaagt in het project `rest`. Draai het daarna in `chromium`, `firefox` en `webkit`: faalt het daar, dan ontbreekt de foutmelding in `BetalenComponent`. Nog een rondje binnenste lus in de frontend, met een Vitest-test voor het component.
+
+**7. Commit en pipeline** – één commit met scenario, test en code. Geen nieuwe ADR nodig: de regel volgt uit het FO en raakt geen architectuurkeuze. Was dit het moment geweest waarop je besloot dat de server de contactcontrole doet en niet alleen de UI, dan had die keuze een ADR gekregen.
+
+## 9. Infrastructuur als code in de double loop
+
+De Helm-chart, de installatiescripts en de CI-workflow zijn net zo goed code als de Java- en Angular-code, en ze worden op dezelfde manier gebouwd: test first, in kleine stappen, met een ADR als een keuze erom vraagt. De gebruiker van deze code is de **beheerder** die BankSim-MSE installeert, bijwerkt en verwijdert in namespace `banksim-mse` van `kind-single-node`.
+
+In het origineel is de chart in één keer geschreven. Alleen de rooktests in `install.sh` en de Trivy-scan controleren hem, en pas achteraf. Hier groeit de infrastructuur mee met de slices, en elke wijziging begint met een falende test.
+
+### 9.1 Wat eronder valt en hoe je het test
+
+Dit is de enige plek waar de werkwijze tools toevoegt aan de stack van het origineel. Het origineel had geen gereedschap om chart en scripts zonder cluster te testen, en zonder snelle binnenste lus is test-first werken aan infrastructuur niet te doen. De keuze krijgt een eigen ADR.
+
+| Artefact | Binnenste lus (zonder cluster, seconden) | Buitenste lus (met cluster) |
+| --- | --- | --- |
+| Helm-chart `deploy/banksim-mse/` | `helm lint`; [helm-unittest](https://github.com/helm-unittest/helm-unittest) per template; `kubeconform` tegen de Kubernetes-versie van `single-node`; `conftest` (OPA) of `kube-linter` voor beleidsregels | Installatiescenario's |
+| Scripts `deploy/scripts/*.sh` | `shellcheck`; `bats` met nep-`kubectl`/`helm`/`kind` in het `PATH`, zodat je de aanroepen en foutpaden kunt controleren | Installatiescenario's |
+| Keycloak-realm (JSON) | Integratietest: Keycloak in Testcontainers importeert de realm, en clients, rollen en mappers bestaan | Inlogscenario's (slice 6) |
+| Images (Jib, `Dockerfile` van `bank-web`) | `hadolint`; check dat base images op digest staan | Trivy-scan in de acceptance stage |
+| CI-workflow `.github/workflows/*.yml` | `actionlint`; check dat Actions op commit-SHA staan | De pipeline zelf |
+
+Alle binnenste-lus-checks draaien in de commit stage en samen duren ze minder dan een minuut. Zet de versies vast die de tests betekenis geven: de Kubernetes-versie voor `kubeconform` en de ingress-nginx-versie van het CI-cluster moeten gelijk zijn aan die van `single-node`.
+
+### 9.2 Acceptatietests voor de installatie
+
+Het vierlaagse model uit hoofdstuk 5 werkt ook hier, in hetzelfde Playwright-project `e2e/`. Alleen de protocol driver is anders: het project `infra` gebruikt een fixture `omgeving` met een shell-driver in plaats van een browser of HTTP-client.
+
+| Laag | Infrastructuur |
+| --- | --- |
+| Testcases | `e2e/specs/infra/installatie.spec.ts`, `upgrade.spec.ts`, `netwerk.spec.ts` |
+| DSL | `omgeving.installeer()`, `omgeving.verwijder()`, `omgeving.podZonderRol().roeptAan('bank-api')`, `omgeving.namespace('banksim').verwachtOngewijzigd()` |
+| Protocol driver | Shell via `child_process`: `install.sh`, `uninstall.sh`, `helm`, `kubectl` (bijvoorbeeld een tijdelijke curl-pod met bepaalde labels) |
+| System under test | Het cluster, met namespace `banksim-mse` |
+
+```ts
+// e2e/specs/infra/installatie.spec.ts
+test('Installeren maakt BankSim-MSE bereikbaar', { tag: '@destructief' }, async ({ omgeving }) => {
+  await omgeving.gegeven('namespace banksim-mse bestaat niet', () => omgeving.verwijder());
+  await omgeving.als('de beheerder BankSim-MSE installeert', () => omgeving.installeer());
+  await omgeving.dan('antwoordt https://bank-mse.localtest.me', () => omgeving.verwachtBereikbaar());
+  await omgeving.en('staan alle resources van de release in banksim-mse',
+    () => omgeving.verwachtAllesInNamespace('banksim-mse'));
+});
+
+test('Opnieuw installeren verandert niets', async ({ omgeving }) => {
+  const voor = await omgeving.momentopname();
+  await omgeving.als('de beheerder BankSim-MSE nog een keer installeert', () => omgeving.installeer());
+  await omgeving.dan('zijn de Secrets ongewijzigd', () => omgeving.verwachtZelfdeSecrets(voor));
+  await omgeving.en('toont "helm diff upgrade" geen verschillen', () => omgeving.verwachtGeenDrift());
+});
+
+test('Een upgrade behoudt de data', async ({ omgeving, bank }) => {
+  const jan = bank.klant('Jan');
+  await omgeving.gegeven('Jan heeft een betaalrekening met saldo € 100,00',
+    () => jan.heeftBetaalrekening({ saldo: '100.00' }));
+  await omgeving.als('de beheerder een nieuwe versie installeert', () => omgeving.installeer({ nieuweVersie: true }));
+  await omgeving.dan('is het saldo van Jan nog € 100,00', () => jan.verwachtSaldo('100.00'));
+});
+
+test('Een andere context wordt geweigerd', async ({ omgeving }) => {
+  await omgeving.als('de beheerder installeert met een andere actieve context, zonder --context',
+    () => omgeving.installeerMetContext('kind-iets-anders'));
+  await omgeving.dan('stopt de installatie met een foutmelding', () => omgeving.verwachtGeweigerd());
+  await omgeving.en('is er niets geïnstalleerd in die context', () => omgeving.verwachtNietsGeinstalleerd('kind-iets-anders'));
+});
+
+test('Het origineel blijft onaangeroerd', async ({ omgeving }) => {
+  const banksim = await omgeving.namespace('banksim').momentopname();
+  await omgeving.als('de beheerder BankSim-MSE installeert', () => omgeving.installeer());
+  await omgeving.dan('is namespace banksim ongewijzigd', () => omgeving.namespace('banksim').verwachtGelijkAan(banksim));
+  await omgeving.en('antwoordt bank.localtest.me nog vanuit banksim', () => omgeving.verwachtOrigineelBereikbaar());
+});
+
+test('Verwijderen laat niets achter', { tag: '@destructief' }, async ({ omgeving }) => {
+  const banksim = await omgeving.namespace('banksim').momentopname();
+  await omgeving.als('de beheerder BankSim-MSE verwijdert', () => omgeving.verwijder());
+  await omgeving.dan('bestaat namespace banksim-mse niet meer', () => omgeving.verwachtGeenNamespace('banksim-mse'));
+  await omgeving.en('zijn er geen resources met label app.kubernetes.io/instance=banksim-mse',
+    () => omgeving.verwachtGeenResourcesMetLabel('app.kubernetes.io/instance=banksim-mse'));
+  await omgeving.en('is namespace banksim ongewijzigd', () => omgeving.namespace('banksim').verwachtGelijkAan(banksim));
+});
+```
+
+**Waar welke scenario's draaien**
+
+- In het CI-cluster `banksim-mse-ci` draaien alle scenario's, ook die met `@destructief`. De CI maakt daar een nep-namespace `banksim` met een Ingress op `bank.localtest.me`, zodat het naast-elkaar-scenario ook in CI iets controleert.
+- Op `kind-single-node` draait het project `infra` met `grepInvert: /@destructief/`. Verwijderen zou je echte installatie weggooien, en het echte origineel in `banksim` mag nooit een testobject zijn.
+
+### 9.3 Eén iteratie: "bank-api accepteert alleen bank-bff"
+
+Dit is de CFR-slice "Zero trust: netwerk", op dezelfde manier uitgewerkt als hoofdstuk 8.
+
+**1. Scenario** – in `e2e/specs/infra/netwerk.spec.ts`:
+
+```ts
+test('Alleen bank-bff mag bank-api aanroepen', async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.verwachtBereikbaar());
+  await omgeving.dan('wordt een pod zonder rol in banksim-mse geweigerd door bank-api',
+    () => omgeving.podZonderRol('banksim-mse').verwachtGeweigerdBij('bank-api'));
+  await omgeving.en('wordt een pod in namespace banksim geweigerd door bank-api',
+    () => omgeving.podZonderRol('banksim').verwachtGeweigerdBij('bank-api'));
+  await omgeving.maar('kan bank-bff bank-api wel aanroepen',
+    () => omgeving.pod('bank-bff').verwachtToegangTot('bank-api'));
+});
+```
+
+Het scenario faalt om de goede reden: er zijn nog geen NetworkPolicies, dus alles mag. Kindnet dwingt NetworkPolicies af, dus de test zegt iets over het echte cluster.
+
+**2. Binnenste lus: falende template-test** in `deploy/banksim-mse/tests/networkpolicies_test.yaml`:
+
+```yaml
+suite: networkpolicies
+templates:
+  - templates/networkpolicies.yaml
+tests:
+  - it: weigert standaard alle verkeer in de namespace
+    documentSelector:
+      path: metadata.name
+      value: default-deny
+    asserts:
+      - equal:
+          path: spec.podSelector
+          value: {}
+      - contains:
+          path: spec.policyTypes
+          content: Ingress
+      - contains:
+          path: spec.policyTypes
+          content: Egress
+  - it: bank-api accepteert alleen bank-bff
+    documentSelector:
+      path: metadata.name
+      value: bank-api-ingress
+    asserts:
+      - equal:
+          path: spec.ingress[0].from
+          value:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: bank-bff
+```
+
+**3. Groen** – schrijf de kleinste template die deze tests laat slagen: een default-deny en één allow-regel voor bff→api. `helm unittest`, `kubeconform` en `conftest` zijn groen.
+
+**4. Buitenste lus: leren van het cluster** – draai het scenario opnieuw. De weigeringen kloppen nu, maar "als bank-bff bank-api aanroept" faalt: door de default-deny op egress kan bank-bff de DNS-naam van bank-api niet meer opzoeken. Dit is precies het soort kennis dat je pas krijgt door het echt te proberen.
+
+Terug naar de binnenste lus:
+
+- Een test "elke pod mag DNS naar kube-system" → allow-regel voor UDP/TCP 53 naar `kube-system`.
+- Een test "bank-bff mag egress naar bank-api" → egress-regel.
+
+Daarna is het scenario groen. Nieuwe ontdekkingen, zoals de kubelet-probes op de health-poorten, gaan op dezelfde manier: eerst een scenario of test dat faalt, dan de regel.
+
+**5. Refactor** – de herhaalde policies naar een helper in `_helpers.tpl` (bijvoorbeeld `banksim-mse.allow` met bron, doel en poort). De template-tests blijven groen en garanderen dat de gerenderde YAML gelijk blijft.
+
+**6. ADR en commit** – nu schrijf je de ADR "Default-deny NetworkPolicies in banksim-mse". Bij **Bewaking** staan `netwerk.spec.ts` en `networkpolicies_test.yaml`. Scenario, tests, template en ADR gaan in één commit.
+
+### 9.4 Hoe de infrastructuur meegroeit met de slices
+
+| Slice | Infrastructuurwijziging | Binnenste lus | Buitenste lus |
+| --- | --- | --- | --- |
+| 0 Skelet | Chart met `bank-api`, `bank-web`, Ingress op `bank-mse.localtest.me`; `install.sh` en `uninstall.sh` met contextcontrole | helm-unittest: host en namespace; `bats`: verkeerde context faalt; check: geen cluster-brede resources | `installatie.spec.ts`: installeren, opnieuw installeren, andere context, origineel onaangeroerd |
+| 1 Overzicht | PostgreSQL StatefulSet met PVC; `bank-migrate` en de seed-CLI als Job (Helm-hooks) | helm-unittest: hook-volgorde, PVC op storage class `standard` | `upgrade.spec.ts`: data blijft behouden |
+| 6 Inloggen | Keycloak met realm-import op `auth-mse.localtest.me`; `bank-bff`; Secrets met gegenereerde wachtwoorden | Realm-importtest in Testcontainers; `bats`: bestaande Secrets worden niet overschreven | Inloggen via `auth-mse.localtest.me`; opnieuw installeren laat sessies en wachtwoorden heel |
+| 11 Realistische data | `bank-datagen`-Job in modus `ALS_LEEG`/`ALTIJD`; `reset-data.sh` | `bats`: `reset-data.sh` weigert een andere context | `huishoudens.spec.ts`; een upgrade wist de data niet |
+| CFR Zero trust | `certs.sh` met eigen CA; mTLS-configuratie; NetworkPolicies | `bats` voor `certs.sh` (CA wordt hergebruikt, `--rotate` vernieuwt); helm-unittest NetworkPolicies | `netwerk.spec.ts`; aanroep zonder clientcertificaat wordt geweigerd |
+| CFR Resilience | 2 replica's, PodDisruptionBudget, startup-, liveness- en readinessprobes, graceful shutdown | helm-unittest: replica's, PDB `minAvailable: 1`, probes op de management-poort | `storing.spec.ts`; rolling update zonder foutmeldingen in de UI |
+| CFR Hardening | `securityContext` op elke pod | `conftest`-beleid: non-root, read-only rootfs, `drop: [ALL]`, `seccompProfile`, geen `automountServiceAccountToken` | Pods starten en zijn ready met die instellingen |
+| CFR Supply chain | Externe images op digest; Trivy | `conftest`: elk extern image heeft `@sha256:` | Trivy-scan in de acceptance stage faalt op HIGH/CRITICAL met fix |
+
+### 9.5 Regels voor infrastructuurcode
+
+- **Alles via de chart en de scripts.** Wijzig nooit met de hand iets in `banksim-mse` met `kubectl edit` of `kubectl apply`. Het scenario "opnieuw installeren verandert niets" vangt drift op.
+- **Geen geheimen in Git of in `values.yaml`.** `install.sh` maakt Secrets aan als ze nog niet bestaan en laat bestaande staan.
+- **Destructieve tests alleen in het CI-cluster** (`@destructief`). Op `kind-single-node` zijn alleen lezende of idempotente scenario's toegestaan.
+- **Houd de binnenste lus snel.** Chart- en scripttests hebben geen cluster nodig. Wat wel een cluster nodig heeft, hoort in de buitenste lus.
+- **ADR's voor infrastructuurkeuzes**, met bewaking: Helm tegenover Kustomize, het testgereedschap (helm-unittest, kubeconform, conftest, bats), mTLS zonder mesh en default-deny.
+
+## 10. Werken met AI in deze lus
+
+De originele BankSim liet AI het hele systeem in één keer genereren uit het FO en TO. Hier is AI een pair programmer binnen de lus, met een veel kleinere opdracht per stap.
+
+- **Geef per stap één falend scenario** plus de relevante ADR's en bestaande code, niet het hele FO. Hoe kleiner de opdracht, hoe beter je het resultaat kunt beoordelen.
+- **De mens is eigenaar van het voorbeeld.** Jij schrijft of keurt het scenario en de verwachte bedragen goed; de AI mag voorstellen doen, maar een scenario is pas geldig als jij het begrijpt en onderschrijft.
+- **Vraag om de kleinste implementatie** die de falende test groen maakt. Refactoren is een aparte stap met een aparte opdracht.
+- **Laat de AI nooit tegelijk test en implementatie veranderen.** Een test die tegelijk met de code verandert, bewijst niets. Eerst de falende test committen of laten zien, dan de code.
+- **Controleer AI-tests met mutation testing** (PIT): overleven mutanten, dan testen de tests te weinig.
+- **Laat de AI ADR's opstellen, niet nemen.** Een ADR-concept met opties en gevolgen is nuttig; de beslissing en de status "Geaccepteerd" zijn aan jou.
+- **Houd de AI binnen de stack.** Een voorstel dat een nieuwe library of tool introduceert, is een ADR-kandidaat en geen implementatiedetail.
+- **De pipeline is de scheidsrechter**, niet het oordeel van de AI dat iets "werkt".
+
+## 11. Traceerbaarheid naar het origineel
+
+Waar komt elk onderdeel van de originele BankSim terug?
+
+| Origineel | Nieuw: slice | Spec in `e2e/specs/` | ADR(s) |
+| --- | --- | --- | --- |
+| FO Inloggen en Overzicht | 1, 6 | `overzicht.spec.ts`, `inloggen.spec.ts` | BigDecimal, berekend saldo, Keycloak, BFF |
+| FO Betaalrekening scherm | 2, 4 | `betaalrekening.spec.ts` | Keyset-paginering, `JdbcClient` |
+| FO Zoeken in transacties | 5 | `zoeken.spec.ts` | Zoeken met `pg_trgm` |
+| FO Betalen scherm | 7 | `betalen.spec.ts` | Grootboek, nooit rood, idempotency |
+| FO Spaarrekening scherm | 8 | `spaarrekening.spec.ts` | — |
+| FO Overschrijven scherm | 9 | `overschrijven.spec.ts` | Rentecorrectie via event |
+| FO Admin scherm + simulatiedatum | 3, 10 | `simulatiedatum.spec.ts`, `beheer.spec.ts` | `SimulationClock`, rolafhankelijke routes, audit log |
+| FO Datamodel en fake data | 1, 2, 7, 11 | `infra/huishoudens.spec.ts` | Deterministische generator |
+| TO §3 Backend-modules, REST API | 1–10 | — | Contract-first OpenAPI, Spring Modulith |
+| TO §4 Datamodel | 2, 7 | — | Grootboek, berekend saldo |
+| TO §5 Geld en BigDecimal | 1 | — | BigDecimal |
+| TO §6 Overboekingen | 7, 9 | `betalen.spec.ts`, `overschrijven.spec.ts` | Grootboek, nooit rood, idempotency |
+| TO §7 Rente | 8, 9 | `spaarrekening.spec.ts` | Rentecorrectie via event |
+| TO §8 Simulatiedatum | 3 | `simulatiedatum.spec.ts` | `SimulationClock` |
+| TO §9 Fake data-generator | 11 | `infra/huishoudens.spec.ts` | Deterministische generator |
+| TO §10 Security en zero trust | 6, CFR | `inloggen.spec.ts`, `toegang.spec.ts` | BFF, mTLS, NetworkPolicies |
+| TO §11 OWASP Top 10 | per slice, CFR | — | — |
+| TO §12 Resilience | CFR | `storing.spec.ts` | Migraties als Job, circuit breaker |
+| TO §13 Teststrategie | doorlopend | — | — |
+| TO §14 Playwright e2e | doorlopend (alle drivers) | alle | Playwright met interne DSL (ADR 0005) |
+| TO §15 Deployment op kind | 0, 1, 6, 11, CFR (hoofdstuk 9) | `skelet.spec.ts`, `infra/installatie.spec.ts`, `infra/upgrade.spec.ts`, `infra/netwerk.spec.ts` | Pipeline en kind, installatie in `banksim-mse` (namespace `banksim` → `banksim-mse`, hosts `bank`/`auth` → `bank-mse`/`auth-mse`) |
+| TO §16 Build en CI | 0, CFR | — | Pipeline, supply chain |
+
+| Originele e2e-spec (`e2e/tests/`) | Nieuwe spec (`e2e/specs/`) | Slice |
+| --- | --- | --- |
+| `auth.setup.ts` | setup-project met `storageState` | 6 |
+| `inloggen.spec.ts` | `inloggen.spec.ts` | 6 |
+| `betaalrekening.spec.ts` | `betaalrekening.spec.ts` | 2, 4 |
+| `zoeken.spec.ts` | `zoeken.spec.ts` | 5 |
+| `betalen.spec.ts` | `betalen.spec.ts` | 7 |
+| `spaarrekening.spec.ts` | `spaarrekening.spec.ts`, `overschrijven.spec.ts` | 8, 9 |
+| `beheer.spec.ts` | `beheer.spec.ts`, `simulatiedatum.spec.ts` | 3, 10 |
+| `toegang.spec.ts` | `toegang.spec.ts` | 6, 10 |
+| `storing.spec.ts` | `storing.spec.ts` | CFR Resilience |
+
+Het verschil met het origineel: daar staan selectors en page objects direct in de specs; hier lezen de specs als voorbeelden in domeintaal, en draaien ze via de DSL tegen zowel de API als de browser.
+
+## 12. Definition of Done per slice
+
+Een slice is pas klaar als:
+
+- [ ] De scenario's van de slice groen zijn in de acceptance stage: in het project `rest` en (waar relevant) in `chromium`, `firefox` en `webkit`.
+- [ ] Alle code test-first is ontstaan; unittests (JUnit, Vitest) en slicetests zijn groen.
+- [ ] Elke wijziging aan chart, scripts of CI heeft een template- of scripttest. Verandert er gedrag in het cluster, dan heeft hij ook een installatiescenario (hoofdstuk 9).
+- [ ] Nieuwe fitness functions (ArchUnit, property-based, concurrency, contract) zijn toegevoegd en groen.
+- [ ] Elke architectuurbeslissing uit deze slice een ADR heeft, met bewaking.
+- [ ] Er geen library of tool buiten de afgesproken stack is bijgekomen zonder ADR.
+- [ ] De slice via de pipeline is gedeployed in namespace `banksim-mse` op `kind-single-node` en met de hand te gebruiken is op `https://bank-mse.localtest.me`.
+- [ ] Er geen `@wip`-scenario's van deze slice meer zijn.
+- [ ] De specs de actuele beschrijving van het gedrag zijn; er is geen apart document bijgewerkt dat ook zou kunnen verouderen.
+
+**Checklist per iteratie (minuten tot uren)**
+
+1. Kies één voorbeeld uit het FO en schrijf het als Playwright-spec in domeintaal.
+2. Draai het: faalt het om de goede reden?
+3. Outside-in: falende unittest → kleinste code → refactor, herhaal tot het scenario groen is.
+4. Vraagt dit om een architectuurkeuze? Schrijf de ADR, met bewaking.
+5. Commit, wacht op een groene pipeline, ga naar het volgende voorbeeld.
