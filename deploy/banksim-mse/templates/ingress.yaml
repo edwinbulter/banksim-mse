@@ -1,0 +1,28 @@
+{{- /* Nog zonder eigen certificaat: ingress-nginx toont zijn standaardcertificaat (eigen CA volgt in CFR zero trust). */}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bank
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" (dict "root" . "name" "bank") | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts: [{{ .Values.hosts.bank }}]
+  rules:
+    - host: {{ .Values.hosts.bank }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bank-web
+                port: { name: http }
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: bank-api
+                port: { name: http }

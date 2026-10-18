@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: bank-api
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: 8080
+  shutdown: graceful
+
+banksim:
+  # De image-tag uit de Helm-chart; lokaal de Maven-versie.
+  versie: ${BANKSIM_VERSIE:@project.version@}
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

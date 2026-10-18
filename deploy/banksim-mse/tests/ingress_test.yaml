@@ -1,0 +1,38 @@
+suite: ingress
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+templates:
+  - templates/ingress.yaml
+tests:
+  - it: luistert op een eigen host, naast het origineel op bank.localtest.me
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: bank-mse.localtest.me
+      - equal:
+          path: spec.tls[0].hosts[0]
+          value: bank-mse.localtest.me
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+  - it: stuurt / naar bank-web en /api naar bank-api
+    asserts:
+      - contains:
+          path: spec.rules[0].http.paths
+          content:
+            path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bank-web
+                port: { name: http }
+      - contains:
+          path: spec.rules[0].http.paths
+          content:
+            path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: bank-api
+                port: { name: http }

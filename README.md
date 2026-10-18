@@ -4,7 +4,7 @@ BankSim-MSE bouwt [BankSim](https://github.com/edwinbulter/banksim) opnieuw: een
 
 Het origineel is in één keer door AI gegenereerd uit een vooraf geschreven functioneel en technisch ontwerp. Dit project levert **dezelfde applicatie** op, met **dezelfde techstack**, maar volgens de werkwijze uit *Modern Software Engineering* van Dave Farley: leren in kleine stappen met snelle feedback, en complexiteit beheersen met modulair, testbaar ontwerp.
 
-> **Status:** de werkwijze is uitgeschreven; de bouw is nog niet begonnen.
+> **Status:** stap 0, het walking skeleton, is lokaal groen: `bank-api` en `bank-web` tonen de versie op <https://bank-mse.localtest.me>, en het eerste acceptatiescenario slaagt via de API en in drie browsers. De CI-pipeline staat klaar, maar is nog niet op GitHub gedraaid. Stap 0 is pas af als de pipeline groen is (en een keer rood is gezien); daarna volgt slice 1, het Overzicht.
 
 ## Doel
 
@@ -28,10 +28,23 @@ Het origineel is in één keer door AI gegenereerd uit een vooraf geschreven fun
 2. **Elf functionele slices**: overzicht, transactielijst, simulatiedatum, uitklapdetails, zoeken, inloggen, betalen, spaarrekening en rente, overschrijven, beheer en realistische data.
 3. **Slices voor eisen die over de hele applicatie gaan**: zero trust (mTLS, NetworkPolicies), resilience, rate limiting, hardening en supply chain, elk met een uitvoerbare bewering.
 
+## Aan de slag
+
+Vereisten: Java 21, Node 24 (lokaal via `/opt/homebrew/opt/node@24/bin`; de `Makefile` zet hem in het `PATH`), Docker of OrbStack, kind, kubectl en Helm 4. Het cluster `kind-single-node` moet ingress-nginx hebben op poort 80/443.
+
+```bash
+make commit-stage   # backend, frontend en infrastructuurchecks (zoals de commit stage in CI)
+make install        # images bouwen en installeren in namespace banksim-mse
+make e2e-install    # eenmalig: Playwright en browsers
+make e2e            # acceptatietests tegen https://bank-mse.localtest.me
+make uninstall      # namespace banksim-mse verwijderen
+```
+
 ## Documentatie
 
 | Document | Inhoud |
 | --- | --- |
 | [Werkwijze volgens Modern Software Engineering](doc/werkwijze-mse.md) | De volledige werkwijze, met voor elke slice:<br>- scenario's<br>- double loop<br>- vierlaags acceptatietestmodel<br>- ADR-proces en -backlog<br>- uitgewerkte iteraties<br>- infrastructuur als code<br>- traceerbaarheid naar het origineel<br>- Definition of Done |
-| `doc/adr/` | Architecture Decision Records (ontstaan tijdens de bouw) |
+| [Stap 0 controleren](doc/stap-0-controleren.md) | Instructie om het walking skeleton zelf na te lopen: elke test groen en een keer rood zien, installeren, acceptatietests en veiligheid van de namespace |
+| [`doc/adr/`](doc/adr) | Architecture Decision Records, ontstaan tijdens de bouw |
 | [Originele BankSim](https://github.com/edwinbulter/banksim) | Het functioneel en technisch ontwerp en de gegenereerde implementatie waar dit project naar toe werkt |

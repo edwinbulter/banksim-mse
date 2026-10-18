@@ -1,0 +1,51 @@
+{{- $ctx := dict "root" . "name" "bank-web" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: bank-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "banksim-mse.selector" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bank-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "banksim-mse.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "banksim-mse.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: bank-web
+          image: {{ include "banksim-mse.image" (dict "root" . "key" "web") }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: health
+              containerPort: 8081
+          livenessProbe:
+            httpGet: { path: /healthz, port: health }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /healthz, port: health }
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources.web | nindent 12 }}

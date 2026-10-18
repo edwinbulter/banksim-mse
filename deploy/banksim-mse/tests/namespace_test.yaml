@@ -1,0 +1,15 @@
+# ADR 0004: alles in namespace banksim-mse; elke resource noemt de namespace expliciet.
+suite: alles in namespace banksim-mse
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+templates:
+  - templates/bank-api.yaml
+  - templates/bank-web.yaml
+  - templates/ingress.yaml
+tests:
+  - it: zet de namespace van de release op elke resource
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: banksim-mse

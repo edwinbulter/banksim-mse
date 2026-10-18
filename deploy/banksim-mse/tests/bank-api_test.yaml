@@ -1,0 +1,27 @@
+suite: bank-api
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+templates:
+  - templates/bank-api.yaml
+set:
+  imageTag: abc1234
+tests:
+  - it: draait het image met de tag van deze installatie
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: banksim-mse/bank-api:abc1234
+  - it: toont die tag als versie (GET /api/versie)
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BANKSIM_VERSIE
+            value: abc1234

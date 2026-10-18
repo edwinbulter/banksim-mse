@@ -115,6 +115,25 @@ flowchart LR
 - **Deploy**: lokaal `install.sh` op het bestaande cluster `kind-single-node`, in namespace `banksim-mse`; dezelfde scripts, dezelfde chart. Je kunt de acceptatietests ook lokaal tegen deze installatie draaien. Ze maken hun eigen data via aliassen (hoofdstuk 5), dus de bestaande data blijft heel.
 - Regel: een rode pipeline heeft voorrang op alles. Niemand bouwt verder op rood.
 
+**Het skelet test-first bouwen**
+
+Ook het skelet doorloopt de double loop uit hoofdstuk 4. Het is alleen dun: één scenario, en per onderdeel een paar unittests.
+
+1. **Buitenste lus: het scenario.** Schrijf `skelet.spec.ts` en draai het tegen `https://bank-mse.localtest.me`. Het faalt omdat er niets draait. In deze fase is dat de goede reden: er ís nog niets gedeployed.
+2. **Binnenste lussen: elk onderdeel eerst een falende test.**
+   - `install.sh` weigert een andere context dan `kind-single-node`: een `bats`-test.
+   - De chart rendert een Ingress op `bank-mse.localtest.me`, alles in namespace `banksim-mse`, zonder cluster-brede resources: helm-unittest en de check op `helm template`.
+   - `GET /api/versie` geeft de versie terug: een JUnit/MockMvc-test.
+   - `bank-web` toont de versie: een Vitest-test voor het component.
+3. **Buitenste lus groen.** Installeer lokaal met `install.sh`; de spec slaagt.
+4. **De pipeline inrichten en controleren.** Zet de commit stage en de acceptance stage op in GitHub Actions.
+
+De pipeline zelf is geen gewone TDD-lus. Hij is het testharnas, en kan zichzelf niet test-first testen. Je controleert hem daarom empirisch: laat opzettelijk een test falen, eerst een unittest en daarna het scenario. Kijk of de juiste stage rood wordt en of er dan niet wordt gedeployed. Maak hem daarna weer groen.
+
+Een pipeline die je nooit rood hebt gezien, bewijst niets. Dat geldt in het klein voor elke test: eerst zien falen, dan pas vertrouwen.
+
+"Groen door de pipeline" betekent dus: de commit staat op `main`, de commit stage en de acceptance stage zijn groen, en de app draait in namespace `banksim-mse` op `kind-single-node`. Pas dan heb je het vangnet waar elke volgende slice op leunt. Begin je eerder aan het Overzicht, dan bouw je zonder snelle feedback.
+
 **Eerste ADR's**
 
 - `0001-architectuurbeslissingen-vastleggen.md` – we gebruiken ADR's (dit proces).
@@ -122,8 +141,9 @@ flowchart LR
 - `0003-testdata-via-seed-cli.md` – hoe scenario's hun data opzetten zonder test-only endpoints (zie hoofdstuk 5). Je kunt deze ook pas in slice 1 schrijven, als het eerste scenario data nodig heeft.
 - `0004-installatie-in-namespace-banksim-mse.md` – het bestaande cluster `kind-single-node`, alles in namespace `banksim-mse`, eigen hostnamen, geen cluster-brede resources, naast het origineel in `banksim`.
 - `0005-acceptatietests-in-playwright-met-interne-dsl.md` – BDD-scenario's als Playwright-specs in TypeScript met een interne DSL, binnen de stack van het origineel; geen Gherkin.
+- `0006-infrastructuurtests-in-containers.md` – helm-unittest, kubeconform, bats, shellcheck en actionlint als uitbreiding op de stack, in vastgepinde container-images (hoofdstuk 9).
 
-Pas als dit skelet groen door de pipeline gaat, begin je aan de eerste functionaliteit.
+Pas als dit skelet groen door de pipeline gaat (zie "Het skelet test-first bouwen" hierboven), begin je aan de eerste functionaliteit.
 
 ## 4. De double loop
 
@@ -162,7 +182,7 @@ flowchart TB
 
 ## 5. Acceptatietests: het vierlaagse model
 
-Acceptatietests zijn het duurste onderdeel om te onderhouden. Farley lost dat op met vier lagen, zodat een wijziging in de UI of de API maar één laag raakt. Alle vier de lagen zitten in `e2e/`, in TypeScript met Playwright Test, net als de e2e-suite van het origineel.
+Acceptatietests zijn het duurste onderdeel om te onderhouden. Farley lost dat op met vier lagen, zodat een wijziging in de UI of de API maar één laag raakt. Alle vier de lagen zitten in `e2e/`, in TypeScript met Playwright Test, net als de e2e-suite van het origineel. Zie https://continuous-delivery.co.uk/downloads/ATDD%20Guide%2026-03-21.pdf
 
 ```mermaid
 flowchart TB

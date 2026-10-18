@@ -1,0 +1,6 @@
+apiVersion: v2
+name: banksim-mse
+description: BankSim-MSE in namespace banksim-mse van het bestaande kind-cluster single-node (ADR 0004)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

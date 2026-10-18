@@ -1,0 +1,22 @@
+# Image-tag van alle eigen images (git-commit); install.sh zet hem.
+imageTag: dev
+
+images:
+  api: banksim-mse/bank-api
+  web: banksim-mse/bank-web
+
+hosts:
+  bank: bank-mse.localtest.me
+
+ingress:
+  className: nginx
+
+revisionHistoryLimit: 3
+
+resources:
+  api:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits: { memory: 512Mi }
+  web:
+    requests: { cpu: 10m, memory: 16Mi }
+    limits: { memory: 32Mi }
