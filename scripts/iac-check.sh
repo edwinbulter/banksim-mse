@@ -19,7 +19,9 @@ BATS="bats/bats:1.14.0@sha256:5322b877351fda0cc435de8c6116de7d0a2ec79d7c680132a0
 ACTIONLINT="rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667"
 
 stap() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
-in_repo() { docker run --rm -i -v "$REPO_ROOT:/repo" -w /repo "$@"; }
+# Als de eigen gebruiker: in CI is de checkout van uid 1001 en de images draaien als een andere gebruiker
+# (helm-unittest als 1000), die daar niet mag schrijven. Op macOS merk je dat niet.
+in_repo() { docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$REPO_ROOT:/repo" -w /repo "$@"; }
 
 cd "$REPO_ROOT"
 
