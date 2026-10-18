@@ -4,7 +4,7 @@ BankSim-MSE bouwt [BankSim](https://github.com/edwinbulter/banksim) opnieuw: een
 
 Het origineel is in één keer door AI gegenereerd uit een vooraf geschreven functioneel en technisch ontwerp. Dit project levert **dezelfde applicatie** op, met **dezelfde techstack**, maar volgens de werkwijze uit *Modern Software Engineering* van Dave Farley: leren in kleine stappen met snelle feedback, en complexiteit beheersen met modulair, testbaar ontwerp.
 
-> **Status:** stap 0, het walking skeleton, is lokaal groen: `bank-api` en `bank-web` tonen de versie op <https://bank-mse.localtest.me>, en het eerste acceptatiescenario slaagt via de API en in drie browsers. De CI-pipeline staat klaar, maar is nog niet op GitHub gedraaid. Stap 0 is pas af als de pipeline groen is (en een keer rood is gezien); daarna volgt slice 1, het Overzicht.
+> **Status:** stap 0, het walking skeleton, is af. `bank-api` en `bank-web` tonen de versie op <https://bank-mse.localtest.me>, en het eerste acceptatiescenario slaagt via de API en in drie browsers, lokaal en in de [CI-pipeline](https://github.com/edwinbulter/banksim-mse/actions). De pipeline is eerst twee keer rood geweest en daarna groen. Volgende stap: slice 1, het Overzicht.
 
 ## Doel
 

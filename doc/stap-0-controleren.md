@@ -43,7 +43,7 @@ flowchart LR
 7. `deploy/scripts/install.sh` met `test/*.bats`.
 8. `.github/workflows/ci.yml`.
 
-> **Tip:** niets is gecommit. Doe daarom eerst `git add -A`. Dat is alleen stagen, geen commit. Daarna laat `git diff` precies zien wat je kapotmaakt, en `git checkout -- <bestand>` zet een bestand terug.
+> **Tip:** begin met een schone werkmap (`git status`). Dan laat `git diff` precies zien wat je kapotmaakt, en zet `git checkout -- <bestand>` een bestand terug.
 
 ## 2. Voorbereiding
 
@@ -258,14 +258,34 @@ kubectl --context kind-single-node get all,ingress -A -l app.kubernetes.io/insta
 make install && make e2e                                                                  # Verwacht: weer alles groen
 ```
 
-## 6. Wat je nu nog niet kunt controleren
+## 6. De pipeline op GitHub
 
-- **De pipeline op GitHub.** `ci.yml` is alleen met actionlint gecontroleerd. Hij heeft nog nooit gedraaid, omdat er nog niets is gecommit en gepusht. Na een push zie je in GitHub Actions het volgende:
-  - de jobs `backend`, `frontend`, `infrastructuur` en `images` draaien parallel;
-  - daarna volgt `acceptance`. Die maakt een tijdelijk kind-cluster, installeert met `--image-tag` precies de images uit de job `images` en draait de Playwright-tests;
-  - als de pipeline faalt, staat het Playwright-rapport als artefact bij de run.
+Elke push naar `main` start de workflow `.github/workflows/ci.yml`. Bekijk de runs op <https://github.com/edwinbulter/banksim-mse/actions>, of in de terminal:
 
-  Stap 0 is pas af als je de pipeline één keer rood hebt gezien en daarna groen. Doe bijvoorbeeld de wijziging uit 4.3 in een commit: dan moet `frontend` falen.
+```bash
+gh run list --limit 5
+gh run view <run-id>
+```
+
+Zo ziet een run eruit:
+
+1. **Commit stage.** De jobs `backend`, `frontend`, `infrastructuur` en `images` draaien parallel. Samen duren ze ongeveer een minuut.
+2. **Acceptance stage.** Deze start alleen als de hele commit stage groen is. Hij maakt een tijdelijk kind-cluster `banksim-mse-ci` en installeert ingress-nginx. Daarna installeert hij met `--image-tag` precies de images uit de job `images`, die dus niet opnieuw worden gebouwd. Tot slot draait hij de Playwright-tests. Het Playwright-rapport staat als artefact bij de run.
+
+**Verwacht:** de laatste run op `main` is groen, met 4 geslaagde acceptatietests in de log van de acceptance stage.
+
+**Rood is al gezien.** De eerste twee runs faalden, en dat liet zien dat de pipeline echt tegenhoudt:
+
+| Run | Faalde in | Oorzaak | Gevolg |
+| --- | --- | --- | --- |
+| 1 | Commit stage – infrastructuur | helm-unittest draait als uid 1000 en mocht niet schrijven in de checkout van uid 1001. Op macOS merk je dat niet. | De acceptance stage werd overgeslagen |
+| 2 | Acceptance stage, bij de installatie | De admission-webhook van ingress-nginx nam nog geen verbindingen aan, terwijl de controller al "available" was | Er werd niets getest op een halve installatie |
+| 3 | – | – | Groen: 4 acceptatietests geslaagd |
+
+Wil je het zelf zien? Commit de wijziging uit 4.3 op een branch en push die. De job `frontend` faalt dan, en de acceptance stage start niet. Verwijder de branch daarna weer.
+
+## 7. Nog open
+
 - **Het installatiescenario in Playwright** (hoofdstuk 9.4 van de werkwijze): `installatie.spec.ts` met het project `infra`. Het controleert dat opnieuw installeren geen drift geeft en dat `uninstall` niets met het label achterlaat. Dat scenario bestaat nog niet. Sectie 5 doet die controles nu met de hand.
 
 ## Checklist
@@ -280,3 +300,4 @@ make install && make e2e                                                        
 - [ ] Rood gezien: een kapotte UI faalt alleen in de browsers, een lege versie faalt in alle 4 de projecten
 - [ ] Onbekende context geweigerd, opnieuw installeren idempotent, origineel onaangeroerd
 - [ ] `make uninstall` laat niets achter, en `make install` plus `make e2e` zijn daarna weer groen
+- [ ] Laatste pipeline-run op `main` groen, met 4 geslaagde acceptatietests (sectie 6)
