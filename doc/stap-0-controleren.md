@@ -189,6 +189,8 @@ make e2e-install   # eenmalig: Playwright en de browsers
 make e2e
 ```
 
+`make e2e` test wat er op dat moment geïnstalleerd is. Wil je installeren en testen in één stap, gebruik dan `make acceptance`. Het verschil met de acceptance stage in CI staat in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 3, "Acceptatietests lokaal en in CI".
+
 **Verwacht:** 4 tests geslaagd. Het is hetzelfde scenario in vier projecten:
 
 ```
@@ -286,7 +288,7 @@ Wil je het zelf zien? Commit de wijziging uit 4.3 op een branch en push die. De 
 
 ## 7. Nog open
 
-- **Het installatiescenario in Playwright** (hoofdstuk 9.4 van de werkwijze): `installatie.spec.ts` met het project `infra`. Het controleert dat opnieuw installeren geen drift geeft en dat `uninstall` niets met het label achterlaat. Dat scenario bestaat nog niet. Sectie 5 doet die controles nu met de hand.
+- **Het installatiescenario in Playwright** (hoofdstuk 9.2 van de werkwijze): `installatie.spec.ts` met het project `infra`. Het controleert dat opnieuw installeren geen drift geeft en dat `uninstall` niets met het label achterlaat. Dat scenario bestaat nog niet. Sectie 5 doet die controles nu met de hand.
 
 ## Checklist
 

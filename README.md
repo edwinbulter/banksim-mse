@@ -37,6 +37,7 @@ make commit-stage   # backend, frontend en infrastructuurchecks (zoals de commit
 make install        # images bouwen en installeren in namespace banksim-mse
 make e2e-install    # eenmalig: Playwright en browsers
 make e2e            # acceptatietests tegen https://bank-mse.localtest.me
+make acceptance     # install + e2e in één stap, zoals de acceptance stage in CI
 make uninstall      # namespace banksim-mse verwijderen
 ```
 

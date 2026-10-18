@@ -115,6 +115,20 @@ flowchart LR
 - **Deploy**: lokaal `install.sh` op het bestaande cluster `kind-single-node`, in namespace `banksim-mse`; dezelfde scripts, dezelfde chart. Je kunt de acceptatietests ook lokaal tegen deze installatie draaien. Ze maken hun eigen data via aliassen (hoofdstuk 5), dus de bestaande data blijft heel.
 - Regel: een rode pipeline heeft voorrang op alles. Niemand bouwt verder op rood.
 
+**Acceptatietests lokaal en in CI**
+
+De acceptatietests draaien nooit ín het cluster, maar ernaast. Ze spreken de app aan zoals een gebruiker dat doet: via `https://bank-mse.localtest.me`. Die publieke DNS-naam wijst altijd naar `127.0.0.1`, waar ingress-nginx van het kind-cluster luistert op poort 80 en 443.
+
+| | Lokaal | CI (GitHub Actions) |
+| --- | --- | --- |
+| Waar de app draait | Bestaand cluster `kind-single-node`, namespace `banksim-mse` | Tijdelijk cluster `kind-banksim-mse-ci`, namespace `banksim-mse` |
+| Waar Playwright draait | Op je eigen machine | Op de runner |
+| Hoe de tests de app bereiken | `bank-mse.localtest.me` → 127.0.0.1 → ingress-nginx | Idem |
+| Welke versie getest wordt | Wat het laatst met `make install` is geïnstalleerd | Precies de images uit de commit stage |
+| Cluster na afloop | Blijft staan | Wordt weggegooid |
+
+Er is één valkuil: `make e2e` test lokaal wat er op dat moment geïnstalleerd is. Na een codewijziging zonder nieuwe `make install` test je dus een oude versie. Gebruik daarom `make acceptance`. Dat doet net als de acceptance stage eerst `make install` en daarna `make e2e`. Welke build er draait, zie je aan de versie in de voettekst of in `GET /api/versie`. Die versie is de image-tag: de korte commit-hash, met `-dirty-<tijdstempel>` als er niet-gecommitte wijzigingen in `backend/` of `frontend/` zijn.
+
 **Het skelet test-first bouwen**
 
 Ook het skelet doorloopt de double loop uit hoofdstuk 4. Het is alleen dun: één scenario, en per onderdeel een paar unittests.
