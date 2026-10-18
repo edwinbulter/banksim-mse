@@ -121,6 +121,18 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.3/deploy/static/provider/kind/deploy.yaml
           kubectl -n ingress-nginx wait --for=condition=available deployment/ingress-nginx-controller --timeout=180s
           kubectl -n ingress-nginx wait --for=condition=complete job --all --timeout=180s
+      - name: ingress-nginx admission-webhook bereikbaar
+        # "available" is niet genoeg: de webhook weigert daarna nog even verbindingen ("connection refused").
+        run: |
+          for _ in $(seq 30); do
+            if kubectl create ingress webhook-probe -n default --class=nginx --rule='probe.local/=probe:80' \
+                 --dry-run=server -o name >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "De admission-webhook van ingress-nginx reageert niet" >&2
+          exit 1
       - name: BankSim-MSE installeren met de images uit de commit stage (met rooktests)
         run: deploy/scripts/install.sh --context "$CONTEXT" --image-tag "${GITHUB_SHA::7}"
       - name: Playwright-browsers
