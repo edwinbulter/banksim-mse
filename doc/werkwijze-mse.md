@@ -1053,6 +1053,8 @@ De originele BankSim liet AI het hele systeem in één keer genereren uit het FO
 - **Houd de AI binnen de stack.** Een voorstel dat een nieuwe library of tool introduceert, is een ADR-kandidaat en geen implementatiedetail.
 - **De pipeline is de scheidsrechter**, niet het oordeel van de AI dat iets "werkt".
 
+Deze regels zijn, samen met de double loop en het vierlaagse model, vastgelegd als Claude Code-skill [`atdd`](../.claude/skills/atdd/README.md). Wat specifiek is voor dit project, staat in het ATDD-profiel in [`CLAUDE.md`](../CLAUDE.md). Je start een iteratie met `/atdd volgend scenario`.
+
 ## 11. Traceerbaarheid naar het origineel
 
 Waar komt elk onderdeel van de originele BankSim terug?

@@ -41,11 +41,21 @@ make acceptance     # install + e2e in één stap, zoals de acceptance stage in 
 make uninstall      # namespace banksim-mse verwijderen
 ```
 
+## Werken met Claude Code
+
+De werkwijze is als Claude Code-skill vastgelegd. Zo volgt elke sessie dezelfde procedure, met stoppunten voor jou bij het scenario, bij elke ADR en bij elke commit.
+
+- **[`.claude/skills/atdd/`](.claude/skills/atdd/README.md):** de algemene skill `atdd` met ATDD volgens Farley. Je kunt hem ook in andere projecten gebruiken.
+- **[`CLAUDE.md`](CLAUDE.md):** het ATDD-profiel van dit project, met commando's, paden, doelomgeving, afspraken en valkuilen.
+
+Start een iteratie met bijvoorbeeld `/atdd begin aan slice 1` of `/atdd volgend scenario`. Het [README van de skill](.claude/skills/atdd/README.md) legt uit wat de skill toevoegt, hoe een iteratie verloopt en hoe je hem in andere projecten inzet.
+
 ## Documentatie
 
 | Document | Inhoud |
 | --- | --- |
 | [Werkwijze volgens Modern Software Engineering](doc/werkwijze-mse.md) | De volledige werkwijze, met voor elke slice:<br>- scenario's<br>- double loop<br>- vierlaags acceptatietestmodel<br>- ADR-proces en -backlog<br>- uitgewerkte iteraties<br>- infrastructuur als code<br>- traceerbaarheid naar het origineel<br>- Definition of Done |
 | [Stap 0 controleren](doc/stap-0-controleren.md) | Instructie om het walking skeleton zelf na te lopen: elke test groen en een keer rood zien, installeren, acceptatietests en veiligheid van de namespace |
+| [Skill `atdd`](.claude/skills/atdd/README.md) | Nut en gebruik van de ATDD-skill, ook in andere projecten |
 | [`doc/adr/`](doc/adr) | Architecture Decision Records, ontstaan tijdens de bouw |
 | [Originele BankSim](https://github.com/edwinbulter/banksim) | Het functioneel en technisch ontwerp en de gegenereerde implementatie waar dit project naar toe werkt |
