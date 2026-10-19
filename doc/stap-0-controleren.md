@@ -221,7 +221,24 @@ Je kunt ook het omgekeerde proberen: maak de API kapot en laat de UI heel. Zet `
 
 ## 5. Veiligheid: alleen `banksim-mse` op `kind-single-node`
 
-ADR 0004 belooft dat de scripts nooit een ander cluster of een andere namespace aanraken.
+ADR 0004 belooft dat de scripts nooit een ander cluster of een andere namespace aanraken. Het installatiescenario controleert dat automatisch:
+
+```bash
+make e2e-infra
+```
+
+**Verwacht:** 3 geslaagd en 1 overgeslagen.
+- **Geslaagd:**
+  - "Opnieuw installeren verandert niets";
+  - "Een andere actieve kubectl-context wordt genegeerd";
+  - "Een onbekende context wordt geweigerd".
+- **Overgeslagen:** "Het origineel in namespace banksim blijft onaangeroerd". Dat gebeurt alleen als namespace `banksim` niet bestaat.
+
+De scenario's met `@destructief` ("Installeren …" en "Verwijderen laat niets achter") draaien alleen in CI. Ze verwijderen de installatie, en dat wil je op `kind-single-node` niet.
+
+**Zie hem rood.** Verander in `deploy/banksim-mse/templates/bank-api.yaml` de pod-template. Zet onder `template.metadata` een annotatie `geinstalleerd-op: {{ now | quote }}` en draai `make e2e-infra`. "Opnieuw installeren verandert niets" faalt dan: de generation van `Deployment/bank-api` gaat omhoog en er verschijnt een nieuwe pod. Zet het daarna terug en draai `make install`.
+
+Dezelfde controles kun je ook met de hand doen:
 
 ```bash
 # Een context die niet bestaat, wordt geweigerd voordat er iets gebeurt.
@@ -272,7 +289,7 @@ gh run view <run-id>
 Zo ziet een run eruit:
 
 1. **Commit stage.** De jobs `backend`, `frontend`, `infrastructuur` en `images` draaien parallel. Samen duren ze ongeveer een minuut.
-2. **Acceptance stage.** Deze start alleen als de hele commit stage groen is. Hij maakt een tijdelijk kind-cluster `banksim-mse-ci` en installeert ingress-nginx. Daarna installeert hij met `--image-tag` precies de images uit de job `images`, die dus niet opnieuw worden gebouwd. Tot slot draait hij de Playwright-tests. Het Playwright-rapport staat als artefact bij de run.
+2. **Acceptance stage.** Deze start alleen als de hele commit stage groen is. Hij maakt een tijdelijk kind-cluster `banksim-mse-ci` en installeert ingress-nginx. Daarna installeert hij met `--image-tag` precies de images uit de job `images`, die dus niet opnieuw worden gebouwd. Daarna draait hij de Playwright-tests. Tot slot maakt hij een nep-origineel in namespace `banksim` en draait hij de installatiescenario's, ook die met `@destructief`. De Playwright-rapporten staan als artefact bij de run.
 
 **Verwacht:** de laatste run op `main` is groen, met 4 geslaagde acceptatietests in de log van de acceptance stage.
 
@@ -286,10 +303,6 @@ Zo ziet een run eruit:
 
 Wil je het zelf zien? Commit de wijziging uit 4.3 op een branch en push die. De job `frontend` faalt dan, en de acceptance stage start niet. Verwijder de branch daarna weer.
 
-## 7. Nog open
-
-- **Het installatiescenario in Playwright** (hoofdstuk 9.2 van de werkwijze): `installatie.spec.ts` met het project `infra`. Het controleert dat opnieuw installeren geen drift geeft en dat `uninstall` niets met het label achterlaat. Dat scenario bestaat nog niet. Sectie 5 doet die controles nu met de hand.
-
 ## Checklist
 
 - [ ] Vereisten aanwezig (sectie 2)
@@ -300,6 +313,6 @@ Wil je het zelf zien? Commit de wijziging uit 4.3 op een branch en push die. De 
 - [ ] `make install` geslaagd, pods Running, versie zichtbaar in de browser
 - [ ] `make e2e` geeft 4 geslaagd, het rapport toont de stappen Als en Dan
 - [ ] Rood gezien: een kapotte UI faalt alleen in de browsers, een lege versie faalt in alle 4 de projecten
-- [ ] Onbekende context geweigerd, opnieuw installeren idempotent, origineel onaangeroerd
+- [ ] `make e2e-infra`: 3 geslaagd (opnieuw installeren, actieve context genegeerd, onbekende context geweigerd), en rood gezien bij een wisselende annotatie
 - [ ] `make uninstall` laat niets achter, en `make install` plus `make e2e` zijn daarna weer groen
-- [ ] Laatste pipeline-run op `main` groen, met 4 geslaagde acceptatietests (sectie 6)
+- [ ] Laatste pipeline-run op `main` groen, met 4 geslaagde acceptatietests en 6 geslaagde installatiescenario's (sectie 6)

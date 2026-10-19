@@ -142,6 +142,20 @@ jobs:
           npm --prefix e2e run install-browsers
       - name: Acceptatietests
         run: npm --prefix e2e test
+      - name: Nep-origineel in namespace banksim
+        # Zodat "Het origineel blijft onaangeroerd" ook hier iets controleert (doc/werkwijze-mse.md, 9.2).
+        # Het bank-web-image staat al op de node; er komt geen nieuw image bij.
+        run: |
+          kubectl create namespace banksim
+          kubectl -n banksim create deployment origineel --image="banksim-mse/bank-web:${GITHUB_SHA::7}" --port=8080
+          kubectl -n banksim create service clusterip origineel --tcp=80:8080
+          kubectl -n banksim create ingress origineel --class=nginx --rule='bank.localtest.me/*=origineel:80,tls'
+          kubectl -n banksim rollout status deployment/origineel --timeout=120s
+      - name: Installatiescenario's (ook @destructief)
+        env:
+          BANKSIM_DESTRUCTIEF: '1'
+          PLAYWRIGHT_HTML_REPORT: playwright-report-infra
+        run: BANKSIM_CONTEXT="$CONTEXT" BANKSIM_IMAGE_TAG="${GITHUB_SHA::7}" npm --prefix e2e run test:infra
       - name: Clusterstatus bij falen
         if: failure()
         run: |
@@ -154,5 +168,6 @@ jobs:
           name: playwright-rapport
           path: |
             e2e/playwright-report/
+            e2e/playwright-report-infra/
             e2e/test-results/
           if-no-files-found: ignore

@@ -10,11 +10,11 @@ Houd het kort: 40 tot 60 regels. Achtergrond en backlog horen in de projectdocum
 | --- | --- | --- |
 | Stack | Welke talen, frameworks en testtools? Mag er iets bij zonder ADR? | Java 21/Spring Boot, Angular/Vitest, Playwright TS, Helm, kind. Nieuwe tools alleen met een ADR |
 | Commit stage | Welk commando draait alle snelle tests? | `make commit-stage` |
-| Installeren + accepteren | Hoe installeer je de nieuwe versie en draai je de acceptatietests? | `make acceptance` (`install` + `e2e`) |
-| Eén scenario | Hoe draai je één scenario in één driver? | `npm --prefix e2e test -- --project=rest specs/skelet.spec.ts` |
+| Installeren + accepteren | Hoe installeer je de nieuwe versie en draai je de acceptatietests? | `make acceptance` (`install` + `e2e` + `e2e-infra`) |
+| Eén scenario | Hoe draai je één scenario in één driver? | `cd e2e && npx playwright test --project=rest specs/skelet.spec.ts` |
 | Versie controleren | Waar zie je welke build er draait? | De voettekst en `GET /api/versie` tonen de image-tag |
 | Pipeline | Waar draait CI, en hoe volg je een run? | GitHub Actions: `gh run list`, `gh run watch <id>` |
-| Paden | Waar staan de specs, DSL, drivers, unittests, infra-tests en ADR's? | `e2e/specs`, `e2e/dsl`, `e2e/drivers/{rest,ui}`, `doc/adr` |
+| Paden | Waar staan de specs, DSL, drivers, unittests, infra-tests en ADR's? | `e2e/specs`, `e2e/dsl`, `e2e/drivers/{rest,ui,shell}`, `doc/adr` |
 | Doelomgeving | Waar wordt geïnstalleerd, en wat mag daar níet? | Alleen `kind-single-node`, namespace `banksim-mse`. Destructieve tests alleen in CI |
 | Afspraken | Commitprefix, toestemming, lokale tools | `[ECS-63]`; nooit committen zonder toestemming; Node 24 via PATH |
 | Projectvalkuilen | Wat ging eerder mis en is niet uit de code af te leiden? | `make e2e` test wat er geïnstalleerd is, dus gebruik `make acceptance` |

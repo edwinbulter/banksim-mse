@@ -127,7 +127,7 @@ De acceptatietests draaien nooit ín het cluster, maar ernaast. Ze spreken de ap
 | Welke versie getest wordt | Wat het laatst met `make install` is geïnstalleerd | Precies de images uit de commit stage |
 | Cluster na afloop | Blijft staan | Wordt weggegooid |
 
-Er is één valkuil: `make e2e` test lokaal wat er op dat moment geïnstalleerd is. Na een codewijziging zonder nieuwe `make install` test je dus een oude versie. Gebruik daarom `make acceptance`. Dat doet net als de acceptance stage eerst `make install` en daarna `make e2e`. Welke build er draait, zie je aan de versie in de voettekst of in `GET /api/versie`. Die versie is de image-tag: de korte commit-hash, met `-dirty-<tijdstempel>` als er niet-gecommitte wijzigingen in `backend/` of `frontend/` zijn.
+Er is één valkuil: `make e2e` test lokaal wat er op dat moment geïnstalleerd is. Na een codewijziging zonder nieuwe `make install` test je dus een oude versie. Gebruik daarom `make acceptance`. Dat doet net als de acceptance stage eerst `make install` en daarna `make e2e` en `make e2e-infra`. Welke build er draait, zie je aan de versie in de voettekst of in `GET /api/versie`. Die versie is de image-tag: de korte commit-hash, met `-dirty-<tijdstempel>` als er niet-gecommitte wijzigingen in `backend/` of `frontend/` zijn.
 
 **Het skelet test-first bouwen**
 
@@ -909,8 +909,7 @@ test('Installeren maakt BankSim-MSE bereikbaar', { tag: '@destructief' }, async 
 test('Opnieuw installeren verandert niets', async ({ omgeving }) => {
   const voor = await omgeving.momentopname();
   await omgeving.als('de beheerder BankSim-MSE nog een keer installeert', () => omgeving.installeer());
-  await omgeving.dan('zijn de Secrets ongewijzigd', () => omgeving.verwachtZelfdeSecrets(voor));
-  await omgeving.en('toont "helm diff upgrade" geen verschillen', () => omgeving.verwachtGeenDrift());
+  await omgeving.dan('zijn de resources en pods van BankSim-MSE ongewijzigd', () => omgeving.verwachtOngewijzigd(voor));
 });
 
 test('Een upgrade behoudt de data', async ({ omgeving, bank }) => {
@@ -921,11 +920,16 @@ test('Een upgrade behoudt de data', async ({ omgeving, bank }) => {
   await omgeving.dan('is het saldo van Jan nog € 100,00', () => jan.verwachtSaldo('100.00'));
 });
 
-test('Een andere context wordt geweigerd', async ({ omgeving }) => {
-  await omgeving.als('de beheerder installeert met een andere actieve context, zonder --context',
-    () => omgeving.installeerMetContext('kind-iets-anders'));
-  await omgeving.dan('stopt de installatie met een foutmelding', () => omgeving.verwachtGeweigerd());
-  await omgeving.en('is er niets geïnstalleerd in die context', () => omgeving.verwachtNietsGeinstalleerd('kind-iets-anders'));
+test('Een andere actieve kubectl-context wordt genegeerd', async ({ omgeving }) => {
+  const revisie = await omgeving.revisie();
+  await omgeving.als('de beheerder installeert terwijl kind-iets-anders de actieve context is',
+    () => omgeving.installeerMetActieveContext('kind-iets-anders'));
+  await omgeving.dan('installeert het script toch in kind-single-node', () => omgeving.verwachtGeinstalleerdNa(revisie));
+});
+
+test('Een onbekende context wordt geweigerd', async ({ omgeving }) => {
+  await omgeving.als('de beheerder installeert met --context bestaat-niet', () => omgeving.installeerMetContext('bestaat-niet'));
+  await omgeving.dan('stopt de installatie met een foutmelding', () => omgeving.verwachtGeweigerd('bestaat-niet'));
 });
 
 test('Het origineel blijft onaangeroerd', async ({ omgeving }) => {
@@ -944,6 +948,12 @@ test('Verwijderen laat niets achter', { tag: '@destructief' }, async ({ omgeving
   await omgeving.en('is namespace banksim ongewijzigd', () => omgeving.namespace('banksim').verwachtGelijkAan(banksim));
 });
 ```
+
+**Keuzes in de uitwerking**
+
+- **Drift meten zonder extra tool.** De momentopname legt per Deployment, Service en Ingress van de release de uid, `metadata.generation` en een hash van de spec vast, plus de uid's van de pods. Na opnieuw installeren moet die gelijk zijn: geen gewijzigde spec en geen herstarte pods. `helm diff` zou een extra plugin zijn, en dus een ADR.
+- **De actieve context wordt genegeerd, niet geweigerd.** Conform ADR 0004 installeren de scripts altijd in `kind-single-node`, ongeacht de actieve kubectl-context. Alleen een expliciete `--context` wijkt af, en een onbekende context wordt geweigerd. Het scenario zet daarvoor een tijdelijke kubeconfig klaar met `kind-iets-anders` als actieve context.
+- **Stap 0 bevat alle scenario's hierboven, behalve de upgrade.** Die komt in slice 1, zodra er data is (`upgrade.spec.ts`). De uitwerking staat in `e2e/specs/infra/installatie.spec.ts`, `e2e/dsl/omgeving.ts` en `e2e/drivers/shell/shell-driver.ts`.
 
 **Waar welke scenario's draaien**
 

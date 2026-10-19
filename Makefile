@@ -8,7 +8,7 @@ BACKEND  := backend
 FRONTEND := frontend
 E2E      := e2e
 
-.PHONY: help test backend-test frontend-test iac commit-stage install uninstall e2e-install e2e acceptance
+.PHONY: help test backend-test frontend-test iac commit-stage install uninstall e2e-install e2e e2e-infra acceptance
 
 help: ## Overzicht van de targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -42,4 +42,7 @@ e2e-install: ## Playwright en browsers installeren
 e2e: ## Acceptatietests tegen https://bank-mse.localtest.me
 	npm --prefix $(E2E) test
 
-acceptance: install e2e ## Installeren en daarna de acceptatietests, zoals de acceptance stage in CI
+e2e-infra: ## Installatiescenario's tegen kind-single-node (zonder @destructief)
+	npm --prefix $(E2E) run test:infra
+
+acceptance: install e2e e2e-infra ## Installeren en daarna de acceptatie- en installatiescenario's, zoals de acceptance stage in CI

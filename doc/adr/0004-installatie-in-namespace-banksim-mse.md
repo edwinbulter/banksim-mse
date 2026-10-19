@@ -20,3 +20,4 @@ Er is één lokaal kind-cluster `single-node` (OrbStack) met ingress-nginx. Het 
 ## Bewaking
 - `scripts/iac-check.sh`: elke gerenderde resource heeft namespace `banksim-mse` en er zijn geen cluster-brede resources; helm-unittest `tests/namespace_test.yaml` en `tests/ingress_test.yaml`.
 - `deploy/scripts/test/context.bats`: de scripts gebruiken `kind-single-node`, ook als een andere context actief is, en weigeren een onbekende context.
+- `e2e/specs/infra/installatie.spec.ts` (project `infra`, in de acceptance stage): opnieuw installeren verandert niets, een andere actieve context wordt genegeerd, een onbekende context wordt geweigerd, het origineel in `banksim` blijft onaangeroerd, en na `uninstall.sh` staan er nergens resources met het label `app.kubernetes.io/instance=banksim-mse`.

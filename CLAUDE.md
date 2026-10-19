@@ -16,8 +16,9 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 
 **Commando's** (`make help` toont ze allemaal)
 - Commit stage: `make commit-stage`. Afzonderlijk: `make backend-test`, `make frontend-test`, `make iac`.
-- Installeren + acceptatietests: `make acceptance`, dat `make install` en daarna `make e2e` uitvoert.
-- Eén scenario: `npm --prefix e2e test -- --project=rest specs/<naam>.spec.ts`. Gebruik `--project=chromium` voor de UI.
+- Installeren + acceptatietests: `make acceptance`, dat `make install`, `make e2e` en `make e2e-infra` uitvoert.
+- Installatiescenario's: `make e2e-infra` (project `infra`, zonder `@destructief`). In CI draaien ze met `BANKSIM_DESTRUCTIEF=1` en het nep-origineel.
+- Eén scenario: `cd e2e && npx playwright test --project=rest specs/<naam>.spec.ts`. Gebruik `--project=chromium` voor de UI en `--project=infra` voor een installatiescenario.
 - Welke versie draait: `curl -sk https://bank-mse.localtest.me/api/versie`, of de voettekst. Dit is de image-tag: de korte commit-hash, eventueel met `-dirty-<tijdstempel>`.
 - Pipeline: `gh run list --limit 3` en `gh run watch <id> --exit-status`. Bij falen: `gh api repos/edwinbulter/banksim-mse/actions/jobs/<job-id>/logs`.
 
@@ -25,8 +26,8 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 
 | Wijziging | Waar | Test |
 | --- | --- | --- |
-| Scenario | `e2e/specs/` (infra: `e2e/specs/infra/`) | Playwright: projecten `rest`, `chromium`, `firefox`, `webkit` |
-| DSL / drivers | `e2e/dsl/`, `e2e/drivers/{rest,ui}/` | Via de scenario's, plus `npm --prefix e2e run typecheck` |
+| Scenario | `e2e/specs/` (infra: `e2e/specs/infra/`) | Playwright: projecten `rest`, `chromium`, `firefox`, `webkit`; infra: `infra` |
+| DSL / drivers | `e2e/dsl/`, `e2e/drivers/{rest,ui,shell}/` | Via de scenario's, plus `npm --prefix e2e run typecheck` |
 | Domein | `backend/bank-domain` (zonder Spring) | JUnit, jqwik |
 | API | `backend/bank-api` | MockMvc of slicetest |
 | UI | `frontend/src/app` | Vitest |

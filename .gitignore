@@ -10,6 +10,7 @@ node_modules/
 # Test output
 e2e/test-results/
 e2e/playwright-report/
+e2e/playwright-report-infra/
 e2e/blob-report/
 e2e/.auth/
 
