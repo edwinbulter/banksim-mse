@@ -38,6 +38,9 @@ export default defineConfig<Opties>({
       name: 'infra',
       testDir: './specs/infra',
       fullyParallel: false,
+      // Geen herkansing: een falende installatie is een signaal, en een herkansing van een serial-groep
+      // verwijdert en installeert opnieuw.
+      retries: 0,
       // Eén installatie: de specs mogen elkaar niet tegelijk installeren of verwijderen.
       workers: 1,
       // Een installatie wacht op Helm en de rooktests.

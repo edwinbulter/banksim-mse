@@ -37,6 +37,10 @@ class VersieControllerTests {
 - **Concurrency-tests** voor invarianten onder parallelle aanroepen.
 - **Mutation testing** met PIT (`pitest-maven`), om te controleren of de tests echt iets vangen.
 
+## Valkuilen (echt opgetreden)
+
+- **Testcontainers met een image op digest:** `new PostgreSQLContainer("postgres:18.6-alpine@sha256:…")` faalt, omdat Testcontainers de naam niet als compatibel herkent. Gebruik `DockerImageName.parse("…@sha256:…").asCompatibleSubstituteFor("postgres")`.
+
 ## Tips
 
 - Draai `mvnw verify` in de commit stage. Bouw het image met Jib (`jib:dockerBuild`) en zet daarbij `-DskipTests`; de tests zijn dan al gedraaid. Gevolg: lokaal kan een image met falende code toch geïnstalleerd worden. Draai daarom altijd eerst de commit stage, en vertrouw niet op een rooktest; die controleert alleen de statuscode.

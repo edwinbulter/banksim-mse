@@ -398,7 +398,7 @@ flowchart LR
 | 8 Spaarrekening | S8.1 Rente op de spaarrekening; S8.2 Spaarrekening in het overzicht | klant | `spaarrekening.spec.ts`, `overzicht.spec.ts` | S8.2 was S1.2; de spaarrekening komt in één slice |
 | 9 Overschrijven | S9.1 Overschrijven tussen eigen rekeningen | klant | `overschrijven.spec.ts` | |
 | 10 Admin | S10.1 Alleen-lezen inzage; S10.2 Simulatiedatum in een scherm | beheerder | `beheer.spec.ts` | S10.2 maakt S3.1 af |
-| 11 Realistische data | S11.1 Demo-data na installatie | demonstrator (open) | `infra/huishoudens.spec.ts` | Nieuwe rol; staat niet in het FO |
+| 11 Realistische data | S11.1 Demo-data na installatie | beheerder | `infra/huishoudens.spec.ts` | De beheerder die installeert, zoals in de installatiescenario's |
 | CFR-slices | geen user story | – | zie de CFR-tabel | Een eis voor de hele applicatie, met een fitness function |
 
 ### Slice 1 – Overzicht met saldo
@@ -883,9 +883,9 @@ In de REST driver betekent `verwachtAlleenLezen` dat `POST /api/payments` en `/a
 
 ### Slice 11 – Realistische data
 
-> **S11.1** Als demonstrator wil ik na de installatie 10 huishoudens met 5 jaar historie, zodat ik BankSim zonder voorbereiding kan laten zien.
+> **S11.1** Als beheerder wil ik dat een nieuwe installatie 10 huishoudens met 5 jaar historie bevat, zodat ik BankSim zonder voorbereiding kan demonstreren.
 >
-> Acceptatiecriteria: `infra/huishoudens.spec.ts`. Open: "demonstrator" is een nieuwe rol, die niet in het FO staat. Bevestigen of herformuleren.
+> Acceptatiecriteria: `infra/huishoudens.spec.ts`. "Beheerder" is hier degene die installeert, zoals in de installatiescenario's; in het FO is het de admin in de applicatie (S10.1). Beide rollen vallen samen.
 
 
 Tot nu toe maakten de scenario's hun eigen data via de seed-CLI. Een demo met 10 huishoudens en 5 jaar historie is een eigen gebruikersbehoefte, en krijgt dus een eigen slice.

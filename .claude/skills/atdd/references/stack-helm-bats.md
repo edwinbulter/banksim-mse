@@ -114,4 +114,5 @@ NEP
   ```
 - **Nieuwe Ingress:** ingress-nginx heeft een paar seconden nodig om hem op te pakken. Laat rooktests een paar keer opnieuw proberen.
 - **kind en CI:** een GitHub-runner kan niet bij je lokale cluster. Maak in de acceptance stage een tijdelijk kind-cluster dat het lokale nabootst: dezelfde node-image, dezelfde ingress-versie en poorten 80/443. Installeer met hetzelfde script en een andere `--context`. Een host als `*.localtest.me` wijst naar 127.0.0.1, dus de tests op de runner bereiken de ingress.
+- **Nep-commando's in bats en `${*##…}`:** een parameterexpansie op `$*` werkt per argument, niet op de hele opdrachtregel. `${*##* get secret }` geeft dus niet de naam van het Secret. Zet eerst `regel="$*"` en werk op `$regel`.
 - **Runner-image:** zet `runs-on` vast op een versie, bijvoorbeeld `ubuntu-24.04`. `ubuntu-latest` verschuift vanzelf naar een nieuwe versie.

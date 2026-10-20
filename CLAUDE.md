@@ -54,6 +54,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - `make e2e` test wat er op dat moment geïnstalleerd is. Na een codewijziging gebruik je `make acceptance`, en controleer je de versie.
 - `make install` bouwt de images met `-DskipTests`. Draai dus eerst `make commit-stage`. De rooktests in `install.sh` controleren alleen of er status 200 terugkomt.
 - `install.sh` maakt de Secrets met wachtwoorden één keer aan (ADR 0009). PostgreSQL zet ze alleen bij de eerste start op een lege PVC. Verwijder dus nooit los een Secret: gebruik `make uninstall`, dat de hele namespace met de PVC weghaalt.
+- De shell-driver (`bank-seed`, installatiescenario's) gebruikt `BANKSIM_CONTEXT` en valt anders terug op `kind-single-node`. Elke CI-stap die hem gebruikt, heeft `BANKSIM_CONTEXT` nodig. Lokaal valt het ontbreken niet op.
 - De eerste installatie duurt langer: Keycloak start en importeert de realm.
 - De valkuilen van de tools (helm-unittest, yq, shellcheck, de webhook van ingress-nginx) staan in `.claude/skills/atdd/references/stack-helm-bats.md`.
 

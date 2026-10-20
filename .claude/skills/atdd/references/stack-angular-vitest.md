@@ -39,4 +39,5 @@ describe('App', () => {
 - **Commit stage:** `lint`, de tests en de productie-build. Een build die faalt, valt in de acceptance stage niet meer op te lossen.
 - **Semantische HTML** (`<main>`, `<footer>`, labels bij velden) maakt de page objects in de UI-driver eenvoudig. Die kunnen dan selecteren met `getByRole` en `getByLabel`.
 - **Gebruik dezelfde tekst als het scenario** ("Versie …"). Verandert de tekst, dan falen de componenttest én de UI-driver. Dat is de bedoeling.
+- **Witruimte tussen elementen:** Angular haalt standaard de witruimte tussen elementen weg (`preserveWhitespaces: false`). `<span>{{ iban }}</span> <span>{{ saldo }}</span>` wordt in de browser dan "NL…€ 1.842,17" aan elkaar. Gebruik `&ngsp;` tussen de elementen. Een componenttest die de hele tekst controleert, vangt dit.
 - **Node-versie:** controleer welke versie het Angular-pakket in zijn `engines` vereist. Zet die in `.nvmrc` en in CI.
