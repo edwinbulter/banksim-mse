@@ -439,7 +439,8 @@ test('Klant ziet de betaalrekening met saldo in het overzicht', async ({ bank })
   - ArchUnit: geen `double` of `float` in `bank-domain` en `bank-api`. Dat `bank-domain` niet van Spring afhangt, bewaakt de Maven-pom: Spring staat niet op het classpath;
   - ESLint: geen `parseFloat`, `parseInt`, `Number(…)` of unaire `+` in de frontend;
   - `scripts/iac-check.sh`: geen letterlijk wachtwoord of secret in de chart.
-- **Nog open in deze slice:** `infra/upgrade.spec.ts` ("een upgrade behoudt de data", hoofdstuk 9.4).
+- **Upgrade:** `infra/upgrade.spec.ts` (`@destructief`, alleen in CI). De DSL tagt de geïnstalleerde images opnieuw als `<tag>-upgrade` en installeert die; daarna ziet Jan nog zijn saldo. Rood gezien met een sabotagebranch waarop `bank-api` bij elke start de data wiste (Flyway-callback `afterMigrate.sql`): `rekeningen van Jan` was `[]`.
+- **Niet gedekt (backlog, hoofdstuk 9.4):** PostgreSQL en Keycloak herstarten bij deze upgrade niet; hun images staan op digest. Dat de data een herstart van de database overleeft en dat Keycloak bij een herstart de realm niet overschrijft, toetst nog geen scenario.
 - **Origineel:** `bank-domain/geld/Money`, `rekening/Iban`, `account/*`, `bank-bff/*`, `frontend/klant/overzicht`, `deploy/banksim/files/realm-banksim.json`.
 
 ### Slice 2 – Transactielijst van de betaalrekening
@@ -1020,12 +1021,16 @@ test('Opnieuw installeren verandert niets', async ({ omgeving }) => {
   await omgeving.dan('zijn de resources en pods van BankSim-MSE ongewijzigd', () => omgeving.verwachtOngewijzigd(voor));
 });
 
-test('Een upgrade behoudt de data', async ({ omgeving, bank }) => {
+test('Een upgrade behoudt de data', { tag: '@destructief' }, async ({ omgeving, bank }) => {
   const jan = bank.klant('Jan');
   await omgeving.gegeven('Jan heeft een betaalrekening met saldo € 100,00',
     () => jan.heeftBetaalrekening({ saldo: '100.00' }));
-  await omgeving.als('de beheerder een nieuwe versie installeert', () => omgeving.installeer({ nieuweVersie: true }));
-  await omgeving.dan('is het saldo van Jan nog € 100,00', () => jan.verwachtSaldo('100.00'));
+  await omgeving.als('de beheerder een nieuwe versie van BankSim-MSE installeert', () => omgeving.installeerNieuweVersie());
+  await omgeving.dan('antwoordt BankSim-MSE met de nieuwe versie', () => omgeving.verwachtBereikbaar());
+  await omgeving.en('ziet Jan na het inloggen nog de betaalrekening met saldo € 100,00', async () => {
+    await jan.opentOverzicht();
+    await jan.verwachtRekeningInOverzicht('betaal', '100.00');
+  });
 });
 
 test('Een andere actieve kubectl-context wordt genegeerd', async ({ omgeving }) => {
@@ -1142,7 +1147,7 @@ Daarna is het scenario groen. Nieuwe ontdekkingen, zoals de kubelet-probes op de
 | Slice | Infrastructuurwijziging | Binnenste lus | Buitenste lus |
 | --- | --- | --- | --- |
 | 0 Skelet | Chart met `bank-api`, `bank-web`, Ingress op `bank-mse.localtest.me`; `install.sh` en `uninstall.sh` met contextcontrole | helm-unittest: host en namespace; `bats`: verkeerde context faalt; check: geen cluster-brede resources | `installatie.spec.ts`: installeren, opnieuw installeren, andere context, origineel onaangeroerd |
-| 1 Overzicht | PostgreSQL StatefulSet met PVC, Keycloak met realm, `bank-bff`, Ingress voor `auth-mse`; Secrets via `install.sh`; Flyway bij het starten van `bank-api`; de seed-CLI als pod | helm-unittest: images op digest, wachtwoorden uit Secrets, routes naar de BFF, PVC op `standard`; bats: Secrets één keer aanmaken; geen letterlijke geheimen in de chart | `installatie.spec.ts`: opnieuw installeren laat ook StatefulSet, ConfigMaps en Secrets ongewijzigd; `upgrade.spec.ts`: data blijft behouden (nog open) |
+| 1 Overzicht | PostgreSQL StatefulSet met PVC, Keycloak met realm, `bank-bff`, Ingress voor `auth-mse`; Secrets via `install.sh`; Flyway bij het starten van `bank-api`; de seed-CLI als pod | helm-unittest: images op digest, wachtwoorden uit Secrets, routes naar de BFF, PVC op `standard`; bats: Secrets één keer aanmaken; geen letterlijke geheimen in de chart | `installatie.spec.ts`: opnieuw installeren laat ook StatefulSet, ConfigMaps en Secrets ongewijzigd; `upgrade.spec.ts`: data blijft behouden; nog open: een herstart van PostgreSQL en Keycloak behoudt de data |
 | 6 Inloggen | Keycloak met realm-import op `auth-mse.localtest.me`; `bank-bff`; Secrets met gegenereerde wachtwoorden | Realm-importtest in Testcontainers; `bats`: bestaande Secrets worden niet overschreven | Inloggen via `auth-mse.localtest.me`; opnieuw installeren laat sessies en wachtwoorden heel |
 | 11 Realistische data | `bank-datagen`-Job in modus `ALS_LEEG`/`ALTIJD`; `reset-data.sh` | `bats`: `reset-data.sh` weigert een andere context | `huishoudens.spec.ts`; een upgrade wist de data niet |
 | CFR Zero trust | `certs.sh` met eigen CA; mTLS-configuratie; NetworkPolicies | `bats` voor `certs.sh` (CA wordt hergebruikt, `--rotate` vernieuwt); helm-unittest NetworkPolicies | `netwerk.spec.ts`; aanroep zonder clientcertificaat wordt geweigerd |

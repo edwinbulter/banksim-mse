@@ -38,6 +38,8 @@ export default defineConfig<Opties>({
       name: 'infra',
       testDir: './specs/infra',
       fullyParallel: false,
+      // Eén installatie: de specs mogen elkaar niet tegelijk installeren of verwijderen.
+      workers: 1,
       // Een installatie wacht op Helm en de rooktests.
       timeout: 10 * 60_000,
       grepInvert: destructief ? /@wip/ : /@wip|@destructief/,

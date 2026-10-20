@@ -23,6 +23,8 @@ export interface K8sObject {
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 // De context die de scripts gebruiken als je geen --context meegeeft (ADR 0004).
 const STANDAARD_CONTEXT = 'kind-single-node';
+// De images die install.sh laadt (deploy/scripts/install.sh, load_images).
+const IMAGES = ['bank-api', 'bank-bff', 'bank-seed', 'bank-web'].map((naam) => `banksim-mse/${naam}`);
 
 /**
  * Spreekt de omgeving aan zoals een beheerder dat doet: met de installatiescripts, kubectl, helm en curl.
@@ -34,6 +36,13 @@ export class ShellDriver {
   /** deploy/scripts/<naam> met de gegeven argumenten. Faalt niet bij een exitcode ≠ 0; dat beoordeelt de DSL. */
   script(naam: string, args: string[], env: Record<string, string> = {}): Promise<Resultaat> {
     return voerUit(join(REPO_ROOT, 'deploy/scripts', naam), args, env);
+  }
+
+  /** Tagt de images van BankSim-MSE in Docker opnieuw, zodat install.sh --image-tag ze als nieuwe versie laadt. */
+  async tagImages(van: string, naar: string): Promise<void> {
+    for (const image of IMAGES) {
+      await verwacht(voerUit('docker', ['tag', `${image}:${van}`, `${image}:${naar}`]));
+    }
   }
 
   async kubectl(args: string[]): Promise<Resultaat> {

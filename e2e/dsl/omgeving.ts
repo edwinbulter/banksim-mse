@@ -18,6 +18,8 @@ export type Momentopname = Record<string, string>;
  */
 export class Omgeving extends Stappen {
   private laatste?: Resultaat;
+  /** De tag die deze omgeving het laatst installeerde; zonder tag geldt die van de bestaande installatie. */
+  private geinstalleerd?: string;
 
   constructor(
     private readonly shell: ShellDriver,
@@ -33,6 +35,17 @@ export class Omgeving extends Stappen {
     const bron = this.imageTag ? ['--image-tag', this.imageTag] : ['--skip-build'];
     this.laatste = await this.shell.script('install.sh', ['--context', this.shell.context, ...bron]);
     verwachtGeslaagd('install.sh', this.laatste);
+    this.geinstalleerd = this.imageTag;
+  }
+
+  /** Dezelfde images onder een nieuwe tag: Helm ziet een nieuwe versie en vervangt de pods van de applicatie. */
+  async installeerNieuweVersie(): Promise<void> {
+    const huidig = await this.geinstalleerdeTag();
+    const nieuw = `${huidig}-upgrade`;
+    await this.shell.tagImages(huidig, nieuw);
+    this.laatste = await this.shell.script('install.sh', ['--context', this.shell.context, '--image-tag', nieuw]);
+    verwachtGeslaagd('install.sh met een nieuwe versie', this.laatste);
+    this.geinstalleerd = nieuw;
   }
 
   async installeerMetActieveContext(actief: string): Promise<void> {
@@ -71,8 +84,7 @@ export class Omgeving extends Stappen {
 
   async verwachtBereikbaar(): Promise<void> {
     await this.app.openStartpagina();
-    const verwacht = this.imageTag ?? (await this.shell.helmWaarden(NAMESPACE, RELEASE))?.imageTag;
-    expect(await this.app.versie(), 'versie van de installatie').toBe(verwacht);
+    expect(await this.app.versie(), 'versie van de installatie').toBe(await this.geinstalleerdeTag());
   }
 
   async verwachtAllesInNamespace(): Promise<void> {
@@ -107,6 +119,12 @@ export class Omgeving extends Stappen {
 
   origineel(): Origineel {
     return new Origineel(this.shell);
+  }
+
+  private async geinstalleerdeTag(): Promise<string> {
+    const tag = this.geinstalleerd ?? (await this.shell.helmWaarden(NAMESPACE, RELEASE))?.imageTag;
+    if (typeof tag !== 'string') throw new Error(`BankSim-MSE is niet geïnstalleerd in ${this.shell.context}`);
+    return tag;
   }
 
   private clusterBreed(): Promise<K8sObject[]> {
