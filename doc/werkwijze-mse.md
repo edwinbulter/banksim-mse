@@ -266,7 +266,7 @@ async gegeven(tekst: string, stap: () => Promise<unknown>) {
 - **Twee drivers, één scenario:** `playwright.config.ts` heeft een project `rest` (optie `driver: 'rest'`, snel, geen browser) en de projecten `chromium`, `firefox` en `webkit` (optie `driver: 'ui'`). Hetzelfde scenario draait dus via de API en via de browser. Scenario's die alleen over de UI gaan ("De knop heet nu Verberg zoeken") krijgen de tag `@ui`; het project `rest` sluit die uit met `grepInvert: /@ui/`.
 - **Waar de REST driver op aanspreekt:** altijd via de ingress en de publieke API-paden, net als de browser. Zodra er in slice 6 een BFF en Keycloak zijn, logt een setup-project één keer per gebruiker in via het echte Keycloak-scherm en bewaart de sessie als `storageState`, zoals het origineel in `e2e/tests/auth.setup.ts` doet. De REST driver gebruikt die sessiecookie en het CSRF-token van de BFF. De driver roept `bank-api` nooit rechtstreeks aan; na de CFR-slices voor mTLS en NetworkPolicies zou dat ook niet meer kunnen.
 - **Isolatie:** elk scenario maakt zijn eigen rekeninghouders en rekeningen via de DSL. De DSL vertaalt een alias ("Jan") naar een unieke naam en IBAN per testrun. Zo zitten scenario's elkaars data niet in de weg en is de gedeelde datagen-seed niet nodig.
-- **Testdata opzetten:** het FO heeft geen scherm om rekeninghouders, rekeningen of willekeurige historische boekingen (incasso, betaalautomaat) aan te maken; dat doet in het origineel alleen de datagenerator. Kies daarom in stap 0 of slice 1 één expliciet mechanisme en leg het vast in een ADR (`0003-testdata-via-seed-cli.md`). Voorstel: een kleine **seed-CLI** in Java, in een eigen Maven-module, die met de regels van `bank-domain` rekeninghouders, rekeningen en overboekingen in de database zet (en later ook Keycloak-gebruikers). De DSL start die als Kubernetes Job in `banksim-mse` via een kleine shell-driver (`kubectl` vanuit Node). Er komt dus geen test-only endpoint in de applicatie zelf. In slice 11 groeit deze seed-CLI uit tot `bank-datagen`: dezelfde code, nu aangestuurd door profielen in plaats van door scenario's.
+- **Testdata opzetten:** het FO heeft geen scherm om rekeninghouders, rekeningen of willekeurige historische boekingen (incasso, betaalautomaat) aan te maken; dat doet in het origineel alleen de datagenerator. Kies daarom in stap 0 of slice 1 één expliciet mechanisme en leg het vast in een ADR (`0003-testdata-via-seed-cli.md`). Voorstel: een kleine **seed-CLI** in Java, in een eigen Maven-module, die met de regels van `bank-domain` rekeninghouders, rekeningen en overboekingen in de database zet (en later ook Keycloak-gebruikers). De DSL start die als pod in `banksim-mse` via een kleine shell-driver (`kubectl run` vanuit Node; ADR 0003). Er komt dus geen test-only endpoint in de applicatie zelf. In slice 11 groeit deze seed-CLI uit tot `bank-datagen`: dezelfde code, nu aangestuurd door profielen in plaats van door scenario's.
 - **Tijd:** scenario's zetten de simulatiedatum zelf (`bank.gegeven('de simulatiedatum is 5 oktober 2026', …)`), want BankSim heeft die functie toch nodig. De simulatiedatum geldt voor alle gebruikers tegelijk, dus unieke aliassen isoleren wel de data maar niet de klok. Scenario's die de datum zetten krijgen de tag `@simulatiedatum` en draaien in een aparte run met `--grep @simulatiedatum --workers=1`; de overige scenario's draaien parallel met `--grep-invert @simulatiedatum`. Dit is een bewuste afweging (ADR); het origineel draaide de hele suite met één worker.
 
 In de originele repo is `e2e/pages/*` (`LoginPagina`, `RekeningPagina`, `BetalenPagina`, …) de protocol-driver-laag; de specs in `e2e/tests/*` mengen testcase en DSL. Hier houd je die lagen vanaf het begin gescheiden.
@@ -388,14 +388,14 @@ flowchart LR
 | Slice | Story | Rol | Spec(s) | Opmerking |
 | --- | --- | --- | --- | --- |
 | 0 Skelet | geen user story | – | `skelet.spec.ts`, `infra/installatie.spec.ts` | Walking skeleton: bewijst dat bouwen, testen en installeren werkt |
-| 1 Overzicht | S1.1 Betaalrekening met saldo na inloggen; S1.2 Ook de spaarrekening | klant | `overzicht.spec.ts` | Inloggen hoort sinds ADR 0007 en 0008 bij S1.1 |
+| 1 Overzicht | S1.1 Betaalrekening met saldo na inloggen | klant | `overzicht.spec.ts` | Inloggen hoort sinds ADR 0007 en 0008 bij S1.1 |
 | 2 Transactielijst | S2.1 Transacties per datum; S2.2 Toon meer | klant | `betaalrekening.spec.ts` | |
 | 3 Simulatiedatum | S3.1 Bank op een gekozen datum | beheerder | `simulatiedatum.spec.ts` | Enabling slice: het scherm komt pas in S10.2 |
 | 4 Uitklapdetails | S2.3 Details van een transactie | klant | `betaalrekening.spec.ts` | Breidt de story van slice 2 uit |
 | 5 Zoeken | S5.1 Zoeken in transacties | klant | `zoeken.spec.ts` | |
 | 6 Inloggen en rollen | S6.1 Alleen eigen rekeningen; S6.2 Uitloggen | klant | `inloggen.spec.ts`, `toegang.spec.ts` | Kleiner geworden: het inloggen zelf zit in S1.1 |
 | 7 Betalen | S7.1 Betalen aan een contact | klant | `betalen.spec.ts` | Dubbel verzonden betaling is een CFR |
-| 8 Spaarrekening | S8.1 Rente op de spaarrekening | klant | `spaarrekening.spec.ts` | |
+| 8 Spaarrekening | S8.1 Rente op de spaarrekening; S8.2 Spaarrekening in het overzicht | klant | `spaarrekening.spec.ts`, `overzicht.spec.ts` | S8.2 was S1.2; de spaarrekening komt in één slice |
 | 9 Overschrijven | S9.1 Overschrijven tussen eigen rekeningen | klant | `overschrijven.spec.ts` | |
 | 10 Admin | S10.1 Alleen-lezen inzage; S10.2 Simulatiedatum in een scherm | beheerder | `beheer.spec.ts` | S10.2 maakt S3.1 af |
 | 11 Realistische data | S11.1 Demo-data na installatie | demonstrator (open) | `infra/huishoudens.spec.ts` | Nieuwe rol; staat niet in het FO |
@@ -405,36 +405,42 @@ flowchart LR
 
 > **S1.1** Als klant wil ik na het inloggen mijn betaalrekening met saldo zien, zodat ik weet hoeveel geld ik heb.
 >
-> **S1.2** Als klant wil ik in het overzicht ook mijn spaarrekening met saldo zien, zodat ik al mijn geld bij elkaar zie.
->
-> Acceptatiecriteria: de scenario's in `overzicht.spec.ts`. Door ADR 0007 en 0008 hoort het inloggen bij S1.1. Open: blijft S1.2 in deze slice, of schuift hij door naar slice 8?
+> Acceptatiecriteria: de scenario's in `overzicht.spec.ts`. Door ADR 0007 en 0008 hoort het inloggen bij S1.1. De spaarrekening in het overzicht is S8.2.
 
 
-De kleinste waardevolle functie: een klant ziet de eigen rekeningen met saldo. Er is nog geen login; de API gebruikt een vaste identiteit achter een interface `IngelogdeGebruiker`, zodat inloggen later alleen een nieuwe implementatie is.
+De kleinste waardevolle functie: een klant logt in en ziet de eigen betaalrekening met saldo. Oorspronkelijk zou het inloggen pas in slice 6 komen, met tot dan een vaste identiteit. ADR 0007 en 0008 halen Keycloak en de BFF naar voren: zo is de eerste slice meteen een echte gebruikersfunctie, en hoeven de drivers het inloggen later niet alsnog te leren.
 
 ```ts
 // e2e/specs/overzicht.spec.ts
-test('Klant ziet betaal- en spaarrekening met saldo', async ({ bank }) => {
+test('Klant ziet de betaalrekening met saldo in het overzicht', async ({ bank }) => {
   const jan = bank.klant('Jan');
-  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.842,17',
-    () => jan.heeftBetaalrekening({ saldo: '1842.17' }));
-  await bank.en('Jan heeft een spaarrekening met saldo € 12.405,63',
-    () => jan.heeftSpaarrekening({ saldo: '12405.63' }));
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.842,17', () =>
+    jan.heeftBetaalrekening({ saldo: '1842.17' }),
+  );
   await bank.als('Jan het overzicht opent', () => jan.opentOverzicht());
-  await bank.dan('ziet Jan de betaalrekening met saldo € 1.842,17',
-    () => jan.verwachtRekeningInOverzicht('betaal', '1842.17'));
-  await bank.en('ziet Jan de spaarrekening met saldo € 12.405,63',
-    () => jan.verwachtRekeningInOverzicht('spaar', '12405.63'));
-  await bank.en('wordt het IBAN getoond in blokken van 4 tekens',
-    () => jan.verwachtIbanInBlokken());
+  await bank.dan('ziet Jan de betaalrekening met saldo € 1.842,17', () =>
+    jan.verwachtRekeningInOverzicht('betaal', '1842.17'),
+  );
 });
 ```
 
-- **Binnenste lus:** `RekeningController` → `RekeningService` → `RekeningRepository` (in de unittests eerst als in-memory test double, daarna de echte implementatie op PostgreSQL); `Money` (optellen, 2 decimalen, `HALF_EVEN`), `Iban` (mod-97-checksum, weergave in blokken), Angular `OverzichtComponent` en een `MoneyPipe` op basis van `big.js` (Vitest).
-- **ADR's:** bedragen als `BigDecimal`/string; saldo = openingssaldo + som boekingen; PostgreSQL + Flyway + `JdbcClient`; testdata via de seed-CLI.
-- **Nieuw in het skelet:** PostgreSQL in de chart, `bank-migrate` als Job, de seed-CLI, Testcontainers in de commit stage voor repositorytests. Dit komt al in slice 1 binnen, omdat het eerste scenario data op het gedeployde systeem nodig heeft.
-- **Fitness functions:** jqwik-properties voor `Money` (`a + b − b = a`, nooit meer dan 2 decimalen) en `Iban`; ArchUnit: geen `double`/`float` in geldcode; ArchUnit: `bank-domain` hangt niet af van Spring; ESLint: geen `parseFloat`/`Number()` in de geldcode van de frontend.
-- **Origineel:** `bank-domain/geld/Money`, `rekening/Iban`, `account/*`, `frontend/klant/overzicht`.
+`heeftBetaalrekening` start `bank-seed` als pod (ADR 0003): die maakt een login in Keycloak en een rekening met dat openingssaldo, en geeft gebruikersnaam, wachtwoord en IBAN terug. `opentOverzicht` logt eerst in. De REST-driver volgt daarvoor dezelfde redirects als een browser: BFF, het inlogformulier van Keycloak, en terug.
+
+- **Binnenste lus:**
+  - `bank-seed`: `SeedCommando` → `SeedKlantAanmaker` → `Logins` (`KeycloakLogins`, admin-API) en `Rekeninghouders` (`JdbcRekeninghouders`);
+  - `bank-domain`: `Bedrag` (exact, 2 decimalen) en `Iban` (bankcode SIMB, mod-97);
+  - `bank-api`: `RekeningController` → `RekeningRepository` (`JdbcRekeningRepository`), `IngelogdeGebruiker` uit het JWT, `BeveiligingConfig` als resource server. Een `RekeningService` is er nog niet: er is nog geen logica tussen controller en repository;
+  - `bank-bff`: OIDC-login met PKCE, 401 voor `/api/**` zonder sessie, `/api/**` naar `bank-api` met het token en zonder cookies;
+  - Angular: `App` (link "Inloggen" bij een 401) en `Overzicht`, met `bedragVoorWeergave` ("1842.17" → "€ 1.842,17") zonder rekenen.
+- **ADR's:** 0003 (seed-CLI als pod), 0007 (Keycloak), 0008 (BFF), 0009 (PostgreSQL, Flyway bij het starten van `bank-api`, `JdbcClient`), 0010 (bedragen als `BigDecimal` en string). "Saldo = openingssaldo + som boekingen" volgt in slice 2, als er boekingen zijn.
+- **Nieuw in het skelet:** PostgreSQL, Keycloak en `bank-bff` in de chart; de Secrets die `install.sh` één keer aanmaakt; de images `bank-bff` en `bank-seed`; Testcontainers in de commit stage.
+- **Fitness functions:**
+  - jqwik-properties voor `Bedrag` (altijd 2 decimalen, de stringnotatie blijft gelijk) en `Iban` (elke gegenereerde IBAN is geldig). `a + b − b = a` komt erbij zodra `Bedrag` kan optellen;
+  - ArchUnit: geen `double` of `float` in `bank-domain` en `bank-api`. Dat `bank-domain` niet van Spring afhangt, bewaakt de Maven-pom: Spring staat niet op het classpath;
+  - ESLint: geen `parseFloat`, `parseInt`, `Number(…)` of unaire `+` in de frontend;
+  - `scripts/iac-check.sh`: geen letterlijk wachtwoord of secret in de chart.
+- **Nog open in deze slice:** `infra/upgrade.spec.ts` ("een upgrade behoudt de data", hoofdstuk 9.4).
+- **Origineel:** `bank-domain/geld/Money`, `rekening/Iban`, `account/*`, `bank-bff/*`, `frontend/klant/overzicht`, `deploy/banksim/files/realm-banksim.json`.
 
 ### Slice 2 – Transactielijst van de betaalrekening
 
@@ -614,7 +620,7 @@ test('Zoekformulier openen en wissen', { tag: '@ui' }, async ({ bank }) => {
 >
 > **S6.2** Als klant wil ik kunnen uitloggen, zodat een ander op dit apparaat niet bij mijn rekeningen kan.
 >
-> Acceptatiecriteria: de scenario's in `inloggen.spec.ts` en `toegang.spec.ts`. Het inloggen zelf zit sinds ADR 0007 en 0008 in S1.1. Open: "Verkeerd wachtwoord" wordt een criterium van S1.1 of van S6.1.
+> Acceptatiecriteria: de scenario's in `inloggen.spec.ts` en `toegang.spec.ts`. Het inloggen zelf zit sinds ADR 0007 en 0008 in S1.1. "Verkeerd wachtwoord" is een criterium van S6.1.
 
 
 Nu er straks een tweede klant (de ontvanger van een betaling) en een admin bij komen, moet het systeem weten wie er is ingelogd. Dit is het moment voor identiteit, niet eerder.
@@ -736,7 +742,9 @@ Werk deze scenario's **één voor één** af; de rest staat op `@wip`. Het vierd
 
 > **S8.1** Als klant wil ik maandelijks rente op mijn spaarrekening krijgen en de lopende rente zien, zodat ik weet wat mijn spaargeld oplevert.
 >
-> Acceptatiecriteria: de scenario's in `spaarrekening.spec.ts`.
+> **S8.2** Als klant wil ik in het overzicht ook mijn spaarrekening met saldo zien, zodat ik al mijn geld bij elkaar zie.
+>
+> Acceptatiecriteria: de scenario's in `spaarrekening.spec.ts`, en voor S8.2 een scenario in `overzicht.spec.ts`. S8.2 heette eerst S1.2; hij schoof door naar deze slice, zodat de spaarrekening in één keer komt.
 
 
 ```ts
@@ -1134,7 +1142,7 @@ Daarna is het scenario groen. Nieuwe ontdekkingen, zoals de kubelet-probes op de
 | Slice | Infrastructuurwijziging | Binnenste lus | Buitenste lus |
 | --- | --- | --- | --- |
 | 0 Skelet | Chart met `bank-api`, `bank-web`, Ingress op `bank-mse.localtest.me`; `install.sh` en `uninstall.sh` met contextcontrole | helm-unittest: host en namespace; `bats`: verkeerde context faalt; check: geen cluster-brede resources | `installatie.spec.ts`: installeren, opnieuw installeren, andere context, origineel onaangeroerd |
-| 1 Overzicht | PostgreSQL StatefulSet met PVC; `bank-migrate` en de seed-CLI als Job (Helm-hooks) | helm-unittest: hook-volgorde, PVC op storage class `standard` | `upgrade.spec.ts`: data blijft behouden |
+| 1 Overzicht | PostgreSQL StatefulSet met PVC, Keycloak met realm, `bank-bff`, Ingress voor `auth-mse`; Secrets via `install.sh`; Flyway bij het starten van `bank-api`; de seed-CLI als pod | helm-unittest: images op digest, wachtwoorden uit Secrets, routes naar de BFF, PVC op `standard`; bats: Secrets één keer aanmaken; geen letterlijke geheimen in de chart | `installatie.spec.ts`: opnieuw installeren laat ook StatefulSet, ConfigMaps en Secrets ongewijzigd; `upgrade.spec.ts`: data blijft behouden (nog open) |
 | 6 Inloggen | Keycloak met realm-import op `auth-mse.localtest.me`; `bank-bff`; Secrets met gegenereerde wachtwoorden | Realm-importtest in Testcontainers; `bats`: bestaande Secrets worden niet overschreven | Inloggen via `auth-mse.localtest.me`; opnieuw installeren laat sessies en wachtwoorden heel |
 | 11 Realistische data | `bank-datagen`-Job in modus `ALS_LEEG`/`ALTIJD`; `reset-data.sh` | `bats`: `reset-data.sh` weigert een andere context | `huishoudens.spec.ts`; een upgrade wist de data niet |
 | CFR Zero trust | `certs.sh` met eigen CA; mTLS-configuratie; NetworkPolicies | `bats` voor `certs.sh` (CA wordt hergebruikt, `--rotate` vernieuwt); helm-unittest NetworkPolicies | `netwerk.spec.ts`; aanroep zonder clientcertificaat wordt geweigerd |
@@ -1171,11 +1179,11 @@ Waar komt elk onderdeel van de originele BankSim terug?
 
 | Origineel | Nieuw: slice | Story | Spec in `e2e/specs/` | ADR(s) |
 | --- | --- | --- | --- | --- |
-| FO Inloggen en Overzicht | 1, 6 | S1.1, S1.2, S6.1, S6.2 | `overzicht.spec.ts`, `inloggen.spec.ts` | BigDecimal, berekend saldo, Keycloak, BFF |
+| FO Inloggen en Overzicht | 1, 6 | S1.1, S6.1, S6.2, S8.2 | `overzicht.spec.ts`, `inloggen.spec.ts` | BigDecimal, berekend saldo, Keycloak, BFF |
 | FO Betaalrekening scherm | 2, 4 | S2.1–S2.3 | `betaalrekening.spec.ts` | Keyset-paginering, `JdbcClient` |
 | FO Zoeken in transacties | 5 | S5.1 | `zoeken.spec.ts` | Zoeken met `pg_trgm` |
 | FO Betalen scherm | 7 | S7.1 | `betalen.spec.ts` | Grootboek, nooit rood, idempotency |
-| FO Spaarrekening scherm | 8 | S8.1 | `spaarrekening.spec.ts` | — |
+| FO Spaarrekening scherm | 8 | S8.1, S8.2 | `spaarrekening.spec.ts` | — |
 | FO Overschrijven scherm | 9 | S9.1 | `overschrijven.spec.ts` | Rentecorrectie via event |
 | FO Admin scherm + simulatiedatum | 3, 10 | S3.1, S10.1, S10.2 | `simulatiedatum.spec.ts`, `beheer.spec.ts` | `SimulationClock`, rolafhankelijke routes, audit log |
 | FO Datamodel en fake data | 1, 2, 7, 11 | S11.1 | `infra/huishoudens.spec.ts` | Deterministische generator |

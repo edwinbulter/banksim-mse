@@ -1,0 +1,37 @@
+# ADR 0008: de BFF doet de login en stuurt /api door met het token van de sessie.
+suite: bank-bff
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+templates:
+  - templates/bank-bff.yaml
+set:
+  imageTag: abc1234
+tests:
+  - it: draait het image met de tag van deze installatie, met één replica (sessie in het geheugen)
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: banksim-mse/bank-bff:abc1234
+      - equal:
+          path: spec.replicas
+          value: 1
+  - it: kent Keycloak publiek en intern, en bank-api intern
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: BANKSIM_KEYCLOAK_PUBLIC_URL, value: https://auth-mse.localtest.me }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: BANKSIM_KEYCLOAK_INTERNAL_URL, value: http://keycloak:8080 }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: BANKSIM_API_URL, value: http://bank-api:8080 }
+  - it: haalt het client secret uit het Secret bank-bff
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value: [{ secretRef: { name: bank-bff } }]

@@ -7,6 +7,10 @@ export class StartPagina {
     await this.page.goto('/');
   }
 
+  async kiesInloggen(): Promise<void> {
+    await this.page.getByRole('link', { name: 'Inloggen' }).click();
+  }
+
   /** De voettekst toont "Versie <versie>" zodra de API heeft geantwoord. */
   async versie(): Promise<string> {
     const voettekst = this.page.getByRole('contentinfo');

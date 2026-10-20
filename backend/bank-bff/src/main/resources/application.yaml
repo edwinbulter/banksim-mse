@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: bank-bff
+  threads:
+    virtual:
+      enabled: true
+  http:
+    clients:
+      connect-timeout: 3s
+      read-timeout: 5s
+
+server:
+  port: 8080
+  # X-Forwarded-* van ingress-nginx: de BFF ziet https://bank-mse.localtest.me, ook in redirects en het sessiecookie.
+  forward-headers-strategy: native
+  shutdown: graceful
+
+# De sessie staat in het geheugen; daarom één replica (ADR 0008).
+banksim:
+  bff:
+    public-url: ${BANKSIM_PUBLIC_URL:https://bank-mse.localtest.me}
+    api-url: ${BANKSIM_API_URL:http://bank-api:8080}
+    keycloak:
+      public-url: ${BANKSIM_KEYCLOAK_PUBLIC_URL:https://auth-mse.localtest.me}
+      internal-url: ${BANKSIM_KEYCLOAK_INTERNAL_URL:http://keycloak:8080}
+      realm: banksim-mse
+      client-id: bank-bff
+      client-secret: ${BANKSIM_BFF_CLIENT_SECRET}
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

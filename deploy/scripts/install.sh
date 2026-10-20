@@ -25,6 +25,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 BANK_URL="https://bank-mse.localtest.me"
+AUTH_URL="https://auth-mse.localtest.me"
 
 check_prerequisites() {
   info "Vereisten controleren"
@@ -47,8 +48,10 @@ image_tag() {
 load_images() {
   local tag="$1"
   info "Images laden in kind-cluster $(kind_cluster_name)"
+  # bank-seed draait niet als Deployment; de DSL start hem per scenario (ADR 0003).
   kind load docker-image --name "$(kind_cluster_name)" \
-    "banksim-mse/bank-api:$tag" "banksim-mse/bank-web:$tag" >/dev/null
+    "banksim-mse/bank-api:$tag" "banksim-mse/bank-bff:$tag" "banksim-mse/bank-seed:$tag" "banksim-mse/bank-web:$tag" \
+    >/dev/null
   ok "Images geladen"
 }
 
@@ -65,13 +68,39 @@ YAML
   ok "Namespace aanwezig"
 }
 
+random_secret() { head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
+
+# Maakt een Secret met een willekeurige waarde per sleutel, alleen als het nog niet bestaat (ADR 0009).
+# De waarden gaan via stdin, niet via de opdrachtregel. Een bestaand Secret blijft ongewijzigd.
+ensure_secret() {
+  local naam="$1" sleutel
+  shift
+  kc -n "$NAMESPACE" get secret "$naam" >/dev/null 2>&1 && return 0
+  for sleutel in "$@"; do
+    printf '%s=%s\n' "$sleutel" "$(random_secret)"
+  done | kc -n "$NAMESPACE" create secret generic "$naam" --from-env-file=/dev/stdin >/dev/null
+  kc -n "$NAMESPACE" label secret "$naam" app.kubernetes.io/part-of=banksim-mse \
+    "app.kubernetes.io/instance=$RELEASE" >/dev/null
+  ok "Secret $naam aangemaakt"
+}
+
+create_secrets() {
+  info "Wachtwoorden en client secrets"
+  ensure_secret postgres POSTGRES_PASSWORD
+  ensure_secret bank-api SPRING_DATASOURCE_PASSWORD
+  ensure_secret bank-seed SPRING_DATASOURCE_PASSWORD BANKSIM_SEED_CLIENT_SECRET
+  ensure_secret bank-bff BANKSIM_BFF_CLIENT_SECRET
+  ensure_secret keycloak KC_DB_PASSWORD KC_BOOTSTRAP_ADMIN_PASSWORD
+  ok "Secrets aanwezig"
+}
+
 helm_install() {
   local tag="$1"
   info "Helm-release $RELEASE installeren"
   helm --kube-context "$KUBE_CONTEXT" upgrade --install "$RELEASE" "$REPO_ROOT/deploy/banksim-mse" \
     --namespace "$NAMESPACE" \
     --set imageTag="$tag" \
-    --wait --timeout 5m >/dev/null
+    --wait --timeout 10m >/dev/null
   ok "Release $RELEASE geïnstalleerd (image-tag $tag)"
 }
 
@@ -90,6 +119,7 @@ smoke_tests() {
   info "Rooktests"
   expect_status "$BANK_URL/" 200
   expect_status "$BANK_URL/api/versie" 200
+  expect_status "$AUTH_URL/realms/banksim-mse/.well-known/openid-configuration" 200
 }
 
 main() {
@@ -108,6 +138,7 @@ main() {
     load_images "$tag"
   fi
   create_namespace
+  create_secrets
   helm_install "$tag"
   if [[ "$smoke_tests" == true ]]; then
     smoke_tests

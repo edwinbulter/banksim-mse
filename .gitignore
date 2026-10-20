@@ -28,3 +28,6 @@ deploy/.secrets/
 !.idea/.gitignore
 .vscode/
 .DS_Store
+
+# jqwik onthoudt lokaal falende voorbeelden
+.jqwik-database

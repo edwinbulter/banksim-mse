@@ -1,0 +1,61 @@
+# ADR 0007: Keycloak op auth-mse.localtest.me met realm banksim-mse, zonder vaste gebruikers.
+suite: keycloak
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+templates:
+  - templates/keycloak.yaml
+tests:
+  - it: draait Keycloak 26.8.0 op digest en importeert de realm
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [start, --import-realm]
+  - it: is publiek bereikbaar als https://auth-mse.localtest.me
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: KC_HOSTNAME, value: https://auth-mse.localtest.me }
+  - it: haalt het admin-wachtwoord en de client secrets uit Secrets
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KC_BOOTSTRAP_ADMIN_PASSWORD
+            valueFrom: { secretKeyRef: { name: keycloak, key: KC_BOOTSTRAP_ADMIN_PASSWORD } }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KC_DB_PASSWORD
+            valueFrom: { secretKeyRef: { name: keycloak, key: KC_DB_PASSWORD } }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BFF_CLIENT_SECRET
+            valueFrom: { secretKeyRef: { name: bank-bff, key: BANKSIM_BFF_CLIENT_SECRET } }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SEED_CLIENT_SECRET
+            valueFrom: { secretKeyRef: { name: bank-seed, key: BANKSIM_SEED_CLIENT_SECRET } }
+  - it: heeft een realm banksim-mse zonder gebruikers, met de BFF als client op bank-mse.localtest.me
+    documentSelector: { path: kind, value: ConfigMap }
+    asserts:
+      - matchRegex:
+          path: data["realm-banksim-mse.json"]
+          pattern: '"realm": "banksim-mse"'
+      - matchRegex:
+          path: data["realm-banksim-mse.json"]
+          pattern: '"https://bank-mse.localtest.me/login/oauth2/code/keycloak"'
+      - matchRegex:
+          path: data["realm-banksim-mse.json"]
+          pattern: '"secret": "\$\{BFF_CLIENT_SECRET\}"'
+      - notMatchRegex:
+          path: data["realm-banksim-mse.json"]
+          pattern: '"credentials"'

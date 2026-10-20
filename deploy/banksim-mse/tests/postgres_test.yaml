@@ -1,0 +1,56 @@
+# ADR 0009: PostgreSQL als StatefulSet; wachtwoorden alleen uit Secrets die install.sh aanmaakt.
+suite: postgres
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+templates:
+  - templates/postgres.yaml
+tests:
+  - it: draait PostgreSQL 18.6 op digest
+    template: templates/postgres.yaml
+    documentSelector: { path: kind, value: StatefulSet }
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+  - it: bewaart de data op een PVC met storage class standard
+    documentSelector: { path: kind, value: StatefulSet }
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.storageClassName
+          value: standard
+  - it: haalt elk wachtwoord uit het Secret van de eigenaar, nooit uit de chart
+    documentSelector: { path: kind, value: StatefulSet }
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom: { secretKeyRef: { name: postgres, key: POSTGRES_PASSWORD } }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BANK_WACHTWOORD
+            valueFrom: { secretKeyRef: { name: bank-api, key: SPRING_DATASOURCE_PASSWORD } }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SEED_WACHTWOORD
+            valueFrom: { secretKeyRef: { name: bank-seed, key: SPRING_DATASOURCE_PASSWORD } }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KEYCLOAK_WACHTWOORD
+            valueFrom: { secretKeyRef: { name: keycloak, key: KC_DB_PASSWORD } }
+  - it: maakt bij de eerste start de databases bank en keycloak aan, elk met een eigen gebruiker
+    documentSelector: { path: kind, value: ConfigMap }
+    asserts:
+      - matchRegex:
+          path: data["init.sh"]
+          pattern: CREATE DATABASE bank OWNER bank
+      - matchRegex:
+          path: data["init.sh"]
+          pattern: CREATE DATABASE keycloak OWNER keycloak
+      - matchRegex:
+          path: data["init.sh"]
+          pattern: CREATE ROLE bank_seed LOGIN

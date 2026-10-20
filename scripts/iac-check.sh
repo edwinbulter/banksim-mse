@@ -46,6 +46,19 @@ if [[ -n "$afwijkend" ]]; then
   exit 1
 fi
 
+stap "Geen geheimen in de chart: wachtwoorden en secrets alleen via secretKeyRef (ADR 0009)"
+# shellcheck disable=SC2016  # $naam is een yq-variabele, geen shellvariabele.
+letterlijk="$(printf '%s\n' "$manifests" | in_repo "$YQ" -N e '
+  select(.kind != null)
+  | .metadata.name as $naam
+  | .. | select(has("env")) | .env[]
+  | select((.name | test("(?i)password|secret|wachtwoord")) and has("value"))
+  | $naam + ": " + .name' -)"
+if [[ -n "$letterlijk" ]]; then
+  printf 'Letterlijk geheim in de chart:\n%s\n' "$letterlijk" >&2
+  exit 1
+fi
+
 stap "kubeconform (Kubernetes $KUBERNETES_VERSION)"
 printf '%s\n' "$manifests" | in_repo "$KUBECONFORM" -strict -summary -kubernetes-version "$KUBERNETES_VERSION" -
 

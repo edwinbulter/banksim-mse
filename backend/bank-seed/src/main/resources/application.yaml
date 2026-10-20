@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: bank-seed
+  main:
+    banner-mode: off
+    web-application-type: none
+  datasource:
+    # Wachtwoord uit het Secret bank-seed (SPRING_DATASOURCE_PASSWORD); alleen SELECT en INSERT (postgres-init).
+    url: jdbc:postgresql://postgres:5432/bank
+    username: bank_seed
+
+# Alleen het resultaat op stdout; de shell-driver leest de laatste regel als JSON (ADR 0003).
+logging:
+  level:
+    root: WARN
+
+banksim:
+  seed:
+    keycloak:
+      internal-url: http://keycloak:8080
+      realm: banksim-mse
+      client-id: bank-seed
+      client-secret: ${BANKSIM_SEED_CLIENT_SECRET}

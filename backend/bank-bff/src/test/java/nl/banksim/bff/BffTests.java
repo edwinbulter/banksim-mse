@@ -1,0 +1,127 @@
+package nl.banksim.bff;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import com.sun.net.httpserver.HttpServer;
+import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.util.UriComponentsBuilder;
+
+/** ADR 0008: de browser praat alleen met de BFF; die logt in bij Keycloak en stuurt /api door met het token. */
+@SpringBootTest(properties = {
+        "banksim.bff.public-url=https://bank-mse.localtest.me",
+        "banksim.bff.keycloak.public-url=https://auth-mse.localtest.me",
+        "banksim.bff.keycloak.internal-url=http://keycloak:8080",
+        "banksim.bff.keycloak.client-secret=geheim"})
+@AutoConfigureMockMvc
+class BffTests {
+
+    static final HttpServer BANK_API = nepBankApi();
+    static final List<String> AUTHORIZATION = new CopyOnWriteArrayList<>();
+    static final List<String> COOKIES = new CopyOnWriteArrayList<>();
+
+    @DynamicPropertySource
+    static void bankApi(DynamicPropertyRegistry properties) {
+        properties.add("banksim.bff.api-url", () -> "http://localhost:" + BANK_API.getAddress().getPort());
+    }
+
+    @Autowired
+    MockMvc mvc;
+
+    @Autowired
+    ClientRegistrationRepository registraties;
+
+    @BeforeEach
+    void leeg() {
+        AUTHORIZATION.clear();
+        COOKIES.clear();
+    }
+
+    @AfterAll
+    static void stop() {
+        BANK_API.stop(0);
+    }
+
+    @Test
+    void zonderLoginGeeftDeApi401() throws Exception {
+        mvc.perform(get("/api/rekeningen")).andExpect(status().isUnauthorized());
+        assertThat(AUTHORIZATION).isEmpty();
+    }
+
+    @Test
+    void inloggenBeginBijDePubliekeKeycloakUrlMetPkce() throws Exception {
+        String locatie = mvc.perform(get("/oauth2/authorization/keycloak"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+
+        var url = UriComponentsBuilder.fromUriString(locatie).build();
+        assertThat(url.getScheme() + "://" + url.getHost() + url.getPath())
+                .isEqualTo("https://auth-mse.localtest.me/realms/banksim-mse/protocol/openid-connect/auth");
+        assertThat(url.getQueryParams().getFirst("client_id")).isEqualTo("bank-bff");
+        assertThat(url.getQueryParams().getFirst("code_challenge_method")).isEqualTo("S256");
+        assertThat(url.getQueryParams().getFirst("redirect_uri"))
+                .isEqualTo("https://bank-mse.localtest.me/login/oauth2/code/keycloak");
+    }
+
+    @Test
+    void deVersieIsZonderLoginBereikbaar() throws Exception {
+        mvc.perform(get("/api/versie"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("{\"pad\":\"/api/versie\"}"));
+        assertThat(AUTHORIZATION).containsExactly("");
+    }
+
+    @Test
+    void naInloggenStuurtDeBffHetAccessTokenDoorEnGeenCookies() throws Exception {
+        var keycloak = registraties.findByRegistrationId("keycloak");
+        mvc.perform(get("/api/rekeningen")
+                        .cookie(new Cookie("JSESSIONID", "sessie"))
+                        // Het test-token van oauth2Login() heeft de waarde "access-token".
+                        .with(oauth2Login().clientRegistration(keycloak)))
+                .andExpect(status().isOk())
+                .andExpect(content().string("{\"pad\":\"/api/rekeningen\"}"));
+        assertThat(AUTHORIZATION).containsExactly("Bearer access-token");
+        assertThat(COOKIES).containsExactly("");
+    }
+
+    /** Geeft het pad terug en onthoudt welke Authorization- en Cookie-header binnenkwamen. */
+    private static HttpServer nepBankApi() {
+        try {
+            HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+            server.createContext("/", uitwisseling -> {
+                String authorization = uitwisseling.getRequestHeaders().getFirst("Authorization");
+                String cookie = uitwisseling.getRequestHeaders().getFirst("Cookie");
+                AUTHORIZATION.add(authorization == null ? "" : authorization);
+                COOKIES.add(cookie == null ? "" : cookie);
+                byte[] body = ("{\"pad\":\"" + uitwisseling.getRequestURI().getPath() + "\"}").getBytes(StandardCharsets.UTF_8);
+                uitwisseling.getResponseHeaders().add("Content-Type", "application/json");
+                uitwisseling.sendResponseHeaders(200, body.length);
+                uitwisseling.getResponseBody().write(body);
+                uitwisseling.close();
+            });
+            server.start();
+            return server;
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+}

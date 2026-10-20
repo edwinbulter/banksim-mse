@@ -29,14 +29,17 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Scenario | `e2e/specs/` (infra: `e2e/specs/infra/`) | Playwright: projecten `rest`, `chromium`, `firefox`, `webkit`; infra: `infra` |
 | DSL / drivers | `e2e/dsl/`, `e2e/drivers/{rest,ui,shell}/` | Via de scenario's, plus `npm --prefix e2e run typecheck` |
 | Domein | `backend/bank-domain` (zonder Spring) | JUnit, jqwik |
-| API | `backend/bank-api` | MockMvc of slicetest |
+| API | `backend/bank-api` | MockMvc of slicetest; repository met Testcontainers; ArchUnit |
+| BFF | `backend/bank-bff` | `@SpringBootTest` met MockMvc en een nep-`bank-api` (JDK-`HttpServer`) |
+| Testdata (seed-CLI) | `backend/bank-seed` | JUnit; Keycloak met `MockRestServiceServer`; database met Testcontainers |
+| Schema | `backend/bank-api/src/main/resources/db/migration` (Flyway) | Via de repositorytests van `bank-api` en `bank-seed` |
 | UI | `frontend/src/app` | Vitest |
 | Helm-chart | `deploy/banksim-mse/templates` | `deploy/banksim-mse/tests/*_test.yaml`, plus de namespacecheck in `scripts/iac-check.sh` |
 | Scripts | `deploy/scripts` | `deploy/scripts/test/*.bats`, shellcheck |
 | Pipeline | `.github/workflows/ci.yml` | actionlint |
 | ADR | `doc/adr/NNNN-titel.md` | – |
 
-**Doelomgeving:** alleen kubectl-context `kind-single-node` en namespace `banksim-mse`, op host `bank-mse.localtest.me` (ADR 0004). Er komen geen cluster-brede resources. Het origineel in namespace `banksim` blijft onaangeroerd. Daarnaast is verboden:
+**Doelomgeving:** alleen kubectl-context `kind-single-node` en namespace `banksim-mse`, op de hosts `bank-mse.localtest.me` en `auth-mse.localtest.me` (Keycloak) (ADR 0004, 0007). Er komen geen cluster-brede resources. Het origineel in namespace `banksim` blijft onaangeroerd. Daarnaast is verboden:
 - `kubectl edit` of `kubectl apply` met de hand;
 - destructieve scenario's (`@destructief`) buiten het CI-cluster `kind-banksim-mse-ci`;
 - geheimen in Git of in `values.yaml`.
@@ -50,6 +53,8 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 **Valkuilen**
 - `make e2e` test wat er op dat moment geïnstalleerd is. Na een codewijziging gebruik je `make acceptance`, en controleer je de versie.
 - `make install` bouwt de images met `-DskipTests`. Draai dus eerst `make commit-stage`. De rooktests in `install.sh` controleren alleen of er status 200 terugkomt.
+- `install.sh` maakt de Secrets met wachtwoorden één keer aan (ADR 0009). PostgreSQL zet ze alleen bij de eerste start op een lege PVC. Verwijder dus nooit los een Secret: gebruik `make uninstall`, dat de hele namespace met de PVC weghaalt.
+- De eerste installatie duurt langer: Keycloak start en importeert de realm.
 - De valkuilen van de tools (helm-unittest, yq, shellcheck, de webhook van ingress-nginx) staan in `.claude/skills/atdd/references/stack-helm-bats.md`.
 
 **Backlog en achtergrond**

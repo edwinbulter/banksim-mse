@@ -23,6 +23,6 @@ NEP
   run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
   [ "$status" -eq 0 ]
   ! grep -q '^docker build' "$AANROEPEN"
-  grep -q 'kind load docker-image --name single-node banksim-mse/bank-api:abc1234 banksim-mse/bank-web:abc1234' "$AANROEPEN"
+  grep -q 'kind load docker-image --name single-node banksim-mse/bank-api:abc1234 banksim-mse/bank-bff:abc1234 banksim-mse/bank-seed:abc1234 banksim-mse/bank-web:abc1234' "$AANROEPEN"
   grep -q 'helm .*upgrade --install banksim-mse .*--set imageTag=abc1234' "$AANROEPEN"
 }

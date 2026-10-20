@@ -55,9 +55,14 @@ export class Omgeving extends Stappen {
     return this.shell.helmRevisie(NAMESPACE, RELEASE);
   }
 
-  /** De resources van de release en hun pods; een herstart geeft nieuwe pod-uid's. */
+  /**
+   * De resources van de release, hun pods en de Secrets die install.sh aanmaakt (ADR 0009); een herstart geeft
+   * nieuwe pod-uid's, een nieuw wachtwoord een andere inhoud.
+   */
   async momentopname(): Promise<Momentopname> {
-    return maakMomentopname(await this.shell.objecten(['deployment,service,ingress,pod', '-n', NAMESPACE, '-l', LABEL]));
+    return maakMomentopname(
+      await this.shell.objecten(['deployment,statefulset,service,ingress,configmap,secret,pod', '-n', NAMESPACE, '-l', LABEL]),
+    );
   }
 
   async verwachtOngewijzigd(voor: Momentopname): Promise<void> {

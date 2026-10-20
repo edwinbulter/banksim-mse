@@ -1,0 +1,83 @@
+{
+  "realm": "banksim-mse",
+  "displayName": "BankSim-MSE",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "passwordPolicy": "length(12) and notUsername and notEmail",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 900,
+  "ssoSessionMaxLifespan": 28800,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["nl", "en"],
+  "defaultLocale": "nl",
+  "clients": [
+    {
+      "clientId": "bank-bff",
+      "name": "BankSim-MSE BFF",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${BFF_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": false,
+      "redirectUris": ["https://{{ .Values.hosts.bank }}/login/oauth2/code/keycloak"],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://{{ .Values.hosts.bank }}/"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience bank-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "bank-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ],
+      "defaultClientScopes": ["basic", "profile", "acr"],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "bank-seed",
+      "name": "BankSim-MSE testdata (ADR 0003)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${SEED_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": ["basic"]
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-bank-seed",
+      "enabled": true,
+      "serviceAccountClientId": "bank-seed",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
+    }
+  ]
+}

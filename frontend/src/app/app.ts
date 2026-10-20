@@ -1,14 +1,25 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs';
+import { catchError, map, of, throwError } from 'rxjs';
+import { Overzicht, type Rekening } from './overzicht';
 
-/** Walking skeleton: toont de versie van bank-api, als bewijs dat browser → ingress → API werkt. */
+/**
+ * De startpagina. Zonder login (de BFF geeft 401) een link naar de login van de BFF; daarna het overzicht (S1.1).
+ * De voettekst toont altijd de versie van bank-api.
+ */
 @Component({
   selector: 'app-root',
+  imports: [Overzicht],
   template: `
     <main>
       <h1>BankSim</h1>
+      @let overzicht = rekeningen();
+      @if (overzicht === 'niet-ingelogd') {
+        <a href="/oauth2/authorization/keycloak">Inloggen</a>
+      } @else if (overzicht) {
+        <app-overzicht [rekeningen]="overzicht" />
+      }
     </main>
     <footer>
       @if (versie(); as versie) {
@@ -18,9 +29,17 @@ import { map } from 'rxjs';
   `,
 })
 export class App {
+  private readonly http = inject(HttpClient);
+
   protected readonly versie = toSignal(
-    inject(HttpClient)
-      .get<{ versie: string }>('/api/versie')
-      .pipe(map((antwoord) => antwoord.versie)),
+    this.http.get<{ versie: string }>('/api/versie').pipe(map((antwoord) => antwoord.versie)),
+  );
+
+  protected readonly rekeningen = toSignal(
+    this.http.get<Rekening[]>('/api/rekeningen').pipe(
+      catchError((fout: HttpErrorResponse) =>
+        fout.status === 401 ? of('niet-ingelogd' as const) : throwError(() => fout),
+      ),
+    ),
   );
 }

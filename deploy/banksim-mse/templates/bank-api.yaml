@@ -39,6 +39,18 @@ spec:
           env:
             - name: BANKSIM_VERSIE
               value: {{ .Values.imageTag | quote }}
+            # ADR 0009; Flyway migreert bij het starten.
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/bank
+            - name: SPRING_DATASOURCE_USERNAME
+              value: bank
+            # ADR 0008: tokens van de realm; de sleutels intern ophalen, de issuer is de publieke URL.
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: https://{{ .Values.hosts.auth }}/realms/banksim-mse
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+              value: http://keycloak:8080/realms/banksim-mse/protocol/openid-connect/certs
+          envFrom:
+            - secretRef: { name: bank-api }
           ports:
             - name: http
               containerPort: 8080

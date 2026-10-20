@@ -6,6 +6,7 @@ templates:
   - templates/ingress.yaml
 tests:
   - it: luistert op een eigen host, naast het origineel op bank.localtest.me
+    documentIndex: 0
     asserts:
       - equal:
           path: spec.rules[0].host
@@ -16,23 +17,57 @@ tests:
       - equal:
           path: spec.ingressClassName
           value: nginx
-  - it: stuurt / naar bank-web en /api naar bank-api
+  - it: stuurt / naar bank-web
+    documentIndex: 0
     asserts:
       - contains:
           path: spec.rules[0].http.paths
           content:
             path: /
             pathType: Prefix
-            backend:
-              service:
-                name: bank-web
-                port: { name: http }
+            backend: { service: { name: bank-web, port: { name: http } } }
+  - it: stuurt /api, /oauth2, /login en /logout naar bank-bff, niet naar bank-api (ADR 0008)
+    documentIndex: 0
+    asserts:
       - contains:
           path: spec.rules[0].http.paths
           content:
             path: /api
             pathType: Prefix
-            backend:
-              service:
-                name: bank-api
-                port: { name: http }
+            backend: { service: { name: bank-bff, port: { name: http } } }
+      - contains:
+          path: spec.rules[0].http.paths
+          content:
+            path: /oauth2
+            pathType: Prefix
+            backend: { service: { name: bank-bff, port: { name: http } } }
+      - contains:
+          path: spec.rules[0].http.paths
+          content:
+            path: /login
+            pathType: Prefix
+            backend: { service: { name: bank-bff, port: { name: http } } }
+      - contains:
+          path: spec.rules[0].http.paths
+          content:
+            path: /logout
+            pathType: Prefix
+            backend: { service: { name: bank-bff, port: { name: http } } }
+      - notMatchRegex:
+          path: spec.rules[0].http.paths[*].backend.service.name
+          pattern: ^bank-api$
+  - it: stuurt auth-mse.localtest.me naar Keycloak (ADR 0007)
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: auth-mse.localtest.me
+      - equal:
+          path: spec.tls[0].hosts[0]
+          value: auth-mse.localtest.me
+      - contains:
+          path: spec.rules[0].http.paths
+          content:
+            path: /
+            pathType: Prefix
+            backend: { service: { name: keycloak, port: { name: http } } }

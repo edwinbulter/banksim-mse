@@ -6,7 +6,10 @@ release:
 templates:
   - templates/bank-api.yaml
   - templates/bank-web.yaml
+  - templates/bank-bff.yaml
   - templates/ingress.yaml
+  - templates/keycloak.yaml
+  - templates/postgres.yaml
 tests:
   - it: zet de namespace van de release op elke resource
     asserts:

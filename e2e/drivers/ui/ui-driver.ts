@@ -1,13 +1,19 @@
 import type { Page } from '@playwright/test';
-import type { BankDriver } from '../bank-driver';
+import type { BankDriver, RekeningInOverzicht } from '../bank-driver';
+import { InlogPagina } from './inlog-pagina';
+import { OverzichtPagina } from './overzicht-pagina';
 import { StartPagina } from './start-pagina';
 
 /** Spreekt BankSim aan via de browser, met page objects per scherm. */
 export class UiDriver implements BankDriver {
   private readonly start: StartPagina;
+  private readonly inlog: InlogPagina;
+  private readonly overzicht: OverzichtPagina;
 
   constructor(page: Page) {
     this.start = new StartPagina(page);
+    this.inlog = new InlogPagina(page);
+    this.overzicht = new OverzichtPagina(page);
   }
 
   async openStartpagina(): Promise<void> {
@@ -16,5 +22,19 @@ export class UiDriver implements BankDriver {
 
   async versie(): Promise<string> {
     return this.start.versie();
+  }
+
+  async logIn(gebruikersnaam: string, wachtwoord: string): Promise<void> {
+    await this.start.open();
+    await this.start.kiesInloggen();
+    await this.inlog.logIn(gebruikersnaam, wachtwoord);
+  }
+
+  async openOverzicht(): Promise<void> {
+    await this.overzicht.wachtTotGeladen();
+  }
+
+  async rekeningenInOverzicht(): Promise<RekeningInOverzicht[]> {
+    return this.overzicht.rekeningen();
   }
 }

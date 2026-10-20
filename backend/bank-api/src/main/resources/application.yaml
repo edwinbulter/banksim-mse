@@ -4,6 +4,16 @@ spring:
   threads:
     virtual:
       enabled: true
+  # URL, gebruiker en wachtwoord komen uit de chart en het Secret bank-api (ADR 0009). Flyway migreert bij het starten.
+  datasource:
+    hikari:
+      connection-timeout: 3000
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # issuer-uri en jwk-set-uri komen uit de chart; alleen tokens die de BFF voor bank-api kreeg (ADR 0008).
+          audiences: bank-api
 
 server:
   port: 8080

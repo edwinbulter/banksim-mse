@@ -1,0 +1,64 @@
+{{- /* ADR 0008: de BFF doet de OIDC-login en stuurt /api door naar bank-api met het token uit de sessie. */}}
+{{- $ctx := dict "root" . "name" "bank-bff" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: bank-bff
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "banksim-mse.selector" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bank-bff
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+spec:
+  # De sessie staat in het geheugen; meer replica's vraagt een nieuwe ADR.
+  replicas: 1
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "banksim-mse.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "banksim-mse.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: bank-bff
+          image: {{ include "banksim-mse.image" (dict "root" . "key" "bff") }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: BANKSIM_PUBLIC_URL
+              value: https://{{ .Values.hosts.bank }}
+            - name: BANKSIM_KEYCLOAK_PUBLIC_URL
+              value: https://{{ .Values.hosts.auth }}
+            - name: BANKSIM_KEYCLOAK_INTERNAL_URL
+              value: http://keycloak:8080
+            - name: BANKSIM_API_URL
+              value: http://bank-api:8080
+          envFrom:
+            - secretRef: { name: bank-bff }
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 8081
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources.bff | nindent 12 }}

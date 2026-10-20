@@ -1,0 +1,111 @@
+{{- /* ADR 0009: één PostgreSQL met de databases bank en keycloak. Nog zonder TLS (CFR zero trust). */}}
+{{- $ctx := dict "root" . "name" "postgres" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+data:
+  # Draait alleen bij de eerste start, op een lege PVC. De wachtwoorden komen als psql-variabelen uit de env.
+  init.sh: |
+    set -euo pipefail
+    psql -v ON_ERROR_STOP=1 -U postgres \
+      -v bank_ww="$BANK_WACHTWOORD" -v seed_ww="$SEED_WACHTWOORD" -v keycloak_ww="$KEYCLOAK_WACHTWOORD" <<'SQL'
+    CREATE ROLE bank LOGIN PASSWORD :'bank_ww';
+    CREATE ROLE bank_seed LOGIN PASSWORD :'seed_ww';
+    CREATE ROLE keycloak LOGIN PASSWORD :'keycloak_ww';
+    CREATE DATABASE bank OWNER bank;
+    CREATE DATABASE keycloak OWNER keycloak;
+    REVOKE ALL ON DATABASE bank FROM PUBLIC;
+    REVOKE ALL ON DATABASE keycloak FROM PUBLIC;
+    GRANT CONNECT ON DATABASE bank TO bank_seed;
+    \connect bank
+    -- bank-seed mag lezen en toevoegen in de tabellen die bank-api (Flyway) later aanmaakt (ADR 0003).
+    ALTER DEFAULT PRIVILEGES FOR ROLE bank IN SCHEMA public GRANT SELECT, INSERT ON TABLES TO bank_seed;
+    ALTER DEFAULT PRIVILEGES FOR ROLE bank IN SCHEMA public GRANT USAGE ON SEQUENCES TO bank_seed;
+    SQL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "banksim-mse.selector" $ctx | nindent 4 }}
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+spec:
+  serviceName: postgres
+  replicas: 1
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "banksim-mse.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "banksim-mse.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.images.postgres }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: postgres, key: POSTGRES_PASSWORD } }
+            - name: BANK_WACHTWOORD
+              valueFrom: { secretKeyRef: { name: bank-api, key: SPRING_DATASOURCE_PASSWORD } }
+            - name: SEED_WACHTWOORD
+              valueFrom: { secretKeyRef: { name: bank-seed, key: SPRING_DATASOURCE_PASSWORD } }
+            - name: KEYCLOAK_WACHTWOORD
+              valueFrom: { secretKeyRef: { name: keycloak, key: KC_DB_PASSWORD } }
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "/var/run/postgresql", "-U", "postgres"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-h", "/var/run/postgresql", "-U", "postgres"]
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.resources.postgres | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.postgres.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage }}

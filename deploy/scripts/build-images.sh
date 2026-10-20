@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bouwt de images van BankSim-MSE met de gegeven tag: bank-api met Jib, bank-web met Docker.
+# Bouwt de images van BankSim-MSE met de gegeven tag: bank-api, bank-bff en bank-seed met Jib, bank-web met Docker.
 # install.sh gebruikt dit lokaal; in CI bouwt de commit stage de images één keer (ADR 0002).
 #
 #   build-images.sh <tag> [--platform linux/amd64|linux/arm64]
@@ -29,7 +29,7 @@ fi
 
 info "Images bouwen ($tag, $platform)"
 "$REPO_ROOT/backend/mvnw" -q -B -ntp -f "$REPO_ROOT/backend/pom.xml" \
-  -pl bank-api -am package jib:dockerBuild \
+  -pl bank-api,bank-bff,bank-seed -am package jib:dockerBuild \
   -DskipTests -Dimage.tag="$tag" -Djib.from.platforms="$platform"
 docker build -q --platform "$platform" -t "banksim-mse/bank-web:$tag" "$REPO_ROOT/frontend" >/dev/null
-ok "Images gebouwd: banksim-mse/bank-api:$tag, banksim-mse/bank-web:$tag"
+ok "Images gebouwd: banksim-mse/{bank-api,bank-bff,bank-seed,bank-web}:$tag"

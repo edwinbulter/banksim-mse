@@ -25,3 +25,29 @@ tests:
           content:
             name: BANKSIM_VERSIE
             value: abc1234
+  - it: gebruikt de database bank met het wachtwoord uit het Secret bank-api (ADR 0009)
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: SPRING_DATASOURCE_URL, value: jdbc:postgresql://postgres:5432/bank }
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value: [{ secretRef: { name: bank-api } }]
+  - it: controleert tokens van realm banksim-mse, met de sleutels via de interne Keycloak-URL (ADR 0008)
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+            value: https://auth-mse.localtest.me/realms/banksim-mse
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+            value: http://keycloak:8080/realms/banksim-mse/protocol/openid-connect/certs

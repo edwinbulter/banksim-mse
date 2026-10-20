@@ -1,4 +1,5 @@
 {{- /* Nog zonder eigen certificaat: ingress-nginx toont zijn standaardcertificaat (eigen CA volgt in CFR zero trust). */}}
+{{- /* ADR 0008: de browser praat alleen met de BFF; bank-api is van buiten niet bereikbaar. */}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -20,9 +21,36 @@ spec:
               service:
                 name: bank-web
                 port: { name: http }
-          - path: /api
+          {{- range list "/api" "/oauth2" "/login" "/logout" }}
+          - path: {{ . }}
             pathType: Prefix
             backend:
               service:
-                name: bank-api
+                name: bank-bff
+                port: { name: http }
+          {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" (dict "root" . "name" "auth") | nindent 4 }}
+  annotations:
+    # Keycloak stuurt grote headers (cookies, redirects met tokens).
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts: [{{ .Values.hosts.auth }}]
+  rules:
+    - host: {{ .Values.hosts.auth }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
                 port: { name: http }

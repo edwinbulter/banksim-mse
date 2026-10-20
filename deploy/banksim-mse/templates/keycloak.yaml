@@ -1,0 +1,110 @@
+{{- /* ADR 0007: Keycloak op hosts.auth, realm banksim-mse. Intern over HTTP; TLS en mTLS volgen in CFR zero trust. */}}
+{{- $ctx := dict "root" . "name" "keycloak" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+data:
+  # ${...} vervangt Keycloak bij de import door omgevingsvariabelen uit Secrets.
+  realm-banksim-mse.json: |
+    {{- tpl (.Files.Get "files/realm-banksim-mse.json") . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "banksim-mse.selector" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "banksim-mse.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "banksim-mse.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: keycloak
+          image: {{ .Values.images.keycloak }}
+          imagePullPolicy: IfNotPresent
+          args: [start, --import-realm]
+          env:
+            # Eén replica: geen Infinispan-cluster.
+            - name: KC_CACHE
+              value: local
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: jdbc:postgresql://postgres:5432/keycloak
+            - name: KC_DB_USERNAME
+              value: keycloak
+            - name: KC_DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: keycloak, key: KC_DB_PASSWORD } }
+            # Publiek via de Ingress; de BFF, bank-api en bank-seed praten intern met http://keycloak:8080.
+            - name: KC_HOSTNAME
+              value: https://{{ .Values.hosts.auth }}
+            - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+              value: "true"
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: admin
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: keycloak, key: KC_BOOTSTRAP_ADMIN_PASSWORD } }
+            - name: BFF_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: bank-bff, key: BANKSIM_BFF_CLIENT_SECRET } }
+            - name: SEED_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: bank-seed, key: BANKSIM_SEED_CLIENT_SECRET } }
+            - name: JAVA_OPTS_KC_HEAP
+              value: -XX:MaxRAMPercentage=70
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          startupProbe:
+            httpGet: { path: /health/started, port: management }
+            periodSeconds: 5
+            failureThreshold: 120
+          livenessProbe:
+            httpGet: { path: /health/live, port: management }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health/ready, port: management }
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources.keycloak | nindent 12 }}
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm

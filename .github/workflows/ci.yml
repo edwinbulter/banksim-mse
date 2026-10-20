@@ -81,7 +81,10 @@ jobs:
       - name: Images bouwen
         run: deploy/scripts/build-images.sh "${GITHUB_SHA::7}" --platform linux/amd64
       - name: Images bewaren voor de acceptance stage
-        run: docker save -o images.tar "banksim-mse/bank-api:${GITHUB_SHA::7}" "banksim-mse/bank-web:${GITHUB_SHA::7}"
+        run: |
+          tag="${GITHUB_SHA::7}"
+          docker save -o images.tar "banksim-mse/bank-api:$tag" "banksim-mse/bank-bff:$tag" \
+            "banksim-mse/bank-seed:$tag" "banksim-mse/bank-web:$tag"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: images
