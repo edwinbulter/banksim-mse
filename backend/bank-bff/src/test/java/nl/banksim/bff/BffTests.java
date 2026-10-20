@@ -38,6 +38,7 @@ class BffTests {
     static final HttpServer BANK_API = nepBankApi();
     static final List<String> AUTHORIZATION = new CopyOnWriteArrayList<>();
     static final List<String> COOKIES = new CopyOnWriteArrayList<>();
+    static final List<String> UPGRADES = new CopyOnWriteArrayList<>();
 
     @DynamicPropertySource
     static void bankApi(DynamicPropertyRegistry properties) {
@@ -54,6 +55,7 @@ class BffTests {
     void leeg() {
         AUTHORIZATION.clear();
         COOKIES.clear();
+        UPGRADES.clear();
     }
 
     @AfterAll
@@ -103,15 +105,30 @@ class BffTests {
         assertThat(COOKIES).containsExactly("");
     }
 
-    /** Geeft het pad terug en onthoudt welke Authorization- en Cookie-header binnenkwamen. */
+    /**
+     * Zonder vaste versie vraagt de HTTP-client van de JDK bij http:// om een upgrade naar HTTP/2 (h2c). bank-api
+     * spreekt HTTP/1.1; de upgradepoging maakte BffTests in CI af en toe rood (run 39489430674).
+     */
+    @Test
+    void stuurtDeApiDoorAlsHttp11ZonderUpgrade() throws Exception {
+        mvc.perform(get("/api/versie")).andExpect(status().isOk());
+        assertThat(UPGRADES).containsExactly("");
+    }
+
+    /** Geeft het pad terug en onthoudt welke Authorization-, Cookie- en Upgrade-header binnenkwamen. */
     private static HttpServer nepBankApi() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
             server.createContext("/", uitwisseling -> {
                 String authorization = uitwisseling.getRequestHeaders().getFirst("Authorization");
                 String cookie = uitwisseling.getRequestHeaders().getFirst("Cookie");
+                String upgrade = uitwisseling.getRequestHeaders().getFirst("Upgrade");
+                // Eerst de (lege, chunked) body lezen, zoals een echte server: antwoorden terwijl de client nog verstuurt,
+                // is een race die deze test niet hoort te testen.
+                uitwisseling.getRequestBody().readAllBytes();
                 AUTHORIZATION.add(authorization == null ? "" : authorization);
                 COOKIES.add(cookie == null ? "" : cookie);
+                UPGRADES.add(upgrade == null ? "" : upgrade);
                 byte[] body = ("{\"pad\":\"" + uitwisseling.getRequestURI().getPath() + "\"}").getBytes(StandardCharsets.UTF_8);
                 uitwisseling.getResponseHeaders().add("Content-Type", "application/json");
                 uitwisseling.sendResponseHeaders(200, body.length);

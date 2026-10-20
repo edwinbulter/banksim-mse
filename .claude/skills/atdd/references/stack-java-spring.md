@@ -40,6 +40,7 @@ class VersieControllerTests {
 ## Valkuilen (echt opgetreden)
 
 - **Testcontainers met een image op digest:** `new PostgreSQLContainer("postgres:18.6-alpine@sha256:…")` faalt, omdat Testcontainers de naam niet als compatibel herkent. Gebruik `DockerImageName.parse("…@sha256:…").asCompatibleSubstituteFor("postgres")`.
+- **Spring Cloud Gateway (server-webmvc) en HTTP/2:** de gateway gebruikt de HTTP-client van de JDK. Die vraagt bij `http://` standaard om een upgrade naar h2c (`Upgrade: h2c`). Tegen een backend die HTTP/1.1 spreekt, gaf dat in CI af en toe een `NullPointerException` in `Http1Exchange`. Zet de client vast op HTTP/1.1 met een `ClientHttpRequestFactory`-bean (`JdkClientHttpRequestFactory` met `HttpClient.Version.HTTP_1_1`), en test met een nep-backend dat er geen `Upgrade`-header binnenkomt.
 
 ## Tips
 
