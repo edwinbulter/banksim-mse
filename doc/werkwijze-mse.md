@@ -53,7 +53,22 @@ Farley verdeelt engineering in twee pijlers. Beide vertalen zich direct naar hoe
 - Package-by-feature (`account`, `transaction`, `payment`, `savings`, …); modulegrenzen worden bewaakt door tests, niet door afspraken.
 - Deploybaarheid is ook ontwerpdruk: de app moet vanaf dag 1 in kind draaien, dus configuratie, migraties en opstartgedrag ontwerp je mee.
 
+**Slices, stories en scenario's.** Volgens Farley is een goede user story een verticale slice. Hij beschrijft waarde voor een gebruiker, niet een technische taak. Hij is af als zijn acceptatietests in de pipeline slagen. In BankSim-MSE hangen de begrippen zo samen:
+
+| Begrip | Wat het is | Waar het staat |
+| --- | --- | --- |
+| **Slice** | Een leverstap: na afloop gedeployed en bruikbaar | Hoofdstuk 7 |
+| **User story** | Wie wil wat, en waarom: "Als *rol* wil ik *iets*, zodat *waarde*". Een slice heeft er één of meer | Hoofdstuk 7, onder de slice, met een ID `S<slice>.<n>` |
+| **Scenario** | Een concreet voorbeeld (Gegeven, Als, Dan). Samen zijn de scenario's de acceptatiecriteria van de story | De spec in `e2e/specs/` |
+
+- De storytekst staat alleen in hoofdstuk 7. De specs kopiëren hem niet. Anders ontstaat een tweede beschrijving die kan verouderen (hoofdstuk 12).
+- De rollen komen uit het FO van het origineel: **klant** en **beheerder**.
+- Niet alles is een story. Het walking skeleton (stap 0) en de cross-functional requirements leveren geen gebruikerswaarde. Ze krijgen een uitvoerbare bewering, geen "Als ontwikkelaar wil ik …".
+- Een korte toets voor een story is INVEST (Bill Wake): Independent, Negotiable, Valuable, Estimable, Small en Testable. "Testable" betekent hier: er is minstens één scenario dat rood kan zijn.
+
 ## 3. Stap 0 – Walking skeleton en deployment pipeline
+
+> Geen user story. Het walking skeleton levert geen gebruikerswaarde. Het bewijst dat bouwen, testen en installeren werken, zodat elke story daarna meteen naar productie kan (zie hoofdstuk 2).
 
 Voordat er één bankfunctie bestaat, bouw je het dunste mogelijke systeem dat van begin tot eind werkt én automatisch wordt getest en gedeployed. Alles wat daarna komt, wordt in dit skelet ingeschoven.
 
@@ -341,6 +356,7 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 
 Elke slice is een verticaal stuk functionaliteit dat na afloop gedeployed en bruikbaar is. Per slice staat beschreven:
 
+- **User story** – welke gebruikersbehoefte de slice invult (zie hoofdstuk 2). Een slice zonder gebruikerswaarde zegt dat expliciet.
 - **Voorbeelden** – scenario's als Playwright-specs, afgeleid uit het FO.
 - **Binnenste lus** – de units die je naar verwachting test-first bouwt.
 - **ADR's** – beslissingen die deze slice afdwingt.
@@ -367,7 +383,32 @@ flowchart LR
     S11 --> CFR["CFR-slices:<br/>zero trust, resilience,<br/>rate limiting, supply chain"]
 ```
 
+**Stories per slice.** De stories zijn voorstellen. De eigenaar van het product stelt ze vast, net als de scenario's.
+
+| Slice | Story | Rol | Spec(s) | Opmerking |
+| --- | --- | --- | --- | --- |
+| 0 Skelet | geen user story | – | `skelet.spec.ts`, `infra/installatie.spec.ts` | Walking skeleton: bewijst dat bouwen, testen en installeren werkt |
+| 1 Overzicht | S1.1 Betaalrekening met saldo na inloggen; S1.2 Ook de spaarrekening | klant | `overzicht.spec.ts` | Inloggen hoort sinds ADR 0007 en 0008 bij S1.1 |
+| 2 Transactielijst | S2.1 Transacties per datum; S2.2 Toon meer | klant | `betaalrekening.spec.ts` | |
+| 3 Simulatiedatum | S3.1 Bank op een gekozen datum | beheerder | `simulatiedatum.spec.ts` | Enabling slice: het scherm komt pas in S10.2 |
+| 4 Uitklapdetails | S2.3 Details van een transactie | klant | `betaalrekening.spec.ts` | Breidt de story van slice 2 uit |
+| 5 Zoeken | S5.1 Zoeken in transacties | klant | `zoeken.spec.ts` | |
+| 6 Inloggen en rollen | S6.1 Alleen eigen rekeningen; S6.2 Uitloggen | klant | `inloggen.spec.ts`, `toegang.spec.ts` | Kleiner geworden: het inloggen zelf zit in S1.1 |
+| 7 Betalen | S7.1 Betalen aan een contact | klant | `betalen.spec.ts` | Dubbel verzonden betaling is een CFR |
+| 8 Spaarrekening | S8.1 Rente op de spaarrekening | klant | `spaarrekening.spec.ts` | |
+| 9 Overschrijven | S9.1 Overschrijven tussen eigen rekeningen | klant | `overschrijven.spec.ts` | |
+| 10 Admin | S10.1 Alleen-lezen inzage; S10.2 Simulatiedatum in een scherm | beheerder | `beheer.spec.ts` | S10.2 maakt S3.1 af |
+| 11 Realistische data | S11.1 Demo-data na installatie | demonstrator (open) | `infra/huishoudens.spec.ts` | Nieuwe rol; staat niet in het FO |
+| CFR-slices | geen user story | – | zie de CFR-tabel | Een eis voor de hele applicatie, met een fitness function |
+
 ### Slice 1 – Overzicht met saldo
+
+> **S1.1** Als klant wil ik na het inloggen mijn betaalrekening met saldo zien, zodat ik weet hoeveel geld ik heb.
+>
+> **S1.2** Als klant wil ik in het overzicht ook mijn spaarrekening met saldo zien, zodat ik al mijn geld bij elkaar zie.
+>
+> Acceptatiecriteria: de scenario's in `overzicht.spec.ts`. Door ADR 0007 en 0008 hoort het inloggen bij S1.1. Open: blijft S1.2 in deze slice, of schuift hij door naar slice 8?
+
 
 De kleinste waardevolle functie: een klant ziet de eigen rekeningen met saldo. Er is nog geen login; de API gebruikt een vaste identiteit achter een interface `IngelogdeGebruiker`, zodat inloggen later alleen een nieuwe implementatie is.
 
@@ -396,6 +437,13 @@ test('Klant ziet betaal- en spaarrekening met saldo', async ({ bank }) => {
 - **Origineel:** `bank-domain/geld/Money`, `rekening/Iban`, `account/*`, `frontend/klant/overzicht`.
 
 ### Slice 2 – Transactielijst van de betaalrekening
+
+> **S2.1** Als klant wil ik de transacties van mijn betaalrekening zien, per datum en van nieuw naar oud, zodat ik zie waar mijn geld heen gaat en vandaan komt.
+>
+> **S2.2** Als klant wil ik een lange transactielijst in porties van 50 zien, met "Toon meer", zodat de lijst snel laadt.
+>
+> Acceptatiecriteria: de scenario's in `betaalrekening.spec.ts`.
+
 
 ```ts
 // e2e/specs/betaalrekening.spec.ts
@@ -434,6 +482,11 @@ In de REST driver betekent "Toon meer" de volgende pagina met `nextCursor`; in d
 
 ### Slice 3 – Simulatiedatum
 
+> **S3.1** Als beheerder wil ik de bank op een gekozen datum laten draaien, zodat ik een situatie in het verleden of de toekomst kan laten zien.
+>
+> Acceptatiecriteria: de scenario's in `simulatiedatum.spec.ts`. Dit is een *enabling slice*. De beheerder heeft pas in slice 10 een scherm (S10.2). Tot dan zet de DSL de datum via de API en zie je het effect bij de klant.
+
+
 ```ts
 // e2e/specs/simulatiedatum.spec.ts
 test.describe('Simulatiedatum', { tag: '@simulatiedatum' }, () => {
@@ -471,6 +524,11 @@ test.describe('Simulatiedatum', { tag: '@simulatiedatum' }, () => {
 
 ### Slice 4 – Uitklapdetails
 
+> **S2.3** Als klant wil ik een transactie kunnen uitklappen, zodat ik het type, de tegenpartij en de data zie.
+>
+> Acceptatiecriteria: de uitklapscenario's in `betaalrekening.spec.ts`. Deze slice breidt de story van slice 2 uit. Daarom heeft hij ID S2.3 en geen eigen nummer.
+
+
 ```ts
 // e2e/specs/betaalrekening.spec.ts (vervolg)
 test('Details van een incasso', async ({ bank }) => {
@@ -501,6 +559,11 @@ test('Betaalautomaat zonder tegen-IBAN', async ({ bank }) => {
 - **Origineel:** `domain/transactie/*`, `e2e/tests/betaalrekening.spec.ts` (uitklappen).
 
 ### Slice 5 – Zoeken in transacties
+
+> **S5.1** Als klant wil ik in mijn transacties zoeken op tekst, IBAN, bedrag, type en richting, zodat ik een betaling snel terugvind.
+>
+> Acceptatiecriteria: de scenario's in `zoeken.spec.ts`, ook het ongeldige bedragbereik en het wissen van het formulier.
+
 
 Voorbeeldtabellen zijn gewoon een lijst in TypeScript met een test per regel.
 
@@ -547,6 +610,13 @@ test('Zoekformulier openen en wissen', { tag: '@ui' }, async ({ bank }) => {
 
 ### Slice 6 – Inloggen en rollen
 
+> **S6.1** Als klant wil ik alleen mijn eigen rekeningen kunnen zien, zodat mijn gegevens privé blijven.
+>
+> **S6.2** Als klant wil ik kunnen uitloggen, zodat een ander op dit apparaat niet bij mijn rekeningen kan.
+>
+> Acceptatiecriteria: de scenario's in `inloggen.spec.ts` en `toegang.spec.ts`. Het inloggen zelf zit sinds ADR 0007 en 0008 in S1.1. Open: "Verkeerd wachtwoord" wordt een criterium van S1.1 of van S6.1.
+
+
 Nu er straks een tweede klant (de ontvanger van een betaling) en een admin bij komen, moet het systeem weten wie er is ingelogd. Dit is het moment voor identiteit, niet eerder.
 
 ```ts
@@ -587,6 +657,11 @@ test('Uitloggen', async ({ bank }) => {
 - **Origineel:** `bank-bff/*`, `bank-api/security/*`, `deploy/banksim/files/realm-banksim.json`, `e2e/tests/auth.setup.ts`, `e2e/tests/inloggen.spec.ts`, `e2e/tests/toegang.spec.ts`.
 
 ### Slice 7 – Betalen
+
+> **S7.1** Als klant wil ik geld overmaken naar een van mijn contacten, zodat ik mijn rekeningen kan betalen.
+>
+> Acceptatiecriteria: de scenario's in `betalen.spec.ts`. Alleen naar contacten, nooit rood, ook niet door een latere boeking. "Dubbel verzonden betaling wordt één keer geboekt" is geen gebruikerswens maar een betrouwbaarheidseis, dus een CFR in deze slice.
+
 
 ```ts
 // e2e/specs/betalen.spec.ts
@@ -659,6 +734,11 @@ Werk deze scenario's **één voor één** af; de rest staat op `@wip`. Het vierd
 
 ### Slice 8 – Spaarrekening en rente
 
+> **S8.1** Als klant wil ik maandelijks rente op mijn spaarrekening krijgen en de lopende rente zien, zodat ik weet wat mijn spaargeld oplevert.
+>
+> Acceptatiecriteria: de scenario's in `spaarrekening.spec.ts`.
+
+
 ```ts
 // e2e/specs/spaarrekening.spec.ts
 test.describe('Spaarrekening en rente', { tag: '@simulatiedatum' }, () => {
@@ -697,6 +777,11 @@ De bedragen in de voorbeelden bereken je vooraf met de hand of met een spreadshe
 - **Origineel:** `domain/rente/RenteCalculator`, `savings/RenteService`, `account/LopendeRente`, `e2e/tests/spaarrekening.spec.ts`.
 
 ### Slice 9 – Overschrijven (inleggen en opnemen)
+
+> **S9.1** Als klant wil ik geld overschrijven tussen mijn betaal- en spaarrekening, zodat ik kan sparen en weer kan opnemen.
+>
+> Acceptatiecriteria: de scenario's in `overschrijven.spec.ts`, ook de rentecorrectie bij een opname in het verleden.
+
 
 ```ts
 // e2e/specs/overschrijven.spec.ts
@@ -741,6 +826,13 @@ test('Opname in het verleden corrigeert de latere rente', { tag: '@simulatiedatu
 
 ### Slice 10 – Admin
 
+> **S10.1** Als beheerder wil ik alle rekeninghouders en hun transacties alleen-lezen bekijken, zodat ik vragen kan beantwoorden zonder iets te veranderen.
+>
+> **S10.2** Als beheerder wil ik de simulatiedatum in een scherm zetten, zodat ik daarvoor geen API nodig heb. Dit maakt S3.1 af.
+>
+> Acceptatiecriteria: de scenario's in `beheer.spec.ts`, ook "Klant kan niet bij beheer".
+
+
 ```ts
 // e2e/specs/beheer.spec.ts
 test('Admin komt na inloggen op het beheerscherm', async ({ bank }) => {
@@ -782,6 +874,11 @@ In de REST driver betekent `verwachtAlleenLezen` dat `POST /api/payments` en `/a
 
 ### Slice 11 – Realistische data
 
+> **S11.1** Als demonstrator wil ik na de installatie 10 huishoudens met 5 jaar historie, zodat ik BankSim zonder voorbereiding kan laten zien.
+>
+> Acceptatiecriteria: `infra/huishoudens.spec.ts`. Open: "demonstrator" is een nieuwe rol, die niet in het FO staat. Bevestigen of herformuleren.
+
+
 Tot nu toe maakten de scenario's hun eigen data via de seed-CLI. Een demo met 10 huishoudens en 5 jaar historie is een eigen gebruikersbehoefte, en krijgt dus een eigen slice.
 
 ```ts
@@ -801,6 +898,9 @@ test('Na installatie zijn er 10 huishoudens met historie', { tag: '@installatie'
 - **Origineel:** `bank-datagen/*`, `deploy/scripts/reset-data.sh`.
 
 ### Cross-functional requirements als slices
+
+> Geen user story. Elke CFR is een eis voor de hele applicatie, met een uitvoerbare bewering. Waar het kan, koppel je hem aan de story die het risico relevant maakt.
+
 
 Niet-functionele eisen uit het TO (zero trust, OWASP, resilience) zijn geen fase aan het eind, maar ook slices: elk met een uitvoerbare bewering die faalt zolang de eis niet gehaald is. Plan ze tussen de functionele slices zodra het risico relevant wordt; de volgorde hieronder is een voorstel.
 
@@ -1069,30 +1169,30 @@ Deze regels zijn, samen met de double loop en het vierlaagse model, vastgelegd a
 
 Waar komt elk onderdeel van de originele BankSim terug?
 
-| Origineel | Nieuw: slice | Spec in `e2e/specs/` | ADR(s) |
-| --- | --- | --- | --- |
-| FO Inloggen en Overzicht | 1, 6 | `overzicht.spec.ts`, `inloggen.spec.ts` | BigDecimal, berekend saldo, Keycloak, BFF |
-| FO Betaalrekening scherm | 2, 4 | `betaalrekening.spec.ts` | Keyset-paginering, `JdbcClient` |
-| FO Zoeken in transacties | 5 | `zoeken.spec.ts` | Zoeken met `pg_trgm` |
-| FO Betalen scherm | 7 | `betalen.spec.ts` | Grootboek, nooit rood, idempotency |
-| FO Spaarrekening scherm | 8 | `spaarrekening.spec.ts` | — |
-| FO Overschrijven scherm | 9 | `overschrijven.spec.ts` | Rentecorrectie via event |
-| FO Admin scherm + simulatiedatum | 3, 10 | `simulatiedatum.spec.ts`, `beheer.spec.ts` | `SimulationClock`, rolafhankelijke routes, audit log |
-| FO Datamodel en fake data | 1, 2, 7, 11 | `infra/huishoudens.spec.ts` | Deterministische generator |
-| TO §3 Backend-modules, REST API | 1–10 | — | Contract-first OpenAPI, Spring Modulith |
-| TO §4 Datamodel | 2, 7 | — | Grootboek, berekend saldo |
-| TO §5 Geld en BigDecimal | 1 | — | BigDecimal |
-| TO §6 Overboekingen | 7, 9 | `betalen.spec.ts`, `overschrijven.spec.ts` | Grootboek, nooit rood, idempotency |
-| TO §7 Rente | 8, 9 | `spaarrekening.spec.ts` | Rentecorrectie via event |
-| TO §8 Simulatiedatum | 3 | `simulatiedatum.spec.ts` | `SimulationClock` |
-| TO §9 Fake data-generator | 11 | `infra/huishoudens.spec.ts` | Deterministische generator |
-| TO §10 Security en zero trust | 6, CFR | `inloggen.spec.ts`, `toegang.spec.ts` | BFF, mTLS, NetworkPolicies |
-| TO §11 OWASP Top 10 | per slice, CFR | — | — |
-| TO §12 Resilience | CFR | `storing.spec.ts` | Migraties als Job, circuit breaker |
-| TO §13 Teststrategie | doorlopend | — | — |
-| TO §14 Playwright e2e | doorlopend (alle drivers) | alle | Playwright met interne DSL (ADR 0005) |
-| TO §15 Deployment op kind | 0, 1, 6, 11, CFR (hoofdstuk 9) | `skelet.spec.ts`, `infra/installatie.spec.ts`, `infra/upgrade.spec.ts`, `infra/netwerk.spec.ts` | Pipeline en kind, installatie in `banksim-mse` (namespace `banksim` → `banksim-mse`, hosts `bank`/`auth` → `bank-mse`/`auth-mse`) |
-| TO §16 Build en CI | 0, CFR | — | Pipeline, supply chain |
+| Origineel | Nieuw: slice | Story | Spec in `e2e/specs/` | ADR(s) |
+| --- | --- | --- | --- | --- |
+| FO Inloggen en Overzicht | 1, 6 | S1.1, S1.2, S6.1, S6.2 | `overzicht.spec.ts`, `inloggen.spec.ts` | BigDecimal, berekend saldo, Keycloak, BFF |
+| FO Betaalrekening scherm | 2, 4 | S2.1–S2.3 | `betaalrekening.spec.ts` | Keyset-paginering, `JdbcClient` |
+| FO Zoeken in transacties | 5 | S5.1 | `zoeken.spec.ts` | Zoeken met `pg_trgm` |
+| FO Betalen scherm | 7 | S7.1 | `betalen.spec.ts` | Grootboek, nooit rood, idempotency |
+| FO Spaarrekening scherm | 8 | S8.1 | `spaarrekening.spec.ts` | — |
+| FO Overschrijven scherm | 9 | S9.1 | `overschrijven.spec.ts` | Rentecorrectie via event |
+| FO Admin scherm + simulatiedatum | 3, 10 | S3.1, S10.1, S10.2 | `simulatiedatum.spec.ts`, `beheer.spec.ts` | `SimulationClock`, rolafhankelijke routes, audit log |
+| FO Datamodel en fake data | 1, 2, 7, 11 | S11.1 | `infra/huishoudens.spec.ts` | Deterministische generator |
+| TO §3 Backend-modules, REST API | 1–10 | – | — | Contract-first OpenAPI, Spring Modulith |
+| TO §4 Datamodel | 2, 7 | – | — | Grootboek, berekend saldo |
+| TO §5 Geld en BigDecimal | 1 | – | — | BigDecimal |
+| TO §6 Overboekingen | 7, 9 | – | `betalen.spec.ts`, `overschrijven.spec.ts` | Grootboek, nooit rood, idempotency |
+| TO §7 Rente | 8, 9 | – | `spaarrekening.spec.ts` | Rentecorrectie via event |
+| TO §8 Simulatiedatum | 3 | – | `simulatiedatum.spec.ts` | `SimulationClock` |
+| TO §9 Fake data-generator | 11 | – | `infra/huishoudens.spec.ts` | Deterministische generator |
+| TO §10 Security en zero trust | 6, CFR | – | `inloggen.spec.ts`, `toegang.spec.ts` | BFF, mTLS, NetworkPolicies |
+| TO §11 OWASP Top 10 | per slice, CFR | – | — | — |
+| TO §12 Resilience | CFR | – | `storing.spec.ts` | Migraties als Job, circuit breaker |
+| TO §13 Teststrategie | doorlopend | – | — | — |
+| TO §14 Playwright e2e | doorlopend (alle drivers) | – | alle | Playwright met interne DSL (ADR 0005) |
+| TO §15 Deployment op kind | 0, 1, 6, 11, CFR (hoofdstuk 9) | – | `skelet.spec.ts`, `infra/installatie.spec.ts`, `infra/upgrade.spec.ts`, `infra/netwerk.spec.ts` | Pipeline en kind, installatie in `banksim-mse` (namespace `banksim` → `banksim-mse`, hosts `bank`/`auth` → `bank-mse`/`auth-mse`) |
+| TO §16 Build en CI | 0, CFR | – | — | Pipeline, supply chain |
 
 | Originele e2e-spec (`e2e/tests/`) | Nieuwe spec (`e2e/specs/`) | Slice |
 | --- | --- | --- |
