@@ -20,6 +20,7 @@ public class BeveiligingConfig {
     @Bean
     @Order(1)
     SecurityFilterChain management(HttpSecurity http) throws Exception {
+        // EndpointRequest matcht de Actuator-endpoints (/actuator/**), hier op de management-poort 8081.
         return http.securityMatcher(EndpointRequest.toAnyEndpoint())
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .build();
