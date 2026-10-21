@@ -19,7 +19,8 @@ class JdbcRekeningRepository implements RekeningRepository {
     @Override
     public List<Rekening> vanGebruiker(String gebruikersnaam) {
         return jdbc.sql("""
-                        SELECT r.soort, r.iban, r.openingssaldo
+                        SELECT r.soort, r.iban,
+                               r.openingssaldo + coalesce((SELECT sum(t.bedrag) FROM transactie t WHERE t.iban = r.iban), 0) AS saldo
                         FROM rekening r JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
                         WHERE h.gebruikersnaam = :gebruikersnaam
                         ORDER BY r.soort, r.iban""")
@@ -27,7 +28,7 @@ class JdbcRekeningRepository implements RekeningRepository {
                 .query((rij, nummer) -> new Rekening(
                         Soort.van(rij.getString("soort")),
                         Iban.van(rij.getString("iban")),
-                        new Bedrag(rij.getBigDecimal("openingssaldo"))))
+                        new Bedrag(rij.getBigDecimal("saldo"))))
                 .list();
     }
 }

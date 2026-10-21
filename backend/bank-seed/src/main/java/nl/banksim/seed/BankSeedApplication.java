@@ -30,15 +30,20 @@ public class BankSeedApplication {
     }
 
     @Bean
+    JdbcTransacties transacties(JdbcClient jdbc) {
+        return new JdbcTransacties(jdbc);
+    }
+
+    @Bean
     KeycloakLogins logins(RestClient.Builder builder, SeedProperties properties) {
         return new KeycloakLogins(builder, properties.keycloak(), () -> HexFormat.of().formatHex(bytes(24)));
     }
 
     @Bean
-    CommandLineRunner seed(Logins logins, Rekeninghouders rekeninghouders, JsonMapper json) {
+    CommandLineRunner seed(Logins logins, Rekeninghouders rekeninghouders, Transacties transacties, JsonMapper json) {
         var aanmaker = new SeedKlantAanmaker(logins, rekeninghouders,
                 () -> Iban.simBank(RANDOM.nextLong(10_000_000_000L)));
-        return args -> new SeedCommando(aanmaker, json, System.out).voerUit(args);
+        return args -> new SeedCommando(aanmaker, transacties, json, System.out).voerUit(args);
     }
 
     private static byte[] bytes(int aantal) {

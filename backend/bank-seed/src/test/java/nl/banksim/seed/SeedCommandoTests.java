@@ -6,10 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 import nl.banksim.domain.geld.Bedrag;
+import nl.banksim.domain.rekening.Iban;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -20,8 +22,10 @@ class SeedCommandoTests {
         aanroepen.add(alias + " " + saldo);
         return new GeseedeKlant("jan-f4de79-1", "geheim-wachtwoord", "NL12SIMB0123456789");
     };
+    private final Transacties transacties = (Iban iban, LocalDate datum, Bedrag bedrag, String tegenpartij) ->
+            aanroepen.add(iban + " " + datum + " " + bedrag + " " + tegenpartij);
     private final ByteArrayOutputStream uitvoer = new ByteArrayOutputStream();
-    private final SeedCommando commando = new SeedCommando(aanmaker, JsonMapper.builder().build(),
+    private final SeedCommando commando = new SeedCommando(aanmaker, transacties, JsonMapper.builder().build(),
             new PrintStream(uitvoer, true, StandardCharsets.UTF_8));
 
     @Test
@@ -31,6 +35,26 @@ class SeedCommandoTests {
         assertThat(aanroepen).containsExactly("jan-f4de79-1 1842.17");
         assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo(
                 "{\"gebruikersnaam\":\"jan-f4de79-1\",\"wachtwoord\":\"geheim-wachtwoord\",\"iban\":\"NL12SIMB0123456789\"}\n");
+    }
+
+    @Test
+    void boektEenTransactieEnSchrijftHemAlsEenJsonRegel() {
+        commando.voerUit("transactie", "--iban", "NL94SIMB0000000001", "--datum", "2026-10-01",
+                "--bedrag", "-812.40", "--tegenpartij", "Woningstichting Thuis");
+
+        assertThat(aanroepen).containsExactly("NL94SIMB0000000001 2026-10-01 -812.40 Woningstichting Thuis");
+        assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
+                {"iban":"NL94SIMB0000000001","datum":"2026-10-01","bedrag":"-812.40","tegenpartij":"Woningstichting Thuis"}
+                """);
+    }
+
+    @Test
+    void weigertEenTransactieZonderTegenpartij() {
+        assertThatThrownBy(() -> commando.voerUit("transactie", "--iban", "NL94SIMB0000000001", "--datum", "2026-10-01",
+                "--bedrag", "-812.40"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("--tegenpartij");
+        assertThat(aanroepen).isEmpty();
     }
 
     @Test

@@ -8,6 +8,18 @@ export interface RekeningInOverzicht {
   saldo: string;
 }
 
+/** Een transactie zoals de klant hem ziet; het bedrag met teken in domeinnotatie ("-812.40"). */
+export interface Transactie {
+  tegenpartij: string;
+  bedrag: string;
+}
+
+/** De transacties van één dag ("2026-10-02"), in de volgorde waarin het systeem ze toont. */
+export interface TransactiesOpDatum {
+  datum: string;
+  transacties: Transactie[];
+}
+
 /** Wat de DSL van het systeem nodig heeft. De REST- en de UI-driver implementeren dit elk op hun eigen manier. */
 export interface BankDriver {
   openStartpagina(): Promise<void>;
@@ -17,4 +29,8 @@ export interface BankDriver {
   logIn(gebruikersnaam: string, wachtwoord: string): Promise<void>;
   openOverzicht(): Promise<void>;
   rekeningenInOverzicht(): Promise<RekeningInOverzicht[]>;
+  /** Vanuit het overzicht de rekening met dit IBAN openen. */
+  openRekening(iban: string): Promise<void>;
+  /** De transacties van de geopende rekening, per datum, in de volgorde van het systeem. */
+  transacties(): Promise<TransactiesOpDatum[]>;
 }

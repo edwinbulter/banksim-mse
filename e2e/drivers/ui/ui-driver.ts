@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
-import type { BankDriver, RekeningInOverzicht } from '../bank-driver';
+import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum } from '../bank-driver';
+import { BetaalrekeningPagina } from './betaalrekening-pagina';
 import { InlogPagina } from './inlog-pagina';
 import { OverzichtPagina } from './overzicht-pagina';
 import { StartPagina } from './start-pagina';
@@ -9,11 +10,13 @@ export class UiDriver implements BankDriver {
   private readonly start: StartPagina;
   private readonly inlog: InlogPagina;
   private readonly overzicht: OverzichtPagina;
+  private readonly betaalrekening: BetaalrekeningPagina;
 
   constructor(page: Page) {
     this.start = new StartPagina(page);
     this.inlog = new InlogPagina(page);
     this.overzicht = new OverzichtPagina(page);
+    this.betaalrekening = new BetaalrekeningPagina(page);
   }
 
   async openStartpagina(): Promise<void> {
@@ -36,5 +39,13 @@ export class UiDriver implements BankDriver {
 
   async rekeningenInOverzicht(): Promise<RekeningInOverzicht[]> {
     return this.overzicht.rekeningen();
+  }
+
+  async openRekening(iban: string): Promise<void> {
+    await this.betaalrekening.open(iban);
+  }
+
+  async transacties(): Promise<TransactiesOpDatum[]> {
+    return this.betaalrekening.transacties();
   }
 }

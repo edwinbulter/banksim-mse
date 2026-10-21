@@ -23,10 +23,15 @@ export class BankSeed {
   constructor(private readonly shell: ShellDriver) {}
 
   async klantMetBetaalrekening(alias: string, saldo: string): Promise<GeseedeKlant> {
-    return this.voerUit(['klant', '--alias', uniek(alias), '--betaalrekening', saldo]);
+    return this.voerUit<GeseedeKlant>(['klant', '--alias', uniek(alias), '--betaalrekening', saldo]);
   }
 
-  private async voerUit(args: string[]): Promise<GeseedeKlant> {
+  /** Een geboekte transactie op de rekening; een negatief bedrag is een afschrijving. */
+  async transactie(iban: string, datum: string, bedrag: string, tegenpartij: string): Promise<void> {
+    await this.voerUit(['transactie', '--iban', iban, '--datum', datum, '--bedrag', bedrag, '--tegenpartij', tegenpartij]);
+  }
+
+  private async voerUit<T>(args: string[]): Promise<T> {
     const tag = (await this.shell.helmWaarden(NAMESPACE, RELEASE))?.imageTag;
     if (!tag) throw new Error(`BankSim-MSE is niet geïnstalleerd in ${this.shell.context}`);
     const naam = `bank-seed-${RUN}-${++teller}-${randomBytes(2).toString('hex')}`;
@@ -53,7 +58,7 @@ export class BankSeed {
       await this.shell.kubectl(['-n', NAMESPACE, 'delete', 'pod', naam, '--ignore-not-found', '--wait=false']);
       throw new Error(`bank-seed ${args.join(' ')} faalde (${reden.stdout || 'geen reden'}):\n${resultaat.uitvoer}`);
     }
-    return JSON.parse(laatsteRegel) as GeseedeKlant;
+    return JSON.parse(laatsteRegel) as T;
   }
 }
 

@@ -30,12 +30,19 @@ class JdbcRekeningRepositoryTests {
         var dataSource = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         Flyway.configure().dataSource(dataSource).load().migrate();
         jdbc = JdbcClient.create(dataSource);
-        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam) VALUES ('jan'), ('piet')").update();
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam) VALUES ('jan'), ('piet'), ('kees')").update();
         jdbc.sql("""
                 INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
                 SELECT 'NL94SIMB0000000001', id, 'betaal', 1842.17 FROM rekeninghouder WHERE gebruikersnaam = 'jan'
                 UNION ALL
                 SELECT 'NL38SIMB0123456789', id, 'betaal', 5.00 FROM rekeninghouder WHERE gebruikersnaam = 'piet'
+                UNION ALL
+                SELECT 'NL08SIMB2010265342', id, 'betaal', 1000.00 FROM rekeninghouder WHERE gebruikersnaam = 'kees'
+                """).update();
+        jdbc.sql("""
+                INSERT INTO transactie (iban, datum, bedrag, tegenpartij) VALUES
+                ('NL08SIMB2010265342', '2026-10-01', -812.40, 'Woningstichting Thuis'),
+                ('NL08SIMB2010265342', '2026-10-02', 3215.00, 'Werkgever B.V.')
                 """).update();
     }
 
@@ -45,6 +52,12 @@ class JdbcRekeningRepositoryTests {
     void geeftAlleenDeRekeningenVanDeGebruikerMetOpeningssaldoAlsSaldo() {
         assertThat(repository.vanGebruiker("jan")).containsExactly(
                 new Rekening(Soort.BETAAL, Iban.van("NL94SIMB0000000001"), Bedrag.van("1842.17")));
+    }
+
+    @Test
+    void hetSaldoIsHetOpeningssaldoPlusDeTransacties() {
+        assertThat(repository.vanGebruiker("kees")).containsExactly(
+                new Rekening(Soort.BETAAL, Iban.van("NL08SIMB2010265342"), Bedrag.van("3402.60")));
     }
 
     @Test

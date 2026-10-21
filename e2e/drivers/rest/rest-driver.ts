@@ -1,11 +1,13 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import type { BankDriver, RekeningInOverzicht } from '../bank-driver';
+import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum } from '../bank-driver';
 
 /**
  * Spreekt BankSim aan via de publieke API-paden achter de ingress, net als de browser: inloggen via de BFF en
  * Keycloak (ADR 0008), daarna met het sessiecookie dat de request-context bewaart.
  */
 export class RestDriver implements BankDriver {
+  private geopend?: string;
+
   constructor(private readonly request: APIRequestContext) {}
 
   async openStartpagina(): Promise<void> {
@@ -41,5 +43,24 @@ export class RestDriver implements BankDriver {
     const antwoord = await this.request.get('/api/rekeningen');
     expect(antwoord.status(), 'GET /api/rekeningen').toBe(200);
     return (await antwoord.json()) as RekeningInOverzicht[];
+  }
+
+  async openRekening(iban: string): Promise<void> {
+    this.geopend = iban;
+  }
+
+  /** De API geeft een platte lijst; de groepering per datum volgt de volgorde van de API, zonder te sorteren. */
+  async transacties(): Promise<TransactiesOpDatum[]> {
+    if (!this.geopend) throw new Error('Geen rekening geopend');
+    const pad = `/api/rekeningen/${this.geopend}/transacties`;
+    const antwoord = await this.request.get(pad);
+    expect(antwoord.status(), `GET ${pad}`).toBe(200);
+    const lijst = (await antwoord.json()) as { datum: string; tegenpartij: string; bedrag: string }[];
+    const perDatum: TransactiesOpDatum[] = [];
+    for (const { datum, tegenpartij, bedrag } of lijst) {
+      if (perDatum.at(-1)?.datum !== datum) perDatum.push({ datum, transacties: [] });
+      perDatum.at(-1)!.transacties.push({ tegenpartij, bedrag });
+    }
+    return perDatum;
   }
 }

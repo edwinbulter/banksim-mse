@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { BankDriver, Soort } from '../drivers/bank-driver';
+import type { BankDriver, Soort, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { BankSeed, GeseedeKlant } from '../drivers/shell/bank-seed';
 
 /**
@@ -19,6 +19,14 @@ export class Klant {
     this.gegevens = await this.seed.klantMetBetaalrekening(this.alias, saldo);
   }
 
+  async heeftBetaald({ op, bedrag, aan }: { op: string; bedrag: string; aan: string }): Promise<void> {
+    await this.seed.transactie(this.vereisGegevens().iban, op, `-${bedrag}`, aan);
+  }
+
+  async heeftOntvangen({ op, bedrag, van }: { op: string; bedrag: string; van: string }): Promise<void> {
+    await this.seed.transactie(this.vereisGegevens().iban, op, bedrag, van);
+  }
+
   async opentOverzicht(): Promise<void> {
     const { gebruikersnaam, wachtwoord } = this.vereisGegevens();
     await this.driver.logIn(gebruikersnaam, wachtwoord);
@@ -32,6 +40,15 @@ export class Klant {
       iban,
       saldo,
     });
+  }
+
+  async opentBetaalrekening(): Promise<void> {
+    await this.opentOverzicht();
+    await this.driver.openRekening(this.vereisGegevens().iban);
+  }
+
+  async verwachtTransactielijst(verwacht: TransactiesOpDatum[]): Promise<void> {
+    expect(await this.driver.transacties(), `transacties van ${this.alias}`).toEqual(verwacht);
   }
 
   private vereisGegevens(): GeseedeKlant {

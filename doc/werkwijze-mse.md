@@ -456,7 +456,8 @@ test('Klant ziet de betaalrekening met saldo in het overzicht', async ({ bank })
 // e2e/specs/betaalrekening.spec.ts
 test('Transacties per datum, nieuw naar oud, met teken', async ({ bank }) => {
   const jan = bank.klant('Jan');
-  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening());
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+    jan.heeftBetaalrekening({ saldo: '1000.00' }));
   await bank.en('op 1 oktober 2026 betaalde Jan € 812,40 aan Woningstichting Thuis',
     () => jan.heeftBetaald({ op: '2026-10-01', bedrag: '812.40', aan: 'Woningstichting Thuis' }));
   await bank.en('op 2 oktober 2026 ontving Jan € 3.215,00 van Werkgever B.V.',
@@ -464,8 +465,8 @@ test('Transacties per datum, nieuw naar oud, met teken', async ({ bank }) => {
   await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
   await bank.dan('ziet Jan de transacties per datum, nieuw naar oud, met teken', () =>
     jan.verwachtTransactielijst([
-      { datumregel: 'Vrijdag 2 oktober 2026', regels: ['Werkgever B.V. +3.215,00'] },
-      { datumregel: 'Donderdag 1 oktober 2026', regels: ['Woningstichting Thuis -812,40'] },
+      { datum: '2026-10-02', transacties: [{ tegenpartij: 'Werkgever B.V.', bedrag: '3215.00' }] },
+      { datum: '2026-10-01', transacties: [{ tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' }] },
     ]));
 });
 
@@ -481,6 +482,8 @@ test('Toon meer laadt per 50 transacties', async ({ bank }) => {
 ```
 
 In de REST driver betekent "Toon meer" de volgende pagina met `nextCursor`; in de UI driver een klik op de knop. De DSL weet dat niet.
+
+De verwachting staat in domeinwaarden (`'2026-10-02'`, `'-812.40'`), niet in schermtekst. De UI driver leest "Vrijdag 2 oktober 2026" en "−812,40" terug naar die waarden; de opmaak zelf testen Vitest-tests (`datumregel`, `bedragMetTeken`). De transacties komen via de seed (`bank-seed transactie`, ADR 0003) en tellen mee in het saldo: openingssaldo plus de transacties. Het openingssaldo zelf staat niet in de lijst.
 
 - **Binnenste lus:** `TransactieController`, `Cursor` (encoderen, HMAC, manipulatie geweigerd), `TransactieRepository` met keyset-query; frontend `TransactieLijst` (groeperen per datum, geen dubbele datumregel over de grens van 50).
 - **ADR's:** keyset-paginering met ondertekende cursor; contract-first OpenAPI met gegenereerde Angular-client.

@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { bedragVoorWeergave } from './geld/bedrag';
 
 /** Zoals bank-api hem levert; het saldo is een string, bijvoorbeeld "1842.17" (ADR 0010). */
@@ -8,7 +8,7 @@ export interface Rekening {
   saldo: string;
 }
 
-/** Het overzicht van de ingelogde klant: de betaalrekeningen met IBAN en saldo (S1.1). */
+/** Het overzicht van de ingelogde klant: de betaalrekeningen met IBAN en saldo (S1.1); het IBAN opent de rekening (S2.1). */
 @Component({
   selector: 'app-overzicht',
   template: `
@@ -16,7 +16,7 @@ export interface Rekening {
     <ul aria-label="Betaalrekeningen">
       @for (rekening of betaalrekeningen(); track rekening.iban) {
         <li>
-          <span>{{ rekening.iban }}</span>&ngsp;<span>{{ rekening.saldo }}</span>
+          <button type="button" (click)="open.emit(rekening.iban)">{{ rekening.iban }}</button>&ngsp;<span>{{ rekening.saldo }}</span>
         </li>
       }
     </ul>
@@ -24,6 +24,7 @@ export interface Rekening {
 })
 export class Overzicht {
   readonly rekeningen = input.required<Rekening[]>();
+  readonly open = output<string>();
 
   protected readonly betaalrekeningen = computed(() =>
     this.rekeningen()
