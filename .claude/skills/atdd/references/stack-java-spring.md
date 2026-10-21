@@ -40,7 +40,8 @@ class VersieControllerTests {
 ## Valkuilen (echt opgetreden)
 
 - **Testcontainers met een image op digest:** `new PostgreSQLContainer("postgres:18.6-alpine@sha256:…")` faalt, omdat Testcontainers de naam niet als compatibel herkent. Gebruik `DockerImageName.parse("…@sha256:…").asCompatibleSubstituteFor("postgres")`.
-- **Spring Cloud Gateway (server-webmvc) en HTTP/2:** de gateway gebruikt de HTTP-client van de JDK. Die vraagt bij `http://` standaard om een upgrade naar h2c (`Upgrade: h2c`). Tegen een backend die HTTP/1.1 spreekt, gaf dat in CI af en toe een `NullPointerException` in `Http1Exchange`. Zet de client vast op HTTP/1.1 met een `ClientHttpRequestFactory`-bean (`JdkClientHttpRequestFactory` met `HttpClient.Version.HTTP_1_1`), en test met een nep-backend dat er geen `Upgrade`-header binnenkomt.
+- **Spring Cloud Gateway (server-webmvc) en de HTTP-client van de JDK:** de gateway stuurt de body van elk request gestreamd door, ook bij een GET zonder body. De JDK-client verstuurt dat als lege chunked body (`Transfer-Encoding: chunked`). Daarbij gooide hij in CI af en toe een `NullPointerException` in `Http1Exchange.requestMoreBody` ("bodySubscriber is null"); lokaal trad dat nooit op. Oplossing: een `ClientHttpRequestFactory`-bean met `BufferingClientHttpRequestFactory` om de `JdkClientHttpRequestFactory`. Een lege gebufferde body gaat dan helemaal niet mee. Test met een nep-backend dat een GET geen `Transfer-Encoding`-header heeft.
+- **De JDK-client en h2c:** bij `http://` vraagt de client standaard om een upgrade naar HTTP/2 (`Upgrade: h2c`). Zet hem vast op HTTP/1.1 (`HttpClient.Version.HTTP_1_1`) als de backend HTTP/1.1 spreekt. Dit loste de `NullPointerException` hierboven níet op, al leek dat na één groene run wel zo.
 
 ## Tips
 

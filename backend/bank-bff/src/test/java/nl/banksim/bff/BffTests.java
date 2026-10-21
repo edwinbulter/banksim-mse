@@ -39,6 +39,7 @@ class BffTests {
     static final List<String> AUTHORIZATION = new CopyOnWriteArrayList<>();
     static final List<String> COOKIES = new CopyOnWriteArrayList<>();
     static final List<String> UPGRADES = new CopyOnWriteArrayList<>();
+    static final List<String> TRANSFER_ENCODINGS = new CopyOnWriteArrayList<>();
 
     @DynamicPropertySource
     static void bankApi(DynamicPropertyRegistry properties) {
@@ -56,6 +57,7 @@ class BffTests {
         AUTHORIZATION.clear();
         COOKIES.clear();
         UPGRADES.clear();
+        TRANSFER_ENCODINGS.clear();
     }
 
     @AfterAll
@@ -115,7 +117,17 @@ class BffTests {
         assertThat(UPGRADES).containsExactly("");
     }
 
-    /** Geeft het pad terug en onthoudt welke Authorization-, Cookie- en Upgrade-header binnenkwamen. */
+    /**
+     * Een GET zonder body gaat zonder body door. De JDK-client verstuurde een lege chunked body en gooide daarbij soms
+     * een NullPointerException in Http1Exchange (runs 39489430674 en 39587594544).
+     */
+    @Test
+    void stuurtEenGetZonderBodyDoorZonderBody() throws Exception {
+        mvc.perform(get("/api/versie")).andExpect(status().isOk());
+        assertThat(TRANSFER_ENCODINGS).containsExactly("");
+    }
+
+    /** Geeft het pad terug en onthoudt welke Authorization-, Cookie-, Upgrade- en Transfer-Encoding-header binnenkwamen. */
     private static HttpServer nepBankApi() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
@@ -123,12 +135,14 @@ class BffTests {
                 String authorization = uitwisseling.getRequestHeaders().getFirst("Authorization");
                 String cookie = uitwisseling.getRequestHeaders().getFirst("Cookie");
                 String upgrade = uitwisseling.getRequestHeaders().getFirst("Upgrade");
+                String transferEncoding = uitwisseling.getRequestHeaders().getFirst("Transfer-Encoding");
                 // Eerst de (lege, chunked) body lezen, zoals een echte server: antwoorden terwijl de client nog verstuurt,
                 // is een race die deze test niet hoort te testen.
                 uitwisseling.getRequestBody().readAllBytes();
                 AUTHORIZATION.add(authorization == null ? "" : authorization);
                 COOKIES.add(cookie == null ? "" : cookie);
                 UPGRADES.add(upgrade == null ? "" : upgrade);
+                TRANSFER_ENCODINGS.add(transferEncoding == null ? "" : transferEncoding);
                 byte[] body = ("{\"pad\":\"" + uitwisseling.getRequestURI().getPath() + "\"}").getBytes(StandardCharsets.UTF_8);
                 uitwisseling.getResponseHeaders().add("Content-Type", "application/json");
                 uitwisseling.sendResponseHeaders(200, body.length);

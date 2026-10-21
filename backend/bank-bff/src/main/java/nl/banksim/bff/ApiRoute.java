@@ -12,6 +12,7 @@ import java.net.http.HttpClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.servlet.function.RouterFunction;
@@ -31,9 +32,14 @@ class ApiRoute {
                 .build();
     }
 
-    /** bank-api spreekt HTTP/1.1; zonder vaste versie vraagt de JDK-client bij elk request om een upgrade naar h2c. */
+    /**
+     * bank-api spreekt HTTP/1.1; zonder vaste versie vraagt de JDK-client bij elk request om een upgrade naar h2c.
+     * De gateway geeft elk request een gestreamde body, ook een GET. Gebufferd gaat een lege body niet mee, in plaats
+     * van als lege chunked body waarbij de JDK-client soms een NullPointerException gooit.
+     */
     @Bean
     ClientHttpRequestFactory bankApiClient() {
-        return new JdkClientHttpRequestFactory(HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build());
+        return new BufferingClientHttpRequestFactory(
+                new JdkClientHttpRequestFactory(HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()));
     }
 }
