@@ -927,6 +927,8 @@ Niet-functionele eisen uit het TO (zero trust, OWASP, resilience) zijn geen fase
 
 ## 8. Eén iteratie in de praktijk
 
+Hoe een team zulke iteraties verdeelt en waar het samenwerkt, staat in [ATDD in een team](teamwerk-mse.md).
+
 Uitgewerkt voor het scenario "Betaling naar een rekening die geen contact is wordt geweigerd" uit slice 7. De aanname is dat het eerste scenario, "Betaling naar een contact", al groen is. Dat scenario betaalt aan een geldig contact, dus outside-in was er nog geen reden om te controleren *of* de ontvanger een contact is. Die controle ontbreekt dus nog, en dit scenario moet hem afdwingen.
 
 **1. Scenario** – staat al in `e2e/specs/betalen.spec.ts` met de tag `@wip`. Haal de tag weg en draai het (`npx playwright test betalen --project rest`). Vraag je daarbij af: faalt het om de goede reden?
