@@ -68,4 +68,4 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
   - Definition of Done: hoofdstuk 12.
 - Voortgang: de status in `README.md`, de bestaande specs en `@wip`-tags, en de bestaande ADR's in `doc/adr/`.
 - Werken in een team (werk verdelen, samenwerkingsmomenten): `doc/teamwerk-mse.md`.
-- Stap 0 nalopen: `doc/stap-0-controleren.md`. Slice 1 nalopen: `doc/slice-1-controleren.md`.
+- Stap 0 nalopen: `doc/stap-0-controleren.md`. Slice 1 nalopen: `doc/slice-1-controleren.md`. Slice 2 nalopen: `doc/slice-2-controleren.md`.

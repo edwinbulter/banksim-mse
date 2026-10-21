@@ -59,6 +59,7 @@ Start een iteratie met bijvoorbeeld `/atdd begin aan slice 1` of `/atdd volgend 
 | [ATDD in een team](doc/teamwerk-mse.md) | Hoe een team de werkwijze toepast volgens Farley: van epic naar scenario, werk verdelen per scenario in plaats van per laag, en de samenwerkingsmomenten |
 | [Stap 0 controleren](doc/stap-0-controleren.md) | Instructie om het walking skeleton zelf na te lopen: elke test groen en een keer rood zien, installeren, acceptatietests en veiligheid van de namespace |
 | [Slice 1 controleren](doc/slice-1-controleren.md) | Instructie om slice 1 zelf na te lopen: elke laag groen en een keer rood zien, zelf inloggen met een geseede klant, Secrets, data en upgrade |
+| [Slice 2 controleren](doc/slice-2-controleren.md) | Instructie om slice 2 zelf na te lopen: elke laag groen en een keer rood zien, zelf een klant met 60 transacties seeden en "Toon meer" bekijken, de cursorsleutel in het Secret |
 | [Skill `atdd`](.claude/skills/atdd/README.md) | Nut en gebruik van de ATDD-skill, ook in andere projecten |
 | [`doc/adr/`](doc/adr) | Architecture Decision Records, ontstaan tijdens de bouw |
 | [Originele BankSim](https://github.com/edwinbulter/banksim) | Het functioneel en technisch ontwerp en de gegenereerde implementatie waar dit project naar toe werkt |
