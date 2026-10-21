@@ -4,7 +4,7 @@ BankSim-MSE bouwt [BankSim](https://github.com/edwinbulter/banksim) opnieuw: een
 
 Het origineel is in één keer door AI gegenereerd uit een vooraf geschreven functioneel en technisch ontwerp. Dit project levert **dezelfde applicatie** op, met **dezelfde techstack**, maar volgens de werkwijze uit *Modern Software Engineering* van Dave Farley: leren in kleine stappen met snelle feedback, en complexiteit beheersen met modulair, testbaar ontwerp.
 
-> **Status:** stap 0 (walking skeleton) is af. Van slice 1 is story S1.1 gebouwd: een klant logt in via Keycloak en de BFF, en ziet de betaalrekening met saldo op <https://bank-mse.localtest.me>. Het scenario slaagt via de API en in drie browsers, lokaal en in de pipeline. Een upgrade behoudt de data (installatiescenario, alleen in CI). Daarmee is slice 1 af. Van slice 2 is story S2.1 gebouwd: de klant opent de betaalrekening en ziet de transacties per datum, van nieuw naar oud, met teken, of de melding dat er nog geen af- of bijschrijvingen zijn.
+> **Status:** stap 0 (walking skeleton) is af. Van slice 1 is story S1.1 gebouwd: een klant logt in via Keycloak en de BFF, en ziet de betaalrekening met saldo op <https://bank-mse.localtest.me>. Het scenario slaagt via de API en in drie browsers, lokaal en in de pipeline. Een upgrade behoudt de data (installatiescenario, alleen in CI). Daarmee is slice 1 af. Ook slice 2 is af: de klant opent de betaalrekening en ziet de transacties per datum, van nieuw naar oud, met teken (S2.1). Een rekening zonder transacties toont de melding dat er nog geen af- of bijschrijvingen zijn. Een lange lijst komt in porties van 50, met "Toon meer" (S2.2).
 
 ## Doel
 

@@ -34,6 +34,23 @@ export class BetaalrekeningPagina {
     }
     return perDatum;
   }
+
+  /** Pas na transacties() betrouwbaar: dan is de lijst geladen en staat de knop er, of niet. */
+  async heeftMeer(): Promise<boolean> {
+    return this.toonMeerKnop().isVisible();
+  }
+
+  /** Klikt "Toon meer" en wacht tot er transactieregels bij zijn gekomen. */
+  async toonMeer(): Promise<void> {
+    const regels = this.page.getByRole('list', { name: 'Transacties' }).locator(':scope > li li');
+    const voor = await regels.count();
+    await this.toonMeerKnop().click();
+    await expect.poll(() => regels.count(), 'transactieregels na "Toon meer"').toBeGreaterThan(voor);
+  }
+
+  private toonMeerKnop() {
+    return this.page.getByRole('button', { name: 'Toon meer' });
+  }
 }
 
 /** "Vrijdag 2 oktober 2026" → "2026-10-02". */

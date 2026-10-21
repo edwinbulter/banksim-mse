@@ -7,6 +7,8 @@ import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum } from '../ban
  */
 export class RestDriver implements BankDriver {
   private geopend?: string;
+  private geladen: Pagina['transacties'] = [];
+  private volgende: string | null = null;
 
   constructor(private readonly request: APIRequestContext) {}
 
@@ -45,22 +47,48 @@ export class RestDriver implements BankDriver {
     return (await antwoord.json()) as RekeningInOverzicht[];
   }
 
+  /** Laadt de eerste pagina transacties, zoals de browser bij het openen van de rekening. */
   async openRekening(iban: string): Promise<void> {
     this.geopend = iban;
+    this.geladen = [];
+    await this.laadPagina(`/api/rekeningen/${iban}/transacties`);
   }
 
-  /** De API geeft een platte lijst; de groepering per datum volgt de volgorde van de API, zonder te sorteren. */
+  /** De geladen pagina's achter elkaar; de groepering per datum volgt de volgorde van de API, zonder te sorteren. */
   async transacties(): Promise<TransactiesOpDatum[]> {
-    if (!this.geopend) throw new Error('Geen rekening geopend');
-    const pad = `/api/rekeningen/${this.geopend}/transacties`;
-    const antwoord = await this.request.get(pad);
-    expect(antwoord.status(), `GET ${pad}`).toBe(200);
-    const lijst = (await antwoord.json()) as { datum: string; tegenpartij: string; bedrag: string }[];
     const perDatum: TransactiesOpDatum[] = [];
-    for (const { datum, tegenpartij, bedrag } of lijst) {
+    for (const { datum, tegenpartij, bedrag } of this.geladen) {
       if (perDatum.at(-1)?.datum !== datum) perDatum.push({ datum, transacties: [] });
       perDatum.at(-1)!.transacties.push({ tegenpartij, bedrag });
     }
     return perDatum;
   }
+
+  async heeftMeer(): Promise<boolean> {
+    return this.volgende !== null;
+  }
+
+  /** "Toon meer": de volgende pagina met de cursor uit de vorige. */
+  async toonMeer(): Promise<void> {
+    if (!this.geopend || this.volgende === null) throw new Error('Geen volgende pagina');
+    await this.laadPagina(`/api/rekeningen/${this.geopend}/transacties?na=${encodeURIComponent(this.volgende)}`);
+  }
+
+  private async laadPagina(pad: string): Promise<void> {
+    const antwoord = await this.request.get(pad);
+    expect(antwoord.status(), `GET ${pad}`).toBe(200);
+    const pagina = (await antwoord.json()) as Pagina;
+    expect(Object.keys(pagina).sort(), `GET ${pad} geeft een pagina met transacties en volgende`).toEqual([
+      'transacties',
+      'volgende',
+    ]);
+    this.geladen.push(...pagina.transacties);
+    this.volgende = pagina.volgende;
+  }
+}
+
+/** Een pagina transacties van bank-api; `volgende` is de cursor voor "Toon meer", of null aan het eind. */
+interface Pagina {
+  transacties: { datum: string; tegenpartij: string; bedrag: string }[];
+  volgende: string | null;
 }

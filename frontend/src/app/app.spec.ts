@@ -63,10 +63,13 @@ describe('App', () => {
     expect(knop).toBeDefined();
     knop?.click();
     fixture.detectChanges();
-    http.expectOne('/api/rekeningen/NL94SIMB0000000001/transacties').flush([
-      { datum: '2026-10-02', tegenpartij: 'Werkgever B.V.', bedrag: '3215.00' },
-      { datum: '2026-10-01', tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' },
-    ]);
+    http.expectOne('/api/rekeningen/NL94SIMB0000000001/transacties').flush({
+      transacties: [
+        { datum: '2026-10-02', tegenpartij: 'Werkgever B.V.', bedrag: '3215.00' },
+        { datum: '2026-10-01', tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' },
+      ],
+      volgende: null,
+    });
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -80,5 +83,41 @@ describe('App', () => {
       ['Werkgever B.V. +3.215,00'],
       ['Woningstichting Thuis −812,40'],
     ]);
+  });
+
+  /** De grens tussen de pagina's valt midden in 1 oktober: die datum mag maar één kop krijgen. */
+  it('"Toon meer" vraagt de volgende pagina met de cursor en voegt die toe onder dezelfde datumkop (S2.2)', async () => {
+    const pagina = await start({
+      status: 200,
+      body: [{ soort: 'betaal', iban: 'NL94SIMB0000000001', saldo: '3402.60' }],
+    });
+    [...pagina.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'NL94SIMB0000000001')?.click();
+    fixture.detectChanges();
+    http.expectOne('/api/rekeningen/NL94SIMB0000000001/transacties').flush({
+      transacties: [
+        { datum: '2026-10-02', tegenpartij: 'Werkgever B.V.', bedrag: '3215.00' },
+        { datum: '2026-10-01', tegenpartij: 'Bakkerij De Korst', bedrag: '-12.50' },
+      ],
+      volgende: 'MjAyNi0xMC0wMSwy.q-_x',
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    [...pagina.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Toon meer')?.click();
+    fixture.detectChanges();
+    http.expectOne('/api/rekeningen/NL94SIMB0000000001/transacties?na=MjAyNi0xMC0wMSwy.q-_x').flush({
+      transacties: [{ datum: '2026-10-01', tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' }],
+      volgende: null,
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const dagen = [...(pagina.querySelector('ul[aria-label="Transacties"]')?.children ?? [])];
+    expect(dagen.map((dag) => dag.querySelector('h3')?.textContent)).toEqual([
+      'Vrijdag 2 oktober 2026',
+      'Donderdag 1 oktober 2026',
+    ]);
+    expect(dagen.map((dag) => dag.querySelectorAll('li').length)).toEqual([1, 2]);
+    expect([...pagina.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Toon meer')).toBe(false);
   });
 });

@@ -328,7 +328,7 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | Bedragen als `BigDecimal`, `NUMERIC(19,2)` en string in JSON | TO §5 | 1 Overzicht |
 | Saldo berekenen, niet opslaan | TO §1.2, §4 | 1 Overzicht / 3 Simulatiedatum |
 | PostgreSQL met Flyway, `JdbcClient` in plaats van JPA | TO §3.1, §4 | 1 Overzicht |
-| Keyset-paginering met HMAC-ondertekende cursor | TO §3.2 | 2 Transactielijst |
+| Keyset-paginering met HMAC-ondertekende cursor | TO §3.2 | 2 Transactielijst (ADR 0011) |
 | `SimulationClock` vervangt systeemtijd | TO §8 | 3 Simulatiedatum |
 | Zoeken met `pg_trgm` en vaste SQL-fragmenten | TO §4, §11 (A05) | 5 Zoeken |
 | Keycloak als identity provider | TO §1.1, §17 | 6 Inloggen |
@@ -348,7 +348,7 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | mTLS in de applicaties met eigen CA, geen service mesh | TO §10.1, §17 | CFR Zero trust |
 | Default-deny NetworkPolicies | TO §10.1 | CFR Zero trust |
 | Rate limiting met Bucket4j in de BFF | TO §10, §17 | CFR Rate limiting |
-| Contract-first OpenAPI, gegenereerde Angular-client | TO §3.2, §16 | 2 Transactielijst of zodra de frontend de API vaker aanroept |
+| Contract-first OpenAPI, gegenereerde Angular-client | TO §3.2, §16 | Uitgesteld bij S2.2 (drie endpoints): zodra de frontend de API vaker aanroept |
 | MFA instelbaar, standaard uit; geen transactielimiet naast "nooit rood" | TO §17 | 6 Inloggen / 7 Betalen |
 | Supply chain: vaste versies, SBOM, Trivy, Renovate | TO §16 | CFR Supply chain |
 
@@ -480,22 +480,32 @@ test('Rekening zonder transacties', async ({ bank }) => {
 
 test('Toon meer laadt per 50 transacties', async ({ bank }) => {
   const jan = bank.klant('Jan');
-  await bank.gegeven('Jan heeft 120 transacties op de betaalrekening',
-    () => jan.heeftTransacties(120));
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+    jan.heeftBetaalrekening({ saldo: '1000.00' }));
+  await bank.en('Jan heeft 120 transacties, drie per dag', () => jan.heeftTransacties({ aantal: 120, perDag: 3 }));
   await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
-  await bank.dan('ziet Jan 50 transacties en "Toon meer"', () => jan.verwachtAantalTransacties(50, { meer: true }));
+  await bank.dan('ziet Jan de nieuwste 50 transacties en "Toon meer"', () =>
+    jan.verwachtTransacties({ nieuwste: 50, meer: true }));
   await bank.als('Jan twee keer "Toon meer" kiest', () => jan.toontMeer(2));
-  await bank.dan('ziet Jan 120 transacties en geen "Toon meer"', () => jan.verwachtAantalTransacties(120, { meer: false }));
+  await bank.dan('ziet Jan alle 120 transacties en geen "Toon meer"', () =>
+    jan.verwachtTransacties({ nieuwste: 120, meer: false }));
 });
 ```
 
-In de REST driver betekent "Toon meer" de volgende pagina met `nextCursor`; in de UI driver een klik op de knop. De DSL weet dat niet.
+In de REST driver betekent "Toon meer" de volgende pagina met de cursor uit `volgende`; in de UI driver een klik op de knop. De DSL weet dat niet.
+
+Het scenario vergelijkt de inhoud, niet alleen het aantal. Met alleen een telling zou een transactie die op de grens dubbel verschijnt of ontbreekt, onopgemerkt blijven. De DSL weet welke 120 transacties hij seedde. Elke tegenpartij en elk bedrag is uniek, en met drie per dag valt de grens van 50 midden in een dag. Een dubbele datumkop in de UI wordt zo een extra groep, en die laat de vergelijking falen. De 120 transacties gaan in één pod naar de seed (`bank-seed transacties`), want een pod per transactie kost seconden per stuk.
 
 De verwachting staat in domeinwaarden (`'2026-10-02'`, `'-812.40'`), niet in schermtekst. De UI driver leest "Vrijdag 2 oktober 2026" en "−812,40" terug naar die waarden; de opmaak zelf testen Vitest-tests (`datumregel`, `bedragMetTeken`). De transacties komen via de seed (`bank-seed transactie`, ADR 0003) en tellen mee in het saldo: openingssaldo plus de transacties. Het openingssaldo zelf staat niet in de lijst. Zonder transacties toont de pagina "Nog geen af- of bijschrijvingen." (de tekst van het origineel); de UI driver leest dat als een lege lijst.
 
-- **Binnenste lus:** `TransactieController`, `Cursor` (encoderen, HMAC, manipulatie geweigerd), `TransactieRepository` met keyset-query; frontend `TransactieLijst` (groeperen per datum, geen dubbele datumregel over de grens van 50).
-- **ADR's:** keyset-paginering met ondertekende cursor; contract-first OpenAPI met gegenereerde Angular-client.
-- **Fitness functions:** repositorytests tegen echte PostgreSQL; contract-check van `openapi.yaml` tegen de vorige versie (openapi-diff); check dat de gegenereerde client actueel is.
+- **Binnenste lus:**
+  - `TransactieController`: pagina van 50 en `volgende`; een ongeldige cursor of een cursor van een andere rekening geeft 400;
+  - `Cursor`: HMAC over iban, datum en id; een aangepaste cursor wordt geweigerd; zonder sleutel van 32 tekens start bank-api niet;
+  - `JdbcTransactieRepository`: keyset-query; de grens midden in een dag; een nieuwe boeking tussen twee pagina's;
+  - frontend: `Betaalrekening` met "Toon meer", en `App` dat de volgende pagina achteraan toevoegt;
+  - `install.sh`: vult een bestaand Secret aan met de cursorsleutel (bats).
+- **ADR's:** 0011 keyset-paginering met HMAC-ondertekende cursor. Contract-first OpenAPI is uitgesteld (hoofdstuk 6).
+- **Fitness functions:** repositorytests tegen echte PostgreSQL; sabotages op de handtekening, de keyset-vergelijking en de extra rij zijn gevangen.
 - **Origineel:** `transaction/*`, `bank-migrate/V2__grootboek.sql`, `frontend/klant/transactie-lijst`, `e2e/tests/betaalrekening.spec.ts`.
 
 ### Slice 3 – Simulatiedatum

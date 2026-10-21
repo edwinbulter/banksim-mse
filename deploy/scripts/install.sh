@@ -71,11 +71,15 @@ YAML
 random_secret() { head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
 
 # Maakt een Secret met een willekeurige waarde per sleutel, alleen als het nog niet bestaat (ADR 0009).
-# De waarden gaan via stdin, niet via de opdrachtregel. Een bestaand Secret blijft ongewijzigd.
+# Bestaat het al, dan komen alleen ontbrekende sleutels erbij (ADR 0011); bestaande waarden blijven ongewijzigd.
+# De waarden gaan via stdin, niet via de opdrachtregel.
 ensure_secret() {
   local naam="$1" sleutel
   shift
-  kc -n "$NAMESPACE" get secret "$naam" >/dev/null 2>&1 && return 0
+  if kc -n "$NAMESPACE" get secret "$naam" >/dev/null 2>&1; then
+    vul_secret_aan "$naam" "$@"
+    return 0
+  fi
   for sleutel in "$@"; do
     printf '%s=%s\n' "$sleutel" "$(random_secret)"
   done | kc -n "$NAMESPACE" create secret generic "$naam" --from-env-file=/dev/stdin >/dev/null
@@ -84,10 +88,28 @@ ensure_secret() {
   ok "Secret $naam aangemaakt"
 }
 
+vul_secret_aan() {
+  local naam="$1" sleutel aanwezig waarden=""
+  local -a ontbrekend=()
+  shift
+  # shellcheck disable=SC2016 # $k en $v zijn variabelen van het go-template, niet van bash.
+  aanwezig="$(kc -n "$NAMESPACE" get secret "$naam" -o go-template='{{range $k, $v := .data}}{{$k}}{{"\n"}}{{end}}')"
+  for sleutel in "$@"; do
+    grep -qx "$sleutel" <<<"$aanwezig" || ontbrekend+=("$sleutel")
+  done
+  [[ ${#ontbrekend[@]} -eq 0 ]] && return 0
+  for sleutel in "${ontbrekend[@]}"; do
+    waarden+="${waarden:+,}\"$sleutel\":\"$(random_secret)\""
+  done
+  # Een here-string in plaats van een pipe: geen SIGPIPE als kubectl stdin niet leest.
+  kc -n "$NAMESPACE" patch secret "$naam" --type=merge --patch-file=/dev/stdin <<<"{\"stringData\":{$waarden}}" >/dev/null
+  ok "Secret $naam aangevuld met ${ontbrekend[*]}"
+}
+
 create_secrets() {
   info "Wachtwoorden en client secrets"
   ensure_secret postgres POSTGRES_PASSWORD
-  ensure_secret bank-api SPRING_DATASOURCE_PASSWORD
+  ensure_secret bank-api SPRING_DATASOURCE_PASSWORD BANKSIM_CURSOR_SLEUTEL
   ensure_secret bank-seed SPRING_DATASOURCE_PASSWORD BANKSIM_SEED_CLIENT_SECRET
   ensure_secret bank-bff BANKSIM_BFF_CLIENT_SECRET
   ensure_secret keycloak KC_DB_PASSWORD KC_BOOTSTRAP_ADMIN_PASSWORD

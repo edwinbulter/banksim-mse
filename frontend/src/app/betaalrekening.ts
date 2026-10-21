@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { datumregel } from './datum/datumregel';
 import { bedragMetTeken } from './geld/bedrag';
 
@@ -9,7 +9,10 @@ export interface Transactie {
   bedrag: string;
 }
 
-/** De betaalrekening: de transacties per datum, in de volgorde van de API; zonder transacties een melding (S2.1). */
+/**
+ * De betaalrekening: de transacties per datum, in de volgorde van de API; zonder transacties een melding (S2.1).
+ * "Toon meer" vraagt om de volgende portie; die komt achteraan de lijst, dus een datum krijgt nooit twee koppen (S2.2).
+ */
 @Component({
   selector: 'app-betaalrekening',
   template: `
@@ -31,11 +34,17 @@ export interface Transactie {
           </li>
         }
       </ul>
+      @if (meer()) {
+        <button type="button" (click)="toonMeer.emit()">Toon meer</button>
+      }
     }
   `,
 })
 export class Betaalrekening {
   readonly transacties = input.required<Transactie[]>();
+  /** Of er nog oudere transacties zijn. */
+  readonly meer = input(false);
+  readonly toonMeer = output();
 
   protected readonly dagen = computed(() => {
     const dagen: { datum: string; kop: string; transacties: { tegenpartij: string; bedrag: string }[] }[] = [];

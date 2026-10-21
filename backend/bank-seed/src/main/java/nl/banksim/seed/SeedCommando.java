@@ -2,7 +2,9 @@ package nl.banksim.seed;
 
 import java.io.PrintStream;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import nl.banksim.domain.geld.Bedrag;
@@ -11,7 +13,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * De opdrachtregel van bank-seed, bijvoorbeeld {@code klant --alias jan-f4de79-1 --betaalrekening 1842.17} of
- * {@code transactie --iban NL94SIMB0000000001 --datum 2026-10-01 --bedrag -812.40 --tegenpartij "Woningstichting Thuis"}. Het
+ * {@code transactie --iban NL94SIMB0000000001 --datum 2026-10-01 --bedrag -812.40 --tegenpartij "Woningstichting Thuis"}.
+ * Veel transacties in één keer: {@code transacties --iban … --transactie "2026-10-01,-812.40,Woningstichting Thuis" …}. Het
  * resultaat komt als één JSON-regel op stdout; de shell-driver leest de laatste regel (ADR 0003).
  */
 class SeedCommando {
@@ -34,8 +37,9 @@ class SeedCommando {
         Object resultaat = switch (commando) {
             case "klant" -> klant(opties);
             case "transactie" -> transactie(opties);
+            case "transacties" -> transacties(args);
             default -> throw new IllegalArgumentException(
-                    "Onbekend commando: " + String.join(" ", args) + " (verwacht: klant of transactie)");
+                    "Onbekend commando: " + String.join(" ", args) + " (verwacht: klant, transactie of transacties)");
         };
         uit.println(json.writeValueAsString(resultaat));
     }
@@ -53,6 +57,37 @@ class SeedCommando {
         String tegenpartij = verplicht(opties, "--tegenpartij");
         transacties.boek(iban, datum, bedrag, tegenpartij);
         return new GeboekteTransactie(iban.toString(), datum.toString(), bedrag.toString(), tegenpartij);
+    }
+
+    /**
+     * Boekt de {@code --transactie}-waarden in de gegeven volgorde, maar pas als ze allemaal geldig zijn. Elke waarde is
+     * "datum,bedrag,tegenpartij"; de tegenpartij mag zelf komma's bevatten.
+     */
+    private GeboekteTransacties transacties(String[] args) {
+        Iban iban = Iban.van(verplicht(opties(args), "--iban"));
+        List<Regel> regels = new ArrayList<>();
+        for (int i = 1; i + 1 < args.length; i += 2) {
+            if (args[i].equals("--transactie")) {
+                regels.add(Regel.van(args[i + 1]));
+            }
+        }
+        regels.forEach(regel -> transacties.boek(iban, regel.datum(), regel.bedrag(), regel.tegenpartij()));
+        return new GeboekteTransacties(iban.toString(), regels.size());
+    }
+
+    private record Regel(LocalDate datum, Bedrag bedrag, String tegenpartij) {
+
+        static Regel van(String waarde) {
+            String[] delen = waarde.split(",", 3);
+            if (delen.length < 3 || delen[2].isBlank()) {
+                throw new IllegalArgumentException("--transactie verwacht datum,bedrag,tegenpartij: " + waarde);
+            }
+            return new Regel(LocalDate.parse(delen[0]), Bedrag.van(delen[1]), delen[2]);
+        }
+    }
+
+    /** Het resultaat van {@code transacties}: hoeveel er op de rekening geboekt zijn. */
+    record GeboekteTransacties(String iban, int aantal) {
     }
 
     /** Het resultaat van {@code transactie}: wat er geboekt is. */

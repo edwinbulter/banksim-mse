@@ -1,13 +1,20 @@
-import { TestBed } from '@angular/core/testing';
+import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Betaalrekening } from './betaalrekening';
 
 /** S2.1: de transacties zoals de API ze levert (nieuw naar oud), gegroepeerd per datum. */
 describe('Betaalrekening', () => {
-  function toon(transacties: { datum: string; tegenpartij: string; bedrag: string }[]): HTMLElement {
-    const fixture = TestBed.createComponent(Betaalrekening);
+  let fixture: ComponentFixture<Betaalrekening>;
+
+  function toon(transacties: { datum: string; tegenpartij: string; bedrag: string }[], meer = false): HTMLElement {
+    fixture = TestBed.createComponent(Betaalrekening);
     fixture.componentRef.setInput('transacties', transacties);
+    fixture.componentRef.setInput('meer', meer);
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
+  }
+
+  function toonMeerKnop(pagina: HTMLElement): HTMLButtonElement | undefined {
+    return [...pagina.querySelectorAll('button')].find((knop) => knop.textContent?.trim() === 'Toon meer');
   }
 
   function dagen(pagina: HTMLElement): { kop: string | undefined; regels: (string | undefined)[] }[] {
@@ -40,5 +47,18 @@ describe('Betaalrekening', () => {
   it('toont met transacties geen melding dat er nog geen zijn', () => {
     const pagina = toon([{ datum: '2026-10-01', tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' }]);
     expect(pagina.textContent).not.toContain('Nog geen af- of bijschrijvingen.');
+  });
+
+  it('toont "Toon meer" als er nog oudere transacties zijn, en meldt een klik (S2.2)', () => {
+    const pagina = toon([{ datum: '2026-10-01', tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' }], true);
+    let gekozen = 0;
+    fixture.componentInstance.toonMeer.subscribe(() => gekozen++);
+    toonMeerKnop(pagina)?.click();
+    expect(gekozen).toBe(1);
+  });
+
+  it('toont geen "Toon meer" aan het eind van de lijst', () => {
+    const pagina = toon([{ datum: '2026-10-01', tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' }], false);
+    expect(toonMeerKnop(pagina)).toBeUndefined();
   });
 });

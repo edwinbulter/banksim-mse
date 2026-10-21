@@ -58,6 +58,32 @@ class SeedCommandoTests {
     }
 
     @Test
+    void boektMeerdereTransactiesInDeGegevenVolgordeEnSchrijftHetAantal() {
+        commando.voerUit("transacties", "--iban", "NL94SIMB0000000001",
+                "--transactie", "2026-10-01,-812.40,Woningstichting Thuis",
+                "--transactie", "2026-10-02,3215.00,Werkgever, B.V.",
+                "--transactie", "2026-10-02,-0.01,Tegenpartij 3");
+
+        assertThat(aanroepen).containsExactly(
+                "NL94SIMB0000000001 2026-10-01 -812.40 Woningstichting Thuis",
+                "NL94SIMB0000000001 2026-10-02 3215.00 Werkgever, B.V.",
+                "NL94SIMB0000000001 2026-10-02 -0.01 Tegenpartij 3");
+        assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
+                {"iban":"NL94SIMB0000000001","aantal":3}
+                """);
+    }
+
+    @Test
+    void boektNietsAlsEenVanDeTransactiesOngeldigIs() {
+        assertThatThrownBy(() -> commando.voerUit("transacties", "--iban", "NL94SIMB0000000001",
+                "--transactie", "2026-10-01,-812.40,Woningstichting Thuis",
+                "--transactie", "2026-10-02,3215.00"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("2026-10-02,3215.00");
+        assertThat(aanroepen).isEmpty();
+    }
+
+    @Test
     void weigertEenOnbekendCommando() {
         assertThatThrownBy(() -> commando.voerUit("rekening", "--alias", "jan"))
                 .isInstanceOf(IllegalArgumentException.class)

@@ -1,5 +1,11 @@
 import { expect } from '@playwright/test';
 import type { BankDriver, Soort, TransactiesOpDatum } from '../drivers/bank-driver';
+
+interface GeseedeTransactie {
+  datum: string;
+  tegenpartij: string;
+  bedrag: string;
+}
 import type { BankSeed, GeseedeKlant } from '../drivers/shell/bank-seed';
 
 /**
@@ -8,6 +14,8 @@ import type { BankSeed, GeseedeKlant } from '../drivers/shell/bank-seed';
  */
 export class Klant {
   private gegevens?: GeseedeKlant;
+  /** Wat heeftTransacties boekte, in boekingsvolgorde. */
+  private geseed: GeseedeTransactie[] = [];
 
   constructor(
     private readonly alias: string,
@@ -25,6 +33,20 @@ export class Klant {
 
   async heeftOntvangen({ op, bedrag, van }: { op: string; bedrag: string; van: string }): Promise<void> {
     await this.seed.transactie(this.vereisGegevens().iban, op, bedrag, van);
+  }
+
+  /**
+   * Een reeks afschrijvingen vanaf 1 januari 2026, `perDag` per dag: "Tegenpartij 1" (€ 0,01) tot en met
+   * "Tegenpartij <aantal>". Elke tegenpartij en elk bedrag is uniek, zodat een dubbele of ontbrekende transactie opvalt.
+   */
+  async heeftTransacties({ aantal, perDag }: { aantal: number; perDag: number }): Promise<void> {
+    const transacties = Array.from({ length: aantal }, (_, i) => ({
+      datum: dagNa('2026-01-01', Math.floor(i / perDag)),
+      tegenpartij: `Tegenpartij ${i + 1}`,
+      bedrag: `-${((i + 1) / 100).toFixed(2)}`,
+    }));
+    await this.seed.transacties(this.vereisGegevens().iban, transacties);
+    this.geseed.push(...transacties);
   }
 
   async opentOverzicht(): Promise<void> {
@@ -51,8 +73,30 @@ export class Klant {
     expect(await this.driver.transacties(), `transacties van ${this.alias}`).toEqual(verwacht);
   }
 
+  /** De nieuwste `nieuwste` transacties uit heeftTransacties, per datum, nieuw naar oud; en of er "Toon meer" is. */
+  async verwachtTransacties({ nieuwste, meer }: { nieuwste: number; meer: boolean }): Promise<void> {
+    const verwacht: TransactiesOpDatum[] = [];
+    for (const { datum, tegenpartij, bedrag } of this.geseed.toReversed().slice(0, nieuwste)) {
+      if (verwacht.at(-1)?.datum !== datum) verwacht.push({ datum, transacties: [] });
+      verwacht.at(-1)!.transacties.push({ tegenpartij, bedrag });
+    }
+    expect(await this.driver.transacties(), `transacties van ${this.alias}`).toEqual(verwacht);
+    expect(await this.driver.heeftMeer(), `"Toon meer" bij ${this.alias}`).toBe(meer);
+  }
+
+  async toontMeer(keer: number): Promise<void> {
+    for (let i = 0; i < keer; i++) await this.driver.toonMeer();
+  }
+
   private vereisGegevens(): GeseedeKlant {
     if (!this.gegevens) throw new Error(`${this.alias} bestaat nog niet: begin met een "Gegeven"-stap`);
     return this.gegevens;
   }
+}
+
+/** "2026-01-01" plus `dagen` dagen, in UTC. */
+function dagNa(datum: string, dagen: number): string {
+  const dag = new Date(`${datum}T00:00:00Z`);
+  dag.setUTCDate(dag.getUTCDate() + dagen);
+  return dag.toISOString().slice(0, 10);
 }

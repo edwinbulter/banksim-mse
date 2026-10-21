@@ -48,4 +48,12 @@ export class UiDriver implements BankDriver {
   async transacties(): Promise<TransactiesOpDatum[]> {
     return this.betaalrekening.transacties();
   }
+
+  async heeftMeer(): Promise<boolean> {
+    return this.betaalrekening.heeftMeer();
+  }
+
+  async toonMeer(): Promise<void> {
+    await this.betaalrekening.toonMeer();
+  }
 }

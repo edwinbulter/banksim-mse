@@ -29,3 +29,20 @@ test('Rekening zonder transacties', async ({ bank }) => {
   await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
   await bank.dan('ziet Jan dat er nog geen af- of bijschrijvingen zijn', () => jan.verwachtTransactielijst([]));
 });
+
+/** S2.2: per 50 transacties, met "Toon meer"; de grens van 50 valt midden in een dag. */
+test('Toon meer laadt per 50 transacties', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+    jan.heeftBetaalrekening({ saldo: '1000.00' }),
+  );
+  await bank.en('Jan heeft 120 transacties, drie per dag', () => jan.heeftTransacties({ aantal: 120, perDag: 3 }));
+  await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
+  await bank.dan('ziet Jan de nieuwste 50 transacties en "Toon meer"', () =>
+    jan.verwachtTransacties({ nieuwste: 50, meer: true }),
+  );
+  await bank.als('Jan twee keer "Toon meer" kiest', () => jan.toontMeer(2));
+  await bank.dan('ziet Jan alle 120 transacties en geen "Toon meer"', () =>
+    jan.verwachtTransacties({ nieuwste: 120, meer: false }),
+  );
+});

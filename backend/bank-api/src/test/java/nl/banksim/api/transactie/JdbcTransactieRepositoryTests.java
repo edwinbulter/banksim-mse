@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
@@ -56,19 +57,65 @@ class JdbcTransactieRepositoryTests {
 
     @Test
     void geeftDeTransactiesVanNieuwNaarOudEnOpDezelfdeDagDeLaatstGeboekteEerst() {
-        assertThat(repository.vanRekening("jan", VAN_JAN)).contains(List.of(
+        assertThat(repository.vanRekening("jan", VAN_JAN, Optional.empty(), 50).map(Pagina::transacties)).contains(List.of(
                 new Transactie(LocalDate.of(2026, 10, 2), "Bakkerij De Korst", Bedrag.van("-12.50")),
                 new Transactie(LocalDate.of(2026, 10, 2), "Werkgever B.V.", Bedrag.van("3215.00")),
                 new Transactie(LocalDate.of(2026, 10, 1), "Woningstichting Thuis", Bedrag.van("-812.40"))));
     }
 
+    /** De grens valt midden in 2 oktober: de volgende pagina begint bij de transactie ná de laatste getoonde. */
     @Test
-    void eenEigenRekeningZonderTransactiesGeeftEenLegeLijst() {
-        assertThat(repository.vanRekening("piet", VAN_PIET)).contains(List.of());
+    void dePaginaNaDeLaatsteGaatVerderBinnenDezelfdeDag() {
+        Pagina eerste = repository.vanRekening("jan", VAN_JAN, Optional.empty(), 1).orElseThrow();
+        Pagina tweede = repository.vanRekening("jan", VAN_JAN, eerste.volgende(), 1).orElseThrow();
+        Pagina derde = repository.vanRekening("jan", VAN_JAN, tweede.volgende(), 1).orElseThrow();
+
+        assertThat(List.of(eerste, tweede, derde)).extracting(pagina -> pagina.transacties().getFirst().tegenpartij())
+                .containsExactly("Bakkerij De Korst", "Werkgever B.V.", "Woningstichting Thuis");
+        assertThat(eerste.volgende()).isPresent();
+        assertThat(tweede.volgende()).isPresent();
+        assertThat(derde.volgende()).isEmpty();
+    }
+
+    /** Met offset zou de nieuwe boeking de lijst opschuiven en "Nieuwste" dubbel tonen; met keyset niet (ADR 0011). */
+    @Test
+    void eenNieuweBoekingTussenTweePaginasVerschuiftDeVolgendePaginaNiet() {
+        Iban vanKees = Iban.simBank(2L);
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam) VALUES ('kees')").update();
+        jdbc.sql("""
+                INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
+                SELECT :iban, id, 'betaal', 0.00 FROM rekeninghouder WHERE gebruikersnaam = 'kees'""")
+                .param("iban", vanKees.toString()).update();
+        boek(vanKees, "2026-10-01", "Oudste");
+        boek(vanKees, "2026-10-02", "Nieuwste");
+        Pagina eerste = repository.vanRekening("kees", vanKees, Optional.empty(), 1).orElseThrow();
+        boek(vanKees, "2026-10-03", "Later geboekt");
+
+        Pagina tweede = repository.vanRekening("kees", vanKees, eerste.volgende(), 1).orElseThrow();
+
+        assertThat(eerste.transacties()).extracting(Transactie::tegenpartij).containsExactly("Nieuwste");
+        assertThat(tweede.transacties()).extracting(Transactie::tegenpartij).containsExactly("Oudste");
+    }
+
+    private static void boek(Iban iban, String datum, String tegenpartij) {
+        jdbc.sql("INSERT INTO transactie (iban, datum, bedrag, tegenpartij) VALUES (:iban, CAST(:datum AS date), -1.00, :tegenpartij)")
+                .param("iban", iban.toString()).param("datum", datum).param("tegenpartij", tegenpartij).update();
+    }
+
+    @Test
+    void eenPaginaMetPreciesAlleResterendeTransactiesHeeftGeenVolgende() {
+        assertThat(repository.vanRekening("jan", VAN_JAN, Optional.empty(), 3).orElseThrow().volgende()).isEmpty();
+        assertThat(repository.vanRekening("jan", VAN_JAN, Optional.empty(), 2).orElseThrow().volgende()).isPresent();
+    }
+
+    @Test
+    void eenEigenRekeningZonderTransactiesGeeftEenLegePagina() {
+        assertThat(repository.vanRekening("piet", VAN_PIET, Optional.empty(), 50))
+                .contains(new Pagina(List.of(), Optional.empty()));
     }
 
     @Test
     void eenRekeningVanEenAnderGeeftNiets() {
-        assertThat(repository.vanRekening("piet", VAN_JAN)).isEmpty();
+        assertThat(repository.vanRekening("piet", VAN_JAN, Optional.empty(), 50)).isEmpty();
     }
 }

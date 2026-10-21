@@ -31,6 +31,10 @@ export interface BankDriver {
   rekeningenInOverzicht(): Promise<RekeningInOverzicht[]>;
   /** Vanuit het overzicht de rekening met dit IBAN openen. */
   openRekening(iban: string): Promise<void>;
-  /** De transacties van de geopende rekening, per datum, in de volgorde van het systeem. */
+  /** De transacties van de geopende rekening die tot nu toe geladen zijn, per datum, in de volgorde van het systeem. */
   transacties(): Promise<TransactiesOpDatum[]>;
+  /** Of er nog oudere transacties te laden zijn ("Toon meer"). */
+  heeftMeer(): Promise<boolean>;
+  /** De volgende portie oudere transacties laden. */
+  toonMeer(): Promise<void>;
 }

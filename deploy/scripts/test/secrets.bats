@@ -6,6 +6,11 @@ setup() {
   export AANROEPEN="$BATS_TEST_TMPDIR/aanroepen"
   export INVOER="$BATS_TEST_TMPDIR/invoer"
   export BESTAANDE_SECRETS=""
+  # "secret:sleutel" per bestaande sleutel; alleen de namen, de nep-kubectl kent geen waarden.
+  export BESTAANDE_SLEUTELS=""
+  ALLE_SLEUTELS="postgres:POSTGRES_PASSWORD bank-api:SPRING_DATASOURCE_PASSWORD bank-api:BANKSIM_CURSOR_SLEUTEL"
+  ALLE_SLEUTELS+=" bank-seed:SPRING_DATASOURCE_PASSWORD bank-seed:BANKSIM_SEED_CLIENT_SECRET bank-bff:BANKSIM_BFF_CLIENT_SECRET"
+  ALLE_SLEUTELS+=" keycloak:KC_DB_PASSWORD keycloak:KC_BOOTSTRAP_ADMIN_PASSWORD"
   NEP="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$NEP"
   cat >"$NEP/kubectl" <<'NEP'
@@ -14,6 +19,11 @@ echo "kubectl $*" >>"$AANROEPEN"
 regel="$*"
 case "$regel" in
   "config get-contexts -o name") echo kind-single-node ;;
+  *" get secret "*" -o go-template="*)
+    naam="${regel##* get secret }"; naam="${naam%% *}"
+    for paar in $BESTAANDE_SLEUTELS; do
+      [[ "${paar%%:*}" == "$naam" ]] && echo "${paar#*:}"
+    done ;;
   *" get secret "*)
     naam="${regel##* get secret }"; naam="${naam%% *}"
     [[ " $BESTAANDE_SECRETS " == *" $naam "* ]] || exit 1 ;;
@@ -22,6 +32,12 @@ case "$regel" in
     naam="${regel##* create secret generic }"; naam="${naam%% *}"
     while IFS='=' read -r sleutel waarde; do
       [[ -n "$waarde" ]] && echo "$naam $sleutel" >>"$INVOER"
+    done ;;
+  *" patch secret "*)
+    # Uit {"stringData":{"SLEUTEL":"waarde",...}} op stdin alleen de sleutels met een waarde bewaren.
+    naam="${regel##* patch secret }"; naam="${naam%% *}"
+    grep -oE '"[A-Z_]+":"[^"]+"' | cut -d'"' -f2 | while read -r sleutel; do
+      echo "$naam $sleutel" >>"$INVOER"
     done ;;
 esac
 exit 0
@@ -37,6 +53,7 @@ NEP
   run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
   [ "$status" -eq 0 ]
   diff <(sort "$INVOER") - <<'VERWACHT'
+bank-api BANKSIM_CURSOR_SLEUTEL
 bank-api SPRING_DATASOURCE_PASSWORD
 bank-bff BANKSIM_BFF_CLIENT_SECRET
 bank-seed BANKSIM_SEED_CLIENT_SECRET
@@ -56,8 +73,9 @@ VERWACHT
   ! grep -v -- '--context kind-single-node -n banksim-mse create secret generic' "$BATS_TEST_TMPDIR/creates"
 }
 
-@test "install.sh laat bestaande Secrets ongewijzigd" {
+@test "install.sh laat bestaande Secrets met alle sleutels ongewijzigd" {
   export BESTAANDE_SECRETS="postgres bank-api bank-bff bank-seed keycloak"
+  export BESTAANDE_SLEUTELS="$ALLE_SLEUTELS"
   run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
   [ "$status" -eq 0 ]
   ! grep -qE 'secret generic|patch secret|delete secret|apply .*secret' "$AANROEPEN"
@@ -69,4 +87,19 @@ VERWACHT
   laatste_secret="$(grep -n 'create secret generic' "$AANROEPEN" | tail -1 | cut -d: -f1)"
   helm_regel="$(grep -n '^helm .*upgrade --install' "$AANROEPEN" | cut -d: -f1)"
   [ "$laatste_secret" -lt "$helm_regel" ]
+}
+
+# ADR 0011: een bestaande installatie krijgt er een sleutel bij; de wachtwoorden blijven, anders kan bank-api niet meer bij
+# de database (PostgreSQL zet het wachtwoord alleen bij de eerste start).
+@test "install.sh vult een bestaand Secret aan met een ontbrekende sleutel, via stdin, en laat de rest staan" {
+  export BESTAANDE_SECRETS="postgres bank-api bank-bff bank-seed keycloak"
+  export BESTAANDE_SLEUTELS="${ALLE_SLEUTELS/bank-api:BANKSIM_CURSOR_SLEUTEL/}"
+  run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
+  [ "$status" -eq 0 ]
+  [ "$(cat "$INVOER")" = "bank-api BANKSIM_CURSOR_SLEUTEL" ]
+  grep 'patch secret' "$AANROEPEN" >"$BATS_TEST_TMPDIR/patches"
+  [ "$(wc -l <"$BATS_TEST_TMPDIR/patches")" -eq 1 ]
+  grep -q -- '--context kind-single-node -n banksim-mse patch secret bank-api --type=merge --patch-file=/dev/stdin' \
+    "$BATS_TEST_TMPDIR/patches"
+  ! grep -qE 'create secret|delete secret' "$AANROEPEN"
 }

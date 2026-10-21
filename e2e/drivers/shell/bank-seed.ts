@@ -31,6 +31,17 @@ export class BankSeed {
     await this.voerUit(['transactie', '--iban', iban, '--datum', datum, '--bedrag', bedrag, '--tegenpartij', tegenpartij]);
   }
 
+  /**
+   * Meerdere transacties in één pod, in deze volgorde geboekt; een pod per transactie zou per stuk seconden kosten.
+   * Per transactie één argument "datum,bedrag,tegenpartij"; de tegenpartij mag zelf komma's bevatten.
+   */
+  async transacties(iban: string, transacties: { datum: string; bedrag: string; tegenpartij: string }[]): Promise<void> {
+    await this.voerUit([
+      'transacties', '--iban', iban,
+      ...transacties.flatMap(({ datum, bedrag, tegenpartij }) => ['--transactie', `${datum},${bedrag},${tegenpartij}`]),
+    ]);
+  }
+
   private async voerUit<T>(args: string[]): Promise<T> {
     const tag = (await this.shell.helmWaarden(NAMESPACE, RELEASE))?.imageTag;
     if (!tag) throw new Error(`BankSim-MSE is niet geïnstalleerd in ${this.shell.context}`);
@@ -56,7 +67,7 @@ export class BankSeed {
       ]);
       // Bij een mislukte start ruimt --rm de pod niet altijd op.
       await this.shell.kubectl(['-n', NAMESPACE, 'delete', 'pod', naam, '--ignore-not-found', '--wait=false']);
-      throw new Error(`bank-seed ${args.join(' ')} faalde (${reden.stdout || 'geen reden'}):\n${resultaat.uitvoer}`);
+      throw new Error(`bank-seed ${kort(args)} faalde (${reden.stdout || 'geen reden'}):\n${resultaat.uitvoer}`);
     }
     return JSON.parse(laatsteRegel) as T;
   }
@@ -64,4 +75,9 @@ export class BankSeed {
 
 function uniek(alias: string): string {
   return `${alias.toLowerCase()}-${RUN}-${++teller}`;
+}
+
+/** De eerste argumenten, zodat 120 transacties de foutmelding niet onleesbaar maken. */
+function kort(args: string[]): string {
+  return args.length <= 8 ? args.join(' ') : `${args.slice(0, 8).join(' ')} … (${args.length} argumenten)`;
 }
