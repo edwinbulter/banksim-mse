@@ -6,7 +6,10 @@ const MAANDEN = [
   'juli', 'augustus', 'september', 'oktober', 'november', 'december',
 ];
 
-/** De betaalrekening: per datum een kop ("Vrijdag 2 oktober 2026") met de transacties van die dag. */
+/**
+ * De betaalrekening: per datum een kop ("Vrijdag 2 oktober 2026") met de transacties van die dag.
+ * Zonder transacties staat er "Nog geen af- of bijschrijvingen."; dat is een lege lijst.
+ */
 export class BetaalrekeningPagina {
   constructor(private readonly page: Page) {}
 
@@ -17,7 +20,9 @@ export class BetaalrekeningPagina {
 
   async transacties(): Promise<TransactiesOpDatum[]> {
     const lijst = this.page.getByRole('list', { name: 'Transacties' });
-    await expect(lijst).toBeVisible();
+    const leeg = this.page.getByText('Nog geen af- of bijschrijvingen.');
+    await expect(lijst.or(leeg)).toBeVisible();
+    if (await leeg.isVisible()) return [];
     const perDatum: TransactiesOpDatum[] = [];
     for (const dag of await lijst.locator(':scope > li').all()) {
       const datum = datumUitKop((await dag.getByRole('heading').textContent()) ?? '');

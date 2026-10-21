@@ -20,3 +20,12 @@ test('Transacties per datum, nieuw naar oud, met teken', async ({ bank }) => {
     ]),
   );
 });
+
+test('Rekening zonder transacties', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+    jan.heeftBetaalrekening({ saldo: '1000.00' }),
+  );
+  await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
+  await bank.dan('ziet Jan dat er nog geen af- of bijschrijvingen zijn', () => jan.verwachtTransactielijst([]));
+});

@@ -9,25 +9,29 @@ export interface Transactie {
   bedrag: string;
 }
 
-/** De betaalrekening: de transacties per datum, in de volgorde van de API (S2.1). */
+/** De betaalrekening: de transacties per datum, in de volgorde van de API; zonder transacties een melding (S2.1). */
 @Component({
   selector: 'app-betaalrekening',
   template: `
     <h2>Betaalrekening</h2>
-    <ul aria-label="Transacties">
-      @for (dag of dagen(); track dag.datum) {
-        <li>
-          <h3>{{ dag.kop }}</h3>
-          <ul>
-            @for (transactie of dag.transacties; track $index) {
-              <li>
-                <span>{{ transactie.tegenpartij }}</span>&ngsp;<span>{{ transactie.bedrag }}</span>
-              </li>
-            }
-          </ul>
-        </li>
-      }
-    </ul>
+    @if (dagen().length === 0) {
+      <p>Nog geen af- of bijschrijvingen.</p>
+    } @else {
+      <ul aria-label="Transacties">
+        @for (dag of dagen(); track dag.datum) {
+          <li>
+            <h3>{{ dag.kop }}</h3>
+            <ul>
+              @for (transactie of dag.transacties; track $index) {
+                <li>
+                  <span>{{ transactie.tegenpartij }}</span>&ngsp;<span>{{ transactie.bedrag }}</span>
+                </li>
+              }
+            </ul>
+          </li>
+        }
+      </ul>
+    }
   `,
 })
 export class Betaalrekening {
