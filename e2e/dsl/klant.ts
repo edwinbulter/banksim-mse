@@ -69,6 +69,24 @@ export class Klant {
     await this.driver.openRekening(this.vereisGegevens().iban);
   }
 
+  /** Via de link "Overzicht" op de betaalrekening. */
+  async gaatNaarOverzicht(): Promise<void> {
+    await this.driver.naarOverzicht();
+  }
+
+  async gaatTerugInBrowser(): Promise<void> {
+    await this.driver.terugInBrowser();
+  }
+
+  /** Een stap terug binnen de app, geen nieuwe start: wat geladen was, blijft (ADR 0012). */
+  async verwachtDatDeAppNietOpnieuwLaadde(): Promise<void> {
+    expect(await this.driver.opnieuwGeladen(), `app opnieuw geladen bij ${this.alias}`).toBe(false);
+  }
+
+  async herlaadt(): Promise<void> {
+    await this.driver.herlaad();
+  }
+
   async verwachtTransactielijst(verwacht: TransactiesOpDatum[]): Promise<void> {
     expect(await this.driver.transacties(), `transacties van ${this.alias}`).toEqual(verwacht);
   }

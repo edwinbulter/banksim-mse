@@ -48,6 +48,11 @@ export class BetaalrekeningPagina {
     await expect.poll(() => regels.count(), 'transactieregels na "Toon meer"').toBeGreaterThan(voor);
   }
 
+  /** De link "Overzicht" bovenaan, zoals "< Overzicht" in het origineel. */
+  async kiesOverzicht(): Promise<void> {
+    await this.page.getByRole('link', { name: 'Overzicht' }).click();
+  }
+
   private toonMeerKnop() {
     return this.page.getByRole('button', { name: 'Toon meer' });
   }

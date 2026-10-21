@@ -6,6 +6,9 @@ import { Stappen, type Stap } from './stappen';
 
 /** Ingang van de DSL voor de applicatie. */
 export class Bank extends Stappen {
+  /** Binnen één scenario is een alias steeds dezelfde klant, ook tussen beforeEach en de test. */
+  private readonly klanten = new Map<string, Klant>();
+
   constructor(
     private readonly driver: BankDriver,
     private readonly seed: BankSeed,
@@ -19,6 +22,11 @@ export class Bank extends Stappen {
   }
 
   klant(alias: string): Klant {
-    return new Klant(alias, this.driver, this.seed);
+    let klant = this.klanten.get(alias);
+    if (!klant) {
+      klant = new Klant(alias, this.driver, this.seed);
+      this.klanten.set(alias, klant);
+    }
+    return klant;
   }
 }

@@ -74,6 +74,23 @@ export class RestDriver implements BankDriver {
     await this.laadPagina(`/api/rekeningen/${this.geopend}/transacties?na=${encodeURIComponent(this.volgende)}`);
   }
 
+  /** Het overzicht is één API-aanroep, die rekeningenInOverzicht doet. */
+  async naarOverzicht(): Promise<void> {
+    this.geopend = undefined;
+  }
+
+  async terugInBrowser(): Promise<void> {
+    throw new Error('Geen browser in de REST-driver: een scenario met de terugknop hoort de tag @ui te hebben');
+  }
+
+  async opnieuwGeladen(): Promise<boolean> {
+    throw new Error('Geen browser in de REST-driver: een scenario met de terugknop hoort de tag @ui te hebben');
+  }
+
+  async herlaad(): Promise<void> {
+    throw new Error('Geen browser in de REST-driver: een scenario met herladen hoort de tag @ui te hebben');
+  }
+
   private async laadPagina(pad: string): Promise<void> {
     const antwoord = await this.request.get(pad);
     expect(antwoord.status(), `GET ${pad}`).toBe(200);

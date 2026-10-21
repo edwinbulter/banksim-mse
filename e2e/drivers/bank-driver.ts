@@ -37,4 +37,12 @@ export interface BankDriver {
   heeftMeer(): Promise<boolean>;
   /** De volgende portie oudere transacties laden. */
   toonMeer(): Promise<void>;
+  /** Vanaf een geopende rekening terug naar het overzicht, via de link "Overzicht". */
+  naarOverzicht(): Promise<void>;
+  /** De terugknop van de browser; alleen in de UI-driver (@ui). */
+  terugInBrowser(): Promise<void>;
+  /** Of de app sinds de laatste terugInBrowser opnieuw is geladen, in plaats van binnen de pagina terug te gaan. */
+  opnieuwGeladen(): Promise<boolean>;
+  /** De pagina herladen; alleen in de UI-driver (@ui). */
+  herlaad(): Promise<void>;
 }

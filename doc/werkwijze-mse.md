@@ -339,6 +339,7 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | Nooit rood: minimum lopend saldo vanaf D | TO §6 | 7 Betalen |
 | Idempotency-Key op boekende requests | TO §6 | 7 Betalen |
 | Rentecorrectie via event `OverboekingGeboekt` (Spring Modulith) | TO §3.1, §7 | 9 Overschrijven |
+| Navigatie met de Angular-router, een URL per scherm | TO §1.2 | 2a Navigatie (ADR 0012) |
 | Eén Angular-app met rolafhankelijke routes | TO §1.2 | 10 Admin |
 | Audit log append-only | TO §4, §11 (A09) | 10 Admin |
 | Deterministische datagenerator op domeinregels | TO §9 | 11 Realistische data |
@@ -371,7 +372,8 @@ In de voorbeelden hieronder staan de imports niet steeds herhaald; elke spec beg
 flowchart LR
     S0["0 Skelet +<br/>pipeline"] --> S1["1 Overzicht"]
     S1 --> S2["2 Transactie-<br/>lijst"]
-    S2 --> S3["3 Simulatie-<br/>datum"]
+    S2 --> S2a["2a Navigatie"]
+    S2a --> S3["3 Simulatie-<br/>datum"]
     S3 --> S4["4 Uitklap-<br/>details"]
     S4 --> S5["5 Zoeken"]
     S5 --> S6["6 Inloggen<br/>en rollen"]
@@ -390,6 +392,7 @@ flowchart LR
 | 0 Skelet | geen user story | – | `skelet.spec.ts`, `infra/installatie.spec.ts` | Walking skeleton: bewijst dat bouwen, testen en installeren werkt |
 | 1 Overzicht | S1.1 Betaalrekening met saldo na inloggen | klant | `overzicht.spec.ts` | Inloggen hoort sinds ADR 0007 en 0008 bij S1.1 |
 | 2 Transactielijst | S2.1 Transacties per datum; S2.2 Toon meer | klant | `betaalrekening.spec.ts` | |
+| 2a Navigatie | S2a.1 Terug naar het overzicht | klant | `navigatie.spec.ts` | Later toegevoegd, vóór slice 3: de betaalrekening was een doodlopend scherm. Het nummer 2a laat de nummers van de andere slices en stories ongemoeid |
 | 3 Simulatiedatum | S3.1 Bank op een gekozen datum | beheerder | `simulatiedatum.spec.ts` | Enabling slice: het scherm komt pas in S10.2 |
 | 4 Uitklapdetails | S2.3 Details van een transactie | klant | `betaalrekening.spec.ts` | Breidt de story van slice 2 uit |
 | 5 Zoeken | S5.1 Zoeken in transacties | klant | `zoeken.spec.ts` | |
@@ -507,6 +510,68 @@ De verwachting staat in domeinwaarden (`'2026-10-02'`, `'-812.40'`), niet in sch
 - **ADR's:** 0011 keyset-paginering met HMAC-ondertekende cursor. Contract-first OpenAPI is uitgesteld (hoofdstuk 6).
 - **Fitness functions:** repositorytests tegen echte PostgreSQL; sabotages op de handtekening, de keyset-vergelijking en de extra rij zijn gevangen.
 - **Origineel:** `transaction/*`, `bank-migrate/V2__grootboek.sql`, `frontend/klant/transactie-lijst`, `e2e/tests/betaalrekening.spec.ts`.
+
+### Slice 2a – Navigatie
+
+> **S2a.1** Als klant wil ik vanaf mijn betaalrekening terug naar het overzicht, ook met de terugknop van de browser, zodat ik verder kan zonder opnieuw te beginnen.
+>
+> Acceptatiecriteria: de scenario's in `navigatie.spec.ts`. In het origineel staat linksboven op het Betaalrekening scherm de link "< Overzicht". Herladen op de betaalrekening houdt de betaalrekening open.
+
+Deze slice is later toegevoegd. Na slice 2 bleek de betaalrekening een doodlopend scherm: er was geen link terug. De slice komt vóór slice 3, zodat de router er staat voordat Betalen, Spaarrekening en Overschrijven nieuwe schermen toevoegen. Dan voert elke slice zo weinig mogelijk nieuwe techniek in.
+
+```ts
+// e2e/specs/navigatie.spec.ts
+test.describe('Navigatie', { tag: '@ui' }, () => {
+  test.beforeEach(async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+      jan.heeftBetaalrekening({ saldo: '1000.00' }));
+    await bank.en('op 1 oktober 2026 betaalde Jan € 812,40 aan Woningstichting Thuis', () =>
+      jan.heeftBetaald({ op: '2026-10-01', bedrag: '812.40', aan: 'Woningstichting Thuis' }));
+    await bank.en('Jan heeft de betaalrekening geopend', () => jan.opentBetaalrekening());
+  });
+
+  test('Terug naar het overzicht', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.als('Jan "Overzicht" kiest', () => jan.gaatNaarOverzicht());
+    await bank.dan('ziet Jan de betaalrekening met saldo € 187,60', () =>
+      jan.verwachtRekeningInOverzicht('betaal', '187.60'));
+  });
+
+  test('Terug met de terugknop van de browser', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.als('Jan de terugknop van de browser gebruikt', () => jan.gaatTerugInBrowser());
+    await bank.dan('ziet Jan de betaalrekening met saldo € 187,60, zonder dat de app opnieuw laadt', async () => {
+      await jan.verwachtRekeningInOverzicht('betaal', '187.60');
+      await jan.verwachtDatDeAppNietOpnieuwLaadde();
+    });
+  });
+
+  test('Herladen op de betaalrekening', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.als('Jan de pagina herlaadt', () => jan.herlaadt());
+    await bank.dan('ziet Jan nog steeds de transacties van de betaalrekening', () =>
+      jan.verwachtTransactielijst([
+        { datum: '2026-10-01', transacties: [{ tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' }] },
+      ]));
+  });
+});
+```
+
+Alle scenario's hebben de tag `@ui`. Navigeren is gedrag van de browser; de API verandert niet. Via de REST driver zou "terug naar het overzicht" gewoon opnieuw `GET /api/rekeningen` zijn, en dat scenario zou vanaf het begin groen zijn: het bewijst niets. Het saldo € 187,60 (openingssaldo min de betaling) laat zien dat het overzicht opnieuw geladen en volledig is, niet alleen dat er een kop "Overzicht" staat. Binnen één scenario is een alias steeds dezelfde klant, ook tussen `beforeEach` en de test.
+
+**Wat de router afdwingt.** Het herlaad-scenario: de betaalrekening blijft alleen open als hij een eigen URL heeft. Het eerste scenario kan ook groen worden met een knop die de geopende rekening vergeet.
+
+**Waarom "zonder dat de app opnieuw laadt".** Zonder die toevoeging was het terugknop-scenario vóór deze slice al groen, om een toevallige reden. Het openen van de rekening veranderde de URL niet, en de vorige stap in de geschiedenis was de startpagina `/` van vóór het inloggen. Terug laadde de app dus opnieuw, en een vers gestarte app begint bij het overzicht. Ook een sabotage met `replaceUrl` bleef om die reden groen: het eindbeeld is hetzelfde. Het verschil is dat een echte stap terug binnen de app blijft. De UI driver zet daarom vóór de terugknop een markering op `window` en meldt daarna of die er nog is; de bewering staat in de DSL. Met `replaceUrl` faalt het scenario nu met `app opnieuw geladen bij Jan — Expected: false, Received: true`.
+
+- **Binnenste lus:**
+  - frontend: `app.routes.ts` met `/` (`OverzichtScherm`) en `/rekeningen/:iban` (`BetaalrekeningScherm`); een onbekend pad gaat naar `/`. De schermen laden zelf hun gegevens; `Overzicht` en `Betaalrekening` blijven zoals ze waren. `BetaalrekeningScherm` krijgt het IBAN uit de URL en heeft de link "Overzicht";
+  - `App` houdt alleen de kop, de voettekst en de link "Inloggen" over. Die verschijnt zodra een verzoek 401 geeft (interceptor `meldNietIngelogd`), dus ook als de sessie op de betaalrekening verlopen is;
+  - Vitest: `app.spec.ts` start de app met de echte `appConfig` op een URL, zoals bij herladen.
+- **ADR:** navigatie met de Angular-router (`@angular/router`), een URL per scherm. Dit is een nieuw package en dus een ADR. Rolafhankelijke routes (slice 10) bouwen erop voort.
+- **Infrastructuur:** niets nieuws. De nginx van `bank-web` stuurt een onbekend pad al naar `index.html` (`try_files`), dus een diepe link als `/rekeningen/NL…` laadt de app.
+- **Fitness functions:** sabotage met `replaceUrl` maakt het terugknop-scenario rood; sabotage op de interceptor maakt de Vitest-tests voor "Inloggen" rood.
+- **Origineel:** de link "< Overzicht" in het FO Betaalrekening scherm.
 
 ### Slice 3 – Simulatiedatum
 
@@ -1208,7 +1273,7 @@ Waar komt elk onderdeel van de originele BankSim terug?
 | Origineel | Nieuw: slice | Story | Spec in `e2e/specs/` | ADR(s) |
 | --- | --- | --- | --- | --- |
 | FO Inloggen en Overzicht | 1, 6 | S1.1, S6.1, S6.2, S8.2 | `overzicht.spec.ts`, `inloggen.spec.ts` | BigDecimal, berekend saldo, Keycloak, BFF |
-| FO Betaalrekening scherm | 2, 4 | S2.1–S2.3 | `betaalrekening.spec.ts` | Keyset-paginering, `JdbcClient` |
+| FO Betaalrekening scherm | 2, 2a, 4 | S2.1–S2.3, S2a.1 | `betaalrekening.spec.ts`, `navigatie.spec.ts` | Keyset-paginering, `JdbcClient`, Angular-router |
 | FO Zoeken in transacties | 5 | S5.1 | `zoeken.spec.ts` | Zoeken met `pg_trgm` |
 | FO Betalen scherm | 7 | S7.1 | `betalen.spec.ts` | Grootboek, nooit rood, idempotency |
 | FO Spaarrekening scherm | 8 | S8.1, S8.2 | `spaarrekening.spec.ts` | — |

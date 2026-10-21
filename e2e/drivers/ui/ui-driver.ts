@@ -12,7 +12,7 @@ export class UiDriver implements BankDriver {
   private readonly overzicht: OverzichtPagina;
   private readonly betaalrekening: BetaalrekeningPagina;
 
-  constructor(page: Page) {
+  constructor(private readonly page: Page) {
     this.start = new StartPagina(page);
     this.inlog = new InlogPagina(page);
     this.overzicht = new OverzichtPagina(page);
@@ -55,5 +55,25 @@ export class UiDriver implements BankDriver {
 
   async toonMeer(): Promise<void> {
     await this.betaalrekening.toonMeer();
+  }
+
+  async naarOverzicht(): Promise<void> {
+    await this.betaalrekening.kiesOverzicht();
+    await this.overzicht.wachtTotGeladen();
+  }
+
+  /** Zet vóór de stap terug een markering op window; laadt de app opnieuw, dan is die weg. */
+  async terugInBrowser(): Promise<void> {
+    await this.page.evaluate(() => Object.assign(window, { banksimMarkering: true }));
+    await this.page.goBack();
+    await this.overzicht.wachtTotGeladen();
+  }
+
+  async opnieuwGeladen(): Promise<boolean> {
+    return this.page.evaluate(() => !('banksimMarkering' in window));
+  }
+
+  async herlaad(): Promise<void> {
+    await this.page.reload();
   }
 }
