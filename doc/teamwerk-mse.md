@@ -124,7 +124,7 @@ Dat is de iteratie uit de [werkwijze, hoofdstuk 8](werkwijze-mse.md#8-één-iter
 | --- | --- | --- | --- | --- | --- |
 | **1. Verfijning** (Example Mapping) | Per story, een paar dagen voordat het werk begint; 25 minuten per story | PO, twee of drie devs, het testperspectief | Epic of story, het FO | Regels, voorbeelden, open vragen; de story klein genoeg of gesplitst | – |
 | **2. Scenario vaststellen** (Three Amigos, George Dinwiddie) | Vlak voordat het pair begint | PO, het pair, het testperspectief | Een regel en een voorbeeld van moment 1 | Een scenario in domeintaal met concrete waarden, als `@wip` op `main` | ⛔ 1: de mens is eigenaar van het voorbeeld |
-| **3. Pair of ensemble aan het werk** | Doorlopend | Het pair (eventueel met AI als derde) | Eén `@wip`-scenario | Rood → groen → refactor; kleine commits, minstens dagelijks op `main` | – |
+| **3. Pair of ensemble aan het werk** | Doorlopend | Het pair, met Claude Code als derde (zie [Pairen met Claude Code](#71-pairen-met-claude-code)) | Eén `@wip`-scenario | Rood → groen → refactor; kleine commits, minstens dagelijks op `main`. Beide mensen kunnen elke diff uitleggen | – |
 | **4. Architectuurkeuze** | Zodra een scenario erom vraagt | Het team, of een afvaardiging plus de architect | Een ADR-concept met opties en gevolgen | ADR met de status Geaccepteerd, in de commit bij de code | ⛔ 5: de mens beslist |
 | **5. Integratie** | Bij elke push | Iedereen | Commit | Groene pipeline; bij rood stopt het team | ⛔ 7: committen en pushen met toestemming |
 | **6. Standup** | Dagelijks, kort | Het team | Het bord | Welke scenario's zijn groen, wie loopt vast, wie komt in de gedeelde DSL | – |
@@ -194,16 +194,19 @@ In deze werkwijze schat je geen uren. Je stelt twee andere vragen.
   1. controller;
   2. repository met Testcontainers;
   3. het Angular-component.
+- Bo bestuurt Claude Code, Ali navigeert. Bij de controllertest keurt Bo de falende test goed; daarna stuurt Ali de implementatie aan. Na elke refactor wisselen ze.
+- Claude stelt voor de controllertest aan te passen, zodat hij groen wordt. Ali zegt "stop": de test blijft staan en de code moet anders.
 - De ADR over de keyset-paginering komt op tafel. Ali schrijft het concept en het team besluit in tien minuten na de standup.
 
 **Woensdag.**
 - Het eerste scenario van S2.1 is groen in de pipeline.
 - Nu kan pair B het S2.2-scenario "Toon meer per 50" oppakken. Het bouwt voort op de lijst en het endpoint van pair A.
 - Pair A neemt het scenario "klant zonder transacties", dat Paula intussen heeft beantwoord.
+- De pairs roteren. Ali gaat naar pair B en neemt de kennis van de lijst en het endpoint mee naar S2.2. Dewi komt bij Bo. Claude onthoudt niets van dinsdag: Dewi leest het scenario en de commits van pair A, en Bo legt uit wat er staat.
 
 **Donderdag.**
 - Een commit van pair B maakt de pipeline rood: een repositorytest faalt op de cursor.
-- Cas en Dewi zien het als eersten en draaien hun commit terug. De pipeline is binnen vijf minuten weer groen.
+- Cas en Ali zien het als eersten en draaien hun commit terug. De pipeline is binnen vijf minuten weer groen.
 - Daarna repareren ze het lokaal, test-first.
 - Pair A heeft intussen niet gepusht: niemand commit op rood.
 
@@ -219,11 +222,54 @@ Wat er niet in voorkomt:
 
 ## 7. AI in het team
 
-AI werkt als derde in een pair, met de rol en de grenzen uit [werkwijze, hoofdstuk 10](werkwijze-mse.md#10-werken-met-ai-in-deze-lus). Drie dingen komen er in een team bij:
+AI werkt als derde in een pair, met de rol en de grenzen uit [werkwijze, hoofdstuk 10](werkwijze-mse.md#10-werken-met-ai-in-deze-lus). Hoe een pair praktisch met Claude Code werkt, staat in [7.1](#71-pairen-met-claude-code). Daarnaast komen er in een team drie dingen bij:
 
 - **De stoppunten van de skill `atdd` horen bij de samenwerkingsmomenten.** ⛔ 1 (het scenario) is moment 2 met de PO, niet alleen de developer achter het toetsenbord. ⛔ 5 (een ADR) is moment 4 met het team.
 - **AI vervangt het testperspectief niet.** Claude stelt randgevallen voor. Een developer van buiten het pair kiest welke ertoe doen (zie [Het testperspectief](#5-de-samenwerkingsmomenten)).
 - **Eén profiel voor het hele team.** `CLAUDE.md` en `.claude/skills/atdd/` staan in Git. Een valkuil die een pair vindt, komt daar te staan en geldt dan voor iedereen.
+
+### 7.1 Pairen met Claude Code
+
+Bij klassiek pair programming typt de *driver* en denkt de *navigator* vooruit. Met Claude Code typt Claude. Dan lijkt de tweede mens overbodig. Dat is hij niet: hij is wat Claude niet is, een onafhankelijke blik die beslist.
+
+**De rollen.**
+
+| Rol | Wie | Doet | Doet niet |
+| --- | --- | --- | --- |
+| **Bestuurder** | Mens 1 | Zit achter het toetsenbord en typt de opdrachten (prompts) aan Claude. Elke opdracht is één stap, bijvoorbeeld "schrijf een falende unittest voor de controller" of "maak deze test groen met zo min mogelijk code". Beantwoordt de vragen van Claude Code om een bestand te wijzigen of een commando uit te voeren: ja of nee | Eén grote opdracht geven, zoals "bouw de transactielijst" |
+| **Navigator** | Mens 2 | Leest elke wijziging die Claude voorstelt, voordat de bestuurder "ja" zegt. Let daarbij op vier dingen: <ul><li>faalt een nieuwe test om de goede reden, bijvoorbeeld een 404 en geen typefout?</li><li>verandert Claude niet tegelijk de test en de code?</li><li>komt er geen nieuwe library of tool bij zonder ADR?</li><li>verandert Claude niet ongemerkt iets in de DSL die ook andere pairs gebruiken?</li></ul>Schrijft op wat nog moet (het kladblok van het pair) en denkt na over het volgende scenario | Meelezen op een tweede scherm terwijl hij iets anders doet |
+| **Claude** | – | Stelt voor en typt: scenario, test, code, ADR-concept | Beslissen. De stoppunten (⛔) zijn van de mensen |
+
+Dit lijkt op *strong-style pairing* van Llewellyn Falco: "een idee gaat de computer in via de handen van een ander". Hier zijn dat de handen van Claude. De bestuurder moet de opdracht dus zo goed onder woorden brengen dat de navigator hem ook begrijpt. Zo blijft het denken hardop en gedeeld.
+
+**Het ritme: wisselen op de lus.** De iteratie van de skill `atdd` geeft het ritme:
+
+- **⛔ 1, het scenario:** het hele pair keurt het scenario goed, samen met de PO bij moment 2.
+- **De binnenste lus, als ping-pong:** de ene mens keurt de falende unittest en de foutmelding goed. De ander stuurt daarna Claude aan voor de implementatie. Zo is "nooit test en implementatie tegelijk veranderen" ([werkwijze, hoofdstuk 10](werkwijze-mse.md#10-werken-met-ai-in-deze-lus)) een afspraak tussen twee mensen, en niet alleen een instructie aan Claude.
+- **Na elke refactor:** de rollen wisselen. Bestuurder wordt navigator, en andersom.
+- **⛔ 5, een ADR, en ⛔ 7, commit en push:** beide mensen stemmen in.
+
+**Eén scherm, één sessie.** Het pair werkt in één Claude Code-sessie die ze allebei zien: naast elkaar, of op afstand met schermdeling of een gedeelde terminal. Twee developers die elk met een eigen Claude naast elkaar werken, zijn twee solo's en geen pair.
+
+**Het tempo van de mens is leidend.** Claude schrijft sneller dan je kunt lezen. Daarom:
+
+- kleine opdrachten, en één diff tegelijk beoordelen;
+- de navigator mag altijd "stop" zeggen;
+- niets gaat naar `main` wat niet *beide* mensen kunnen uitleggen.
+
+**Review zit in het pairen.** Elke diff is al door twee mensen gelezen voordat hij wordt gecommit. Daarom is er geen aparte review van een pull request nodig, en kan het pair minstens dagelijks op `main` integreren (uitgangspunt 4). De pipeline blijft de scheidsrechter.
+
+**Kennis delen blijft het doel.** Het risico is dat beide mensen toeschouwer worden en de code niet leren kennen. Daartegen helpt:
+
+- de pairs regelmatig roteren, per scenario of per dag;
+- de mensen kiezen zelf de namen in de DSL en het domein; Claude doet hooguit een voorstel;
+- bij een stuk dat de navigator niet kent: laat Claude uitleggen *waarom*, niet alleen *wat*.
+
+**Context bij een wissel van pair.** Claude onthoudt niets tussen sessies, en een nieuwe pairpartner was er niet bij. Wat over moet, staat daarom in Git: het `@wip`-scenario, kleine commits met een duidelijke boodschap, en een valkuil in `CLAUDE.md`. Het kladblok van het pair (een paar regels "wat nog moet") gaat mee naar de nieuwe partner.
+
+**Solo met Claude is geen pair.** Claude deelt de context en de aannames van wie hem bestuurt, en dus vaak ook de blinde vlekken (zie [Het testperspectief](#5-de-samenwerkingsmomenten)). Solo werken met Claude kan bij klein werk met weinig risico, zoals documentatie of een kleine refactor op groen. Laat dan een tweede mens de diff zien vóór de push.
+
+**Bronnen en interpretatie:** driver en navigator, ping-pong en strong-style pairing staan beschreven in Birgitta Böckeler en Nina Siessegger, "On Pair Programming" (martinfowler.com, 2020). De toepassing op een pair met Claude Code, en de regels hierboven, zijn **interpretatie**.
 
 ## 8. Antipatronen
 
@@ -236,6 +282,9 @@ AI werkt als derde in een pair, met de rol en de grenzen uit [werkwijze, hoofdst
 | Story points of uren als doel | Het team stuurt op schatten in plaats van op leveren | Kleine stories; meet de doorlooptijd en het aantal groene scenario's |
 | Drie stories tegelijk half af | Veel onderhanden werk, niets bruikbaars | Samen één story afmaken, dan de volgende |
 | Gedeelde DSL in één grote commit omgooien | Andere pairs breken | Kleine refactorstappen op groen, eerst aankondigen |
+| Twee developers, elk met een eigen Claude-sessie, noemen zich een pair | Twee solo's; niemand leest de code van de ander | Eén sessie op één scherm, met bestuurder en navigator ([7.1](#71-pairen-met-claude-code)) |
+| Diffs van Claude goedkeuren zonder ze te lezen | Code die niemand begrijpt, en blinde vlekken die blijven | De navigator leest elke diff; niets naar `main` wat niet beide mensen kunnen uitleggen |
+| Claude past de test aan tot hij groen is | De test bewijst niets meer | Ping-pong: de een keurt de falende test goed, de ander stuurt de implementatie; test en code nooit in één stap |
 
 ## 9. Bronnen
 
@@ -258,4 +307,6 @@ AI werkt als derde in een pair, met de rol en de grenzen uit [werkwijze, hoofdst
 - Richard Lawrence: Patterns for Splitting User Stories.
 - Bill Wake: INVEST (2003).
 - Woody Zuill: mob/ensemble programming.
+- Birgitta Böckeler en Nina Siessegger, "On Pair Programming", [martinfowler.com](https://martinfowler.com/articles/on-pair-programming.html) (2020): driver en navigator, ping-pong, strong-style.
+- Llewellyn Falco: strong-style pairing.
 - Vasco Duarte, *NoEstimates* (2016), en Woody Zuill: #NoEstimates.
