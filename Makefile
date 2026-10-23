@@ -8,7 +8,7 @@ BACKEND  := backend
 FRONTEND := frontend
 E2E      := e2e
 
-.PHONY: help test backend-test frontend-test iac commit-stage install uninstall e2e-install e2e e2e-infra acceptance
+.PHONY: help test backend-test mutatie frontend-test iac commit-stage install uninstall e2e-install e2e e2e-infra acceptance
 
 help: ## Overzicht van de targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -18,6 +18,9 @@ test: backend-test frontend-test ## Backend- en frontendtests
 backend-test: ## mvnw verify
 	$(BACKEND)/mvnw -q -B -ntp -f $(BACKEND)/pom.xml verify
 
+mutatie: ## Mutation testing met PIT, faalt onder 95% per module (ADR 0018)
+	$(BACKEND)/mvnw -B -ntp -f $(BACKEND)/pom.xml test-compile org.pitest:pitest-maven:mutationCoverage
+
 frontend-test: ## Angular lint, Vitest en build
 	npm --prefix $(FRONTEND) run lint
 	npm --prefix $(FRONTEND) test
@@ -26,7 +29,7 @@ frontend-test: ## Angular lint, Vitest en build
 iac: ## Chart-, script- en workflowchecks in containers (ADR 0006)
 	scripts/iac-check.sh
 
-commit-stage: test iac ## Alles wat de commit stage in CI draait
+commit-stage: test mutatie iac ## Alles wat de commit stage in CI draait
 	npm --prefix $(E2E) run typecheck
 
 install: ## BankSim-MSE installeren in namespace banksim-mse van kind-single-node

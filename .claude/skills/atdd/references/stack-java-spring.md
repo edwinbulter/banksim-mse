@@ -46,6 +46,9 @@ class VersieControllerTests {
 - **`jwt()` uit spring-security-test slaat je eigen `JwtAuthenticationConverter` over.** Het geeft standaard alleen `SCOPE_`-authorities; rollen uit een claim (zoals `realm_access.roles`) worden niet omgezet. Een controllertest met `jwt().authorities(...)` bewijst dus niet dat de converter klopt. Test de converter met een echt ondertekend token tegen de `JwtDecoder` uit de configuratie, bijvoorbeeld met een eigen JWKS-endpoint.
 - **CSRF voor een SPA (`csrf.spa()`, Spring Security 6.4+):** het token staat in cookie `XSRF-TOKEN` (niet HttpOnly) en moet terug als header `X-XSRF-TOKEN`. Een client zonder cookie krijgt bij een PUT, POST of DELETE een 403. Een API-client (zoals een testdriver) doet daarom eerst een GET om het cookie te krijgen. Het cookie krijgt standaard `Path=/; Secure`, zonder `SameSite`.
 
+- **PIT en Spring-configuratie:** mutanten in `@Configuration`-klassen (bijvoorbeeld een weggehaalde `setJwtGrantedAuthoritiesConverter`) overleven, terwijl een handmatige sabotage op dezelfde plek wél door een test gevangen wordt. Die code draait alleen bij het opbouwen van de gecachete Spring-context. Sluit `*Config` en `*Application` uit (`excludedClasses`), en zet logica die gemeten moet worden in een eigen klasse.
+- **PIT met Spring Boot 4 (JUnit 6):** `pitest-maven` 1.30.1 met `pitest-junit5-plugin` 1.2.3 werkt. Zonder die plugin faalt PIT met "Please check you have correctly installed the plugin". Een verkeerd `targetClasses`-filter geeft "No mutations found". Een drempel van 95% bij 40 mutanten laat twee levende mutanten door; kijk dus ook in het rapport.
+
 ## Tips
 
 - Draai `mvnw verify` in de commit stage. Bouw het image met Jib (`jib:dockerBuild`) en zet daarbij `-DskipTests`; de tests zijn dan al gedraaid. Gevolg: lokaal kan een image met falende code toch geïnstalleerd worden. Draai daarom altijd eerst de commit stage, en vertrouw niet op een rooktest; die controleert alleen de statuscode.

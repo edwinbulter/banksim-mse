@@ -63,4 +63,12 @@ class CursorTests {
                 .hasMessageContaining("banksim.cursor.sleutel");
         assertThatThrownBy(() -> new Cursor(null)).isInstanceOf(IllegalStateException.class);
     }
+
+    /** De grens: 32 tekens is genoeg, 31 niet (ADR 0018: gevonden door PIT). */
+    @Test
+    void startMetEenSleutelVanPrecies32Tekens() {
+        Cursor precies32 = new Cursor("a".repeat(32));
+        assertThat(precies32.lees(VAN_JAN, precies32.maak(VAN_JAN, POSITIE))).isEqualTo(POSITIE);
+        assertThatThrownBy(() -> new Cursor("a".repeat(31))).isInstanceOf(IllegalStateException.class);
+    }
 }

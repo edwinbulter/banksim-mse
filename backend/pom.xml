@@ -35,6 +35,9 @@
         <archunit.version>1.5.1</archunit.version>
 
         <jib-maven-plugin.version>3.5.2</jib-maven-plugin.version>
+        <!-- ADR 0018: mutation testing; de JUnit-plugin moet bij de JUnit-versie van Spring Boot passen -->
+        <pitest-maven.version>1.30.1</pitest-maven.version>
+        <pitest-junit5-plugin.version>1.2.3</pitest-junit5-plugin.version>
 
         <!-- Distroless Java 21, draait als non-root -->
         <jib.from.image>gcr.io/distroless/java21-debian13:nonroot@sha256:0a1f5a75661918de9c0813f287f651c3bf2d6dd752eada5f084eb0c1f14ced9e</jib.from.image>
@@ -99,6 +102,36 @@
                             <user>65532:65532</user>
                             <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
                         </container>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <!-- ADR 0018: make mutatie, en de job "Commit stage – mutatietests" -->
+                    <groupId>org.pitest</groupId>
+                    <artifactId>pitest-maven</artifactId>
+                    <version>${pitest-maven.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.pitest</groupId>
+                            <artifactId>pitest-junit5-plugin</artifactId>
+                            <version>${pitest-junit5-plugin.version}</version>
+                        </dependency>
+                    </dependencies>
+                    <configuration>
+                        <targetClasses>
+                            <param>nl.banksim.*</param>
+                        </targetClasses>
+                        <!-- Spring-configuratie en main: PIT meet die niet betrouwbaar; eigen tests dekken ze (ADR 0018) -->
+                        <excludedClasses>
+                            <param>nl.banksim.*Config</param>
+                            <param>nl.banksim.*Application</param>
+                        </excludedClasses>
+                        <mutationThreshold>95</mutationThreshold>
+                        <threads>4</threads>
+                        <timestampedReports>false</timestampedReports>
+                        <outputFormats>
+                            <param>HTML</param>
+                            <param>XML</param>
+                        </outputFormats>
                     </configuration>
                 </plugin>
             </plugins>

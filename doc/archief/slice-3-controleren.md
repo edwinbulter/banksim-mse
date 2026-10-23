@@ -1,5 +1,7 @@
 # Slice 3 controleren: simulatiedatum
 
+> **Gearchiveerd op 2026-10-23, niet meer bijgehouden.** Aantallen, meldingen en commando's kunnen verouderd zijn. Hoe je nu controleert, staat in [werkwijze §10.1](../werkwijze-mse.md#101-controle-door-de-mens); de sabotages herhaalt PIT bij elke commit (ADR 0018).
+
 Met deze instructie controleer je zelf wat er in slice 3 is gebouwd. De volgorde is dezelfde als bij [slice 2a](slice-2a-controleren.md):
 
 1. Je kijkt wat er staat.
@@ -8,7 +10,7 @@ Met deze instructie controleer je zelf wat er in slice 3 is gebouwd. De volgorde
 4. Je installeert de app en zet zelf de simulatiedatum.
 5. Je controleert de pipeline.
 
-Reken op anderhalf uur. Deze slice raakt alle lagen: de API, de BFF, de seed, de chart en de acceptatietests. Slice 2a moet al gecontroleerd zijn. De achtergrond staat in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 7 (slice 3), en in de ADR's 0013 tot en met 0017.
+Reken op anderhalf uur. Deze slice raakt alle lagen: de API, de BFF, de seed, de chart en de acceptatietests. Slice 2a moet al gecontroleerd zijn. De achtergrond staat in [werkwijze-mse.md](../werkwijze-mse.md), hoofdstuk 7 (slice 3), en in de ADR's 0013 tot en met 0017.
 
 > **Stand.** Deze instructie gaat over heel slice 3, met drie scenario's. Het deel met de code is commit `a89eb9a`. Het scenario "Vooruitzetten maakt transacties weer zichtbaar" kwam daarna, zonder codewijziging (zie 4.4). Het scherm voor de beheerder volgt in slice 10 (S10.2).
 
@@ -17,11 +19,11 @@ Reken op anderhalf uur. Deze slice raakt alle lagen: de API, de BFF, de seed, de
 > **S3.1** Als beheerder wil ik de bank op een gekozen datum laten draaien, zodat ik een situatie in het verleden of de toekomst kan laten zien.
 
 Dit is een *enabling slice*: de beheerder krijgt pas in slice 10 een scherm (S10.2). Tot dan zet hij de datum via de API, en zie je het effect bij de klant:
-- **Simulatiedatum.** Staat er een simulatiedatum, dan is dat "vandaag" voor de hele bank. Het saldo en de transactielijst tellen alleen transacties tot en met die datum. Zonder simulatiedatum is vandaag de echte datum in Europe/Amsterdam ([ADR 0013](adr/0013-simulationclock-vervangt-de-systeemtijd.md)).
-- **Alleen de beheerder.** `PUT` en `DELETE /api/beheer/simulatiedatum` vragen de realm-rol `beheerder` in het token. Een klant krijgt 403 ([ADR 0015](adr/0015-rol-beheerder-in-het-token.md)).
-- **CSRF.** Dit is het eerste verzoek dat iets verandert. De BFF eist het token uit cookie `XSRF-TOKEN` terug als header `X-XSRF-TOKEN` ([ADR 0016](adr/0016-csrf-in-de-bff-met-een-cookie.md)).
-- **De realm bij elke installatie.** Keycloak importeert de realm niet meer zelf. Een Helm-hook-Job `keycloak-config` (keycloak-config-cli) past `realm-banksim-mse.json` toe na elke installatie en upgrade. Dat werkt ook op een bestaande realm, zodat die de rol `beheerder` en de scope `roles` krijgt ([ADR 0017](adr/0017-realm-wijzigingen-met-keycloak-config-cli.md)).
-- **Serieel.** De simulatiedatum geldt voor iedereen. Daarom draaien de scenario's met `@simulatiedatum` na alle andere, één voor één, en wist de DSL de datum na elk scenario ([ADR 0014](adr/0014-scenarios-met-simulatiedatum-serieel.md)).
+- **Simulatiedatum.** Staat er een simulatiedatum, dan is dat "vandaag" voor de hele bank. Het saldo en de transactielijst tellen alleen transacties tot en met die datum. Zonder simulatiedatum is vandaag de echte datum in Europe/Amsterdam ([ADR 0013](../adr/0013-simulationclock-vervangt-de-systeemtijd.md)).
+- **Alleen de beheerder.** `PUT` en `DELETE /api/beheer/simulatiedatum` vragen de realm-rol `beheerder` in het token. Een klant krijgt 403 ([ADR 0015](../adr/0015-rol-beheerder-in-het-token.md)).
+- **CSRF.** Dit is het eerste verzoek dat iets verandert. De BFF eist het token uit cookie `XSRF-TOKEN` terug als header `X-XSRF-TOKEN` ([ADR 0016](../adr/0016-csrf-in-de-bff-met-een-cookie.md)).
+- **De realm bij elke installatie.** Keycloak importeert de realm niet meer zelf. Een Helm-hook-Job `keycloak-config` (keycloak-config-cli) past `realm-banksim-mse.json` toe na elke installatie en upgrade. Dat werkt ook op een bestaande realm, zodat die de rol `beheerder` en de scope `roles` krijgt ([ADR 0017](../adr/0017-realm-wijzigingen-met-keycloak-config-cli.md)).
+- **Serieel.** De simulatiedatum geldt voor iedereen. Daarom draaien de scenario's met `@simulatiedatum` na alle andere, één voor één, en wist de DSL de datum na elk scenario ([ADR 0014](../adr/0014-scenarios-met-simulatiedatum-serieel.md)).
 
 De frontend is niet veranderd.
 

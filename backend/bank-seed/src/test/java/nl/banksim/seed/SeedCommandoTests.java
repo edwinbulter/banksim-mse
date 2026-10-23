@@ -98,6 +98,27 @@ class SeedCommandoTests {
         assertThat(aanroepen).isEmpty();
     }
 
+    /** Een losse optie aan het eind is een tikfout; die mag niet stilletjes wegvallen (ADR 0018). */
+    @Test
+    void weigertEenOptieZonderWaardeAanHetEind() {
+        assertThatThrownBy(() -> commando.voerUit("transacties", "--iban", "NL94SIMB0000000001",
+                "--transactie", "2026-10-01,-812.40,Woningstichting Thuis", "--transactie"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Optie --transactie heeft geen waarde");
+        assertThatThrownBy(() -> commando.voerUit("klant", "--alias", "jan", "--betaalrekening"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Optie --betaalrekening heeft geen waarde");
+        assertThat(aanroepen).isEmpty();
+    }
+
+    @Test
+    void weigertEenAanroepZonderCommando() {
+        assertThatThrownBy(() -> commando.voerUit())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Onbekend commando");
+        assertThat(aanroepen).isEmpty();
+    }
+
     @Test
     void weigertEenOnbekendCommando() {
         assertThatThrownBy(() -> commando.voerUit("rekening", "--alias", "jan"))

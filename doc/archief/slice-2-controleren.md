@@ -1,5 +1,7 @@
 # Slice 2 controleren: transactielijst van de betaalrekening
 
+> **Gearchiveerd op 2026-10-23, niet meer bijgehouden.** Aantallen, meldingen en commando's kunnen verouderd zijn. Hoe je nu controleert, staat in [werkwijze §10.1](../werkwijze-mse.md#101-controle-door-de-mens); de sabotages herhaalt PIT bij elke commit (ADR 0018).
+
 Met deze instructie controleer je zelf wat er in slice 2 is gebouwd. De volgorde is dezelfde als bij [slice 1](slice-1-controleren.md):
 
 1. Je kijkt wat er staat.
@@ -8,7 +10,7 @@ Met deze instructie controleer je zelf wat er in slice 2 is gebouwd. De volgorde
 4. Je installeert de app, seedt een klant met transacties en bekijkt de lijst.
 5. Je controleert de installatie en de pipeline.
 
-Reken op een uur. Slice 1 moet al gecontroleerd zijn; wat daar staat, herhaalt deze instructie niet. De achtergrond staat in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 7 (slice 2), en in [ADR 0011](adr/0011-keyset-paginering-met-cursor.md).
+Reken op een uur. Slice 1 moet al gecontroleerd zijn; wat daar staat, herhaalt deze instructie niet. De achtergrond staat in [werkwijze-mse.md](../werkwijze-mse.md), hoofdstuk 7 (slice 2), en in [ADR 0011](../adr/0011-keyset-paginering-met-cursor.md).
 
 ## 1. Wat is er gebouwd
 

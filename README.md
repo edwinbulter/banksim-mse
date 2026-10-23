@@ -57,11 +57,8 @@ Start een iteratie met bijvoorbeeld `/atdd begin aan slice 1` of `/atdd volgend 
 | --- | --- |
 | [Werkwijze volgens Modern Software Engineering](doc/werkwijze-mse.md) | De volledige werkwijze, met voor elke slice:<br>- scenario's<br>- double loop<br>- vierlaags acceptatietestmodel<br>- ADR-proces en -backlog<br>- uitgewerkte iteraties<br>- infrastructuur als code<br>- traceerbaarheid naar het origineel<br>- Definition of Done |
 | [ATDD in een team](doc/teamwerk-mse.md) | Hoe een team de werkwijze toepast volgens Farley: van epic naar scenario, werk verdelen per scenario in plaats van per laag, en de samenwerkingsmomenten |
-| [Stap 0 controleren](doc/stap-0-controleren.md) | Instructie om het walking skeleton zelf na te lopen: elke test groen en een keer rood zien, installeren, acceptatietests en veiligheid van de namespace |
-| [Slice 1 controleren](doc/slice-1-controleren.md) | Instructie om slice 1 zelf na te lopen: elke laag groen en een keer rood zien, zelf inloggen met een geseede klant, Secrets, data en upgrade |
-| [Slice 2 controleren](doc/slice-2-controleren.md) | Instructie om slice 2 zelf na te lopen: elke laag groen en een keer rood zien, zelf een klant met 60 transacties seeden en "Toon meer" bekijken, de cursorsleutel in het Secret |
-| [Slice 2a controleren](doc/slice-2a-controleren.md) | Instructie om slice 2a zelf na te lopen: de routes in Vitest groen en een keer rood zien, de navigatie in de browser (URL, herladen, link "Overzicht", terugknop zonder opnieuw laden), en de sabotage met `replaceUrl` |
-| [Slice 3 controleren](doc/slice-3-controleren.md) | Instructie om slice 3 zelf na te lopen: de rolcontrole, CSRF, de datumfilters, de klok (ArchUnit), de seed en de realm groen en een keer rood zien, zelf de simulatiedatum zetten als beheerder, en de sabotages zonder rolcontrole en met `DO NOTHING` |
+| [Controle door de mens](doc/werkwijze-mse.md#101-controle-door-de-mens) | Wat je als mens nog wél en níet meer controleert bij code die AI via ATDD maakt: scenario, ADR, rapport en diff van de specs, verkennend testen per slice. De sabotages herhaalt PIT bij elke commit (ADR 0018) |
+| [Archief](doc/archief) | De gearchiveerde controle-documenten van stap 0 tot en met slice 3; niet meer bijgehouden |
 | [Skill `atdd`](.claude/skills/atdd/README.md) | Nut en gebruik van de ATDD-skill, ook in andere projecten |
 | [`doc/adr/`](doc/adr) | Architecture Decision Records, ontstaan tijdens de bouw |
 | [Originele BankSim](https://github.com/edwinbulter/banksim) | Het functioneel en technisch ontwerp en de gegenereerde implementatie waar dit project naar toe werkt |

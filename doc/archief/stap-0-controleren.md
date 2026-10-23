@@ -1,5 +1,7 @@
 # Stap 0 controleren: het walking skeleton
 
+> **Gearchiveerd op 2026-10-23, niet meer bijgehouden.** Aantallen, meldingen en commando's kunnen verouderd zijn. Hoe je nu controleert, staat in [werkwijze §10.1](../werkwijze-mse.md#101-controle-door-de-mens); de sabotages herhaalt PIT bij elke commit (ADR 0018).
+
 Met deze instructie controleer je zelf wat er in stap 0 is gebouwd. Je doet het in deze volgorde:
 
 1. Je kijkt wat er staat.
@@ -8,7 +10,7 @@ Met deze instructie controleer je zelf wat er in stap 0 is gebouwd. Je doet het 
 4. Je installeert de app in het cluster en bekijkt hem.
 5. Je controleert dat de installatie niets buiten namespace `banksim-mse` raakt.
 
-Reken op ongeveer een uur. De achtergrond staat in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 3, en in de ADR's in [`adr/`](adr).
+Reken op ongeveer een uur. De achtergrond staat in [werkwijze-mse.md](../werkwijze-mse.md), hoofdstuk 3, en in de ADR's in [`adr/`](../adr).
 
 ## 1. Wat is er gebouwd
 
@@ -189,7 +191,7 @@ make e2e-install   # eenmalig: Playwright en de browsers
 make e2e
 ```
 
-`make e2e` test wat er op dat moment geïnstalleerd is. Wil je installeren en testen in één stap, gebruik dan `make acceptance`. Het verschil met de acceptance stage in CI staat in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 3, "Acceptatietests lokaal en in CI".
+`make e2e` test wat er op dat moment geïnstalleerd is. Wil je installeren en testen in één stap, gebruik dan `make acceptance`. Het verschil met de acceptance stage in CI staat in [werkwijze-mse.md](../werkwijze-mse.md), hoofdstuk 3, "Acceptatietests lokaal en in CI".
 
 **Verwacht:** 4 tests geslaagd. Het is hetzelfde scenario in vier projecten:
 

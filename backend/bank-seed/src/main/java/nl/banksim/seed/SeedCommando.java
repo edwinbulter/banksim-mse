@@ -36,6 +36,10 @@ class SeedCommando {
 
     void voerUit(String... args) {
         String commando = args.length == 0 ? "" : args[0];
+        // Na het commando komen paren "--optie waarde"; een even aantal argumenten betekent een losse optie aan het eind.
+        if (args.length > 0 && args.length % 2 == 0) {
+            throw new IllegalArgumentException("Optie " + args[args.length - 1] + " heeft geen waarde");
+        }
         Map<String, String> opties = opties(args);
         Object resultaat = switch (commando) {
             case "klant" -> klant(opties);
@@ -79,7 +83,7 @@ class SeedCommando {
     private GeboekteTransacties transacties(String[] args) {
         Iban iban = Iban.van(verplicht(opties(args), "--iban"));
         List<Regel> regels = new ArrayList<>();
-        for (int i = 1; i + 1 < args.length; i += 2) {
+        for (int i = 1; i < args.length; i += 2) {
             if (args[i].equals("--transactie")) {
                 regels.add(Regel.van(args[i + 1]));
             }
@@ -109,7 +113,7 @@ class SeedCommando {
 
     private static Map<String, String> opties(String[] args) {
         Map<String, String> opties = new HashMap<>();
-        for (int i = 1; i + 1 < args.length; i += 2) {
+        for (int i = 1; i < args.length; i += 2) {
             opties.put(args[i], args[i + 1]);
         }
         return opties;

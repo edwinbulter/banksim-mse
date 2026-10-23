@@ -1,5 +1,7 @@
 # Slice 1 controleren: overzicht met saldo
 
+> **Gearchiveerd op 2026-10-23, niet meer bijgehouden.** Aantallen, meldingen en commando's kunnen verouderd zijn. Hoe je nu controleert, staat in [werkwijze §10.1](../werkwijze-mse.md#101-controle-door-de-mens); de sabotages herhaalt PIT bij elke commit (ADR 0018).
+
 Met deze instructie controleer je zelf wat er in slice 1 is gebouwd. Je volgt dezelfde volgorde als in [stap 0](stap-0-controleren.md):
 
 1. Je kijkt wat er staat.
@@ -8,7 +10,7 @@ Met deze instructie controleer je zelf wat er in slice 1 is gebouwd. Je volgt de
 4. Je installeert de app, logt in als klant en bekijkt het overzicht.
 5. Je controleert de installatie: Secrets, data en upgrade.
 
-Reken op anderhalf uur. Stap 0 moet al gecontroleerd zijn; wat daar staat, herhaalt deze instructie niet. De achtergrond staat in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 7 (slice 1) en 9.4, en in de ADR's 0003 en 0007–0010 in [`adr/`](adr).
+Reken op anderhalf uur. Stap 0 moet al gecontroleerd zijn; wat daar staat, herhaalt deze instructie niet. De achtergrond staat in [werkwijze-mse.md](../werkwijze-mse.md), hoofdstuk 7 (slice 1) en 9.4, en in de ADR's 0003 en 0007–0010 in [`adr/`](../adr).
 
 ## 1. Wat is er gebouwd
 
@@ -53,7 +55,7 @@ flowchart LR
 2. `e2e/dsl/klant.ts` en `e2e/dsl/omgeving.ts`: de DSL.
 3. `e2e/drivers/shell/bank-seed.ts`, `e2e/drivers/rest/rest-driver.ts` en `e2e/drivers/ui/`: hoe de DSL testdata maakt, inlogt en het overzicht leest.
 4. `backend/bank-bff`: `BeveiligingConfig`, `ApiRoute`, `KeycloakClientRegistration`.
-5. `backend/bank-api`: `RekeningController`, `IngelogdeGebruiker`, `BeveiligingConfig`, `JdbcRekeningRepository`. Naast de code staan uitleggen: [`BeveiligingConfig.md`](../backend/bank-api/src/main/java/nl/banksim/api/beveiliging/BeveiligingConfig.md), [`TokenControleTests.md`](../backend/bank-api/src/test/java/nl/banksim/api/beveiliging/TokenControleTests.md) en [`RekeningControllerTests.md`](../backend/bank-api/src/test/java/nl/banksim/api/rekening/RekeningControllerTests.md).
+5. `backend/bank-api`: `RekeningController`, `IngelogdeGebruiker`, `BeveiligingConfig`, `JdbcRekeningRepository`. Naast de code staan uitleggen: [`BeveiligingConfig.md`](../../backend/bank-api/src/main/java/nl/banksim/api/beveiliging/BeveiligingConfig.md), [`TokenControleTests.md`](../../backend/bank-api/src/test/java/nl/banksim/api/beveiliging/TokenControleTests.md) en [`RekeningControllerTests.md`](../../backend/bank-api/src/test/java/nl/banksim/api/rekening/RekeningControllerTests.md).
 6. `backend/bank-domain`: `Bedrag` en `Iban`.
 7. `backend/bank-seed`: `SeedCommando` → `SeedKlantAanmaker` → `KeycloakLogins` en `JdbcRekeninghouders`.
 8. `frontend/src/app`: `app.ts`, `overzicht.ts`, `geld/bedrag.ts`.
@@ -271,7 +273,7 @@ gh run view <run-id> --log | grep 'upgrade.spec'
 
 **Rood is al gezien.** Op een tijdelijke branch wiste een Flyway-callback (`afterMigrate.sql`) de data bij elke start van `bank-api`. De upgrade herstart `bank-api`, en het scenario faalde in CI met `rekeningen van Jan … Received array: []` (run `39479334432`). De branch is daarna verwijderd.
 
-**Wat het niet controleert:** PostgreSQL en Keycloak herstarten bij deze upgrade niet, omdat hun images op digest staan. Of de data een herstart van de database overleeft, staat als backlogpunt in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 9.4.
+**Wat het niet controleert:** PostgreSQL en Keycloak herstarten bij deze upgrade niet, omdat hun images op digest staan. Of de data een herstart van de database overleeft, staat als backlogpunt in [werkwijze-mse.md](../werkwijze-mse.md), hoofdstuk 9.4.
 
 ## 6. De pipeline
 

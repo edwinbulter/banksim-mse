@@ -355,6 +355,8 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | Contract-first OpenAPI, gegenereerde Angular-client | TO §3.2, §16 | Uitgesteld bij S2.2 (drie endpoints): zodra de frontend de API vaker aanroept |
 | MFA instelbaar, standaard uit; geen transactielimiet naast "nooit rood" | TO §17 | 6 Inloggen / 7 Betalen |
 | Supply chain: vaste versies, SBOM, Trivy, Renovate | TO §16 | CFR Supply chain |
+| Mutation testing met PIT in de commit stage | — (ontbrak in het origineel) | Afschaffen van de handmatige controle per slice (ADR 0018) |
+| Mutation testing van de frontend met Stryker | — | Zodra de frontend meer logica krijgt (betalen, slice 7) |
 
 ## 7. Stap voor stap: de slices
 
@@ -1305,12 +1307,44 @@ De originele BankSim liet AI het hele systeem in één keer genereren uit het FO
 - **De mens is eigenaar van het voorbeeld.** Jij schrijft of keurt het scenario en de verwachte bedragen goed; de AI mag voorstellen doen, maar een scenario is pas geldig als jij het begrijpt en onderschrijft.
 - **Vraag om de kleinste implementatie** die de falende test groen maakt. Refactoren is een aparte stap met een aparte opdracht.
 - **Laat de AI nooit tegelijk test en implementatie veranderen.** Een test die tegelijk met de code verandert, bewijst niets. Eerst de falende test committen of laten zien, dan de code.
-- **Controleer AI-tests met mutation testing** (PIT): overleven mutanten, dan testen de tests te weinig.
+- **Controleer AI-tests met mutation testing** (PIT, ADR 0018): `make mutatie` lokaal, en de job "Commit stage – mutatietests" in de pipeline. Overleven mutanten, dan testen de tests te weinig.
 - **Laat de AI ADR's opstellen, niet nemen.** Een ADR-concept met opties en gevolgen is nuttig; de beslissing en de status "Geaccepteerd" zijn aan jou.
 - **Houd de AI binnen de stack.** Een voorstel dat een nieuwe library of tool introduceert, is een ADR-kandidaat en geen implementatiedetail.
 - **De pipeline is de scheidsrechter**, niet het oordeel van de AI dat iets "werkt".
 
 Deze regels zijn, samen met de double loop en het vierlaagse model, vastgelegd als Claude Code-skill [`atdd`](../.claude/skills/atdd/README.md). Wat specifiek is voor dit project, staat in het ATDD-profiel in [`CLAUDE.md`](../CLAUDE.md). Je start een iteratie met `/atdd volgend scenario`.
+
+### 10.1 Controle door de mens
+
+Na een groene pipeline loop je een slice niet nog eens met de hand na. Wat de pipeline al bewijst, herhaal je niet. Je zou dan de tests opnieuw draaien, opnieuw saboteren, statuscodes nalopen en tests tellen. Dat kost 45 tot 90 minuten per slice, en het document met de instructie veroudert. Daarom zijn de controle-documenten tot en met slice 3 gearchiveerd (`doc/archief/`). De sabotage die je met de hand herhaalde, doet PIT nu bij elke commit (ADR 0018).
+
+Farley is daarover duidelijk:
+- Een groene pipeline betekent releasebaar. Een handmatige poort daarna betekent dat de pipeline tekortschiet.
+- De mens zit in de *specificatie*: vision, user story, voorbeelden, uitvoerbare specs. Hij zit ook in het *ontwerp van de verificatie*, niet in het inspecteren van gegenereerde code.
+- De tests waartegen AI werkt, mag de AI niet zelf naar zijn hand zetten.
+
+Handmatig testen verdwijnt niet helemaal. *Continuous Delivery* (hfst. 5) en *Continuous Delivery Pipelines* (hfst. "Manual Testing") houden verkennend testen en bruikbaarheid als werk voor mensen. Het doel daarvan is vinden wat de automaten niet zoeken, en niet herhalen wat ze al bewijzen.
+
+**Wat je wél doet, in volgorde van waarde**
+
+| Moment | Wat | Tijd |
+| --- | --- | --- |
+| ⛔ Scenario | Klopt het voorbeeld, met deze waarden? Welk randgeval ontbreekt? Dit is je belangrijkste controle: de pipeline bewijst alleen wat jij hier goedkeurt | 5–15 min |
+| ⛔ ADR | De beslissing nemen. Lees de opties, de gevolgen en de bewaking; de code hoef je niet te lezen | 5–15 min |
+| ⛔ Commit | Lees het rapport: waarom rood de goede reden was, en wat niet geverifieerd is. Kijk naar `git diff --stat`: zijn goedgekeurde specs of beweringen in de DSL veranderd zonder dat jij dat vroeg? Lees de diff van `e2e/specs/`; de productiecode hoef je niet regel voor regel te lezen | ~5 min |
+| Na de push | Is de pipeline groen, ook de mutatietests? Bij rood stopt al het andere werk | 1 min |
+| Per slice | Een verkennende sessie van 15–30 minuten op `https://bank-mse.localtest.me`, met een vooraf gekozen opdracht. Bijvoorbeeld: smal scherm, dubbelklikken, heel lange teksten, terugknop, twee tabbladen. Vind je iets, repareer het dan niet meteen: het wordt een nieuw scenario of een nieuwe unittest, eerst rood, dan groen | 15–30 min |
+| Af en toe | De levende mutanten in het PIT-rapport (artifact `pit-rapport` van de pipeline). De drempel van 95% laat één of twee levende mutanten per module door (ADR 0018). Kijk daarnaast of de drivers niet om beveiliging of routering heen gaan | 10 min |
+
+**Wat je níet meer doet**
+
+- Sabotages herhalen die tijdens het bouwen al zijn gedaan. Die staan in het commitbericht, en PIT herhaalt ze.
+- Tests tellen, of statuscodes en curl-uitvoer nalopen.
+- Productiecode regel voor regel lezen. Lees het scenario, het rapport en de diff van de specs.
+- Eerdere slices met de hand regressietesten. Dat doet de acceptance stage bij elke commit.
+- Per slice een controle-document laten schrijven.
+
+**Waar het bewijs staat.** Het commitbericht van een scenario heeft de kopjes "Rood gezien" (melding en reden), "Sabotage" (als die gedaan is) en "Niet geverifieerd". Het bewijs hoort zo bij precies die versie, en kan niet verouderen.
 
 ## 11. Traceerbaarheid naar het origineel
 
@@ -1367,6 +1401,8 @@ Een slice is pas klaar als:
 - [ ] Er geen library of tool buiten de afgesproken stack is bijgekomen zonder ADR.
 - [ ] De slice via de pipeline is gedeployed in namespace `banksim-mse` op `kind-single-node` en met de hand te gebruiken is op `https://bank-mse.localtest.me`.
 - [ ] Er geen `@wip`-scenario's van deze slice meer zijn.
+- [ ] De mutatietests halen de drempel in de pipeline (ADR 0018).
+- [ ] De verkennende sessie van de slice is gedaan (§10.1); vondsten zijn scenario's of unittests geworden.
 - [ ] De specs de actuele beschrijving van het gedrag zijn; er is geen apart document bijgewerkt dat ook zou kunnen verouderen.
 
 **Checklist per iteratie (minuten tot uren)**
@@ -1375,4 +1411,4 @@ Een slice is pas klaar als:
 2. Draai het: faalt het om de goede reden?
 3. Outside-in: falende unittest → kleinste code → refactor, herhaal tot het scenario groen is.
 4. Vraagt dit om een architectuurkeuze? Schrijf de ADR, met bewaking.
-5. Commit, wacht op een groene pipeline, ga naar het volgende voorbeeld.
+5. Lees het rapport en de diff van de specs (§10.1), commit met "Rood gezien" in het bericht, wacht op een groene pipeline, ga naar het volgende voorbeeld.

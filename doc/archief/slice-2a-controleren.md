@@ -1,5 +1,7 @@
 # Slice 2a controleren: navigatie
 
+> **Gearchiveerd op 2026-10-23, niet meer bijgehouden.** Aantallen, meldingen en commando's kunnen verouderd zijn. Hoe je nu controleert, staat in [werkwijze §10.1](../werkwijze-mse.md#101-controle-door-de-mens); de sabotages herhaalt PIT bij elke commit (ADR 0018).
+
 Met deze instructie controleer je zelf wat er in slice 2a is gebouwd. De volgorde is dezelfde als bij [slice 2](slice-2-controleren.md):
 
 1. Je kijkt wat er staat.
@@ -8,7 +10,7 @@ Met deze instructie controleer je zelf wat er in slice 2a is gebouwd. De volgord
 4. Je installeert de app en loopt de navigatie zelf na in de browser.
 5. Je controleert de pipeline.
 
-Reken op drie kwartier. Slice 2 moet al gecontroleerd zijn; wat daar staat, herhaalt deze instructie niet. De achtergrond staat in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 7 (slice 2a), en in [ADR 0012](adr/0012-navigatie-met-de-angular-router.md).
+Reken op drie kwartier. Slice 2 moet al gecontroleerd zijn; wat daar staat, herhaalt deze instructie niet. De achtergrond staat in [werkwijze-mse.md](../werkwijze-mse.md), hoofdstuk 7 (slice 2a), en in [ADR 0012](../adr/0012-navigatie-met-de-angular-router.md).
 
 ## 1. Wat is er gebouwd
 

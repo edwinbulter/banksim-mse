@@ -50,7 +50,7 @@ Eén iteratie is één voorbeeld, van scenario tot groene pipeline. ⛔ markeert
    2. Installeer de nieuwe versie en draai de acceptatietests. Controleer aan de versie dat je test wat je net gebouwd hebt.
    3. Draai het scenario in alle drivers waarvoor het geldt.
 7. **Commit.**
-   ⛔ Vraag toestemming om te committen en te pushen, met de prefix uit het profiel. Commit het scenario, de tests, de code en de eventuele ADR samen.
+   ⛔ Vraag toestemming om te committen en te pushen, met de prefix uit het profiel. Commit het scenario, de tests, de code en de eventuele ADR samen. Het commitbericht krijgt de kopjes **Rood gezien** (melding en reden), **Sabotage** (als je die deed) en **Niet geverifieerd**. Zo hoort het bewijs bij precies die versie. Schrijf geen apart controle-document voor de mens; wat de mens nog controleert, staat in het profiel of de werkwijze.
    Volg na de push de pipeline tot het einde. Is hij rood, dan gaat dat voor alles: zoek de oorzaak in de joblog en los die eerst op.
 8. **Rapport.** Gebruik het format in §5.
 
@@ -58,6 +58,7 @@ Komt er werk bij dat niet bij dit voorbeeld hoort? Zet het als `@wip`-scenario o
 
 ## 2. Harde regels
 
+- **Verander een goedgekeurd scenario of zijn verwachte waarden nooit zonder ⛔.** Dat geldt ook voor beweringen in de DSL. De mens keurt het voorbeeld goed; een AI die het voorbeeld aanpast om groen te worden, bewijst niets.
 - Werk aan **één falend acceptatiescenario tegelijk**. Scenario's voor later krijgen `@wip` en tellen in de pipeline niet mee.
 - Schrijf **geen productiecode zonder falende test.** Laat elke test eerst rood zien.
 - **Verander een test nooit in dezelfde stap als de code die hij test.** Een test die meebeweegt met de code, bewijst niets.
@@ -94,7 +95,7 @@ Zie voor de uitwerking in een stack bijvoorbeeld [references/stack-playwright-ts
 - **Stel voor, besluit niet.** Scenario's, verwachte waarden en ADR-beslissingen zijn van de gebruiker.
 - **Laat elke rode test zien**, met de foutmelding, vóór je de code schrijft. Dan kan de gebruiker volgen dat de test echt iets bewijst.
 - Refactoren is een **aparte stap**, nooit verstopt in een groen-stap.
-- Kun je mutation testing draaien (PIT, Stryker)? Gebruik het om te controleren of je eigen tests echt iets vangen.
+- **Mutation testing** (PIT, Stryker) is de geautomatiseerde sabotage. Draai het commando uit het profiel vóór de commit, en noem levende mutanten in het rapport. Een levende mutant in nieuwe code dood je met een test. Een gelijkwaardige mutant leg je uit. Staat mutation testing nog niet in de pipeline? Stel dan een ADR voor: met de hand saboteren is eenmalig.
 - **Valkuilen die je oplost en die niet uit de code af te leiden zijn**, stel je voor als aanvulling:
   - een projectvalkuil gaat naar het profiel;
   - een valkuil van een tool gaat naar de stack-referentie.
@@ -114,7 +115,7 @@ Een slice of feature is klaar als:
 
 1. **Scenario:** de naam, en in welke drivers het draait.
 2. **Rood gezien:** per test de melding, en waarom dat de goede reden was.
-3. **Groen:** wat lokaal groen is, en of de pipeline groen is (met run-id of link).
+3. **Groen:** wat lokaal groen is, of de pipeline groen is (met run-id of link), en de mutatiescore met de levende mutanten.
 4. **Niet geverifieerd:** wat je niet hebt kunnen controleren, en waarom.
 5. **ADR's:** nieuw, gewijzigd of voorgesteld.
 6. **Volgende stap:** het volgende voorbeeld uit de backlog, of wat er open staat.

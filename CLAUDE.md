@@ -15,7 +15,7 @@ Werkwijze: skill `atdd` (`.claude/skills/atdd/`). Dit profiel bevat wat specifie
 Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest, bats, shellcheck, hadolint en actionlint. Die draaien in containers die op digest zijn vastgepind (ADR 0006). Een nieuwe library of tool alleen met een ADR.
 
 **Commando's** (`make help` toont ze allemaal)
-- Commit stage: `make commit-stage`. Afzonderlijk: `make backend-test`, `make frontend-test`, `make iac`.
+- Commit stage: `make commit-stage`. Afzonderlijk: `make backend-test`, `make mutatie` (PIT, ADR 0018), `make frontend-test`, `make iac`. Het PIT-rapport staat in `backend/<module>/target/pit-reports/index.html`; in CI is het artifact `pit-rapport`.
 - Installeren + acceptatietests: `make acceptance`, dat `make install`, `make e2e` en `make e2e-infra` uitvoert.
 - Installatiescenario's: `make e2e-infra` (project `infra`, zonder `@destructief`). In CI draaien ze met `BANKSIM_DESTRUCTIEF=1` en het nep-origineel.
 - Eén scenario: `cd e2e && npx playwright test --project=rest specs/<naam>.spec.ts`. Gebruik `--project=chromium` voor de UI en `--project=infra` voor een installatiescenario. Een scenario met `@simulatiedatum` draait in `simulatiedatum-rest` (of `-chromium`, `-firefox`, `-webkit`), met `--no-deps`; anders draaien eerst alle gewone projecten (ADR 0014). Nooit meerdere `simulatiedatum-*`-projecten tegelijk met `--no-deps`: dan valt de keten weg, draaien ze parallel en wissen ze elkaars datum.
@@ -70,4 +70,4 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
   - Definition of Done: hoofdstuk 12.
 - Voortgang: de status in `README.md`, de bestaande specs en `@wip`-tags, en de bestaande ADR's in `doc/adr/`.
 - Werken in een team (werk verdelen, samenwerkingsmomenten): `doc/teamwerk-mse.md`.
-- Stap 0 nalopen: `doc/stap-0-controleren.md`. Slice 1 nalopen: `doc/slice-1-controleren.md`. Slice 2 nalopen: `doc/slice-2-controleren.md`. Slice 2a nalopen: `doc/slice-2a-controleren.md`. Slice 3 nalopen: `doc/slice-3-controleren.md`.
+- Controle door de mens: `doc/werkwijze-mse.md` §10.1. Schrijf geen controle-documenten per slice meer; de oude staan in `doc/archief/`.
