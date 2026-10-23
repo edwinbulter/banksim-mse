@@ -399,7 +399,7 @@ flowchart LR
 | 2 Transactielijst | S2.1 Transacties per datum; S2.2 Toon meer | klant | `betaalrekening.spec.ts` | |
 | 2a Navigatie | S2a.1 Terug naar het overzicht | klant | `navigatie.spec.ts` | Later toegevoegd, vóór slice 3: de betaalrekening was een doodlopend scherm. Het nummer 2a laat de nummers van de andere slices en stories ongemoeid |
 | 3 Simulatiedatum | S3.1 Bank op een gekozen datum | beheerder | `simulatiedatum.spec.ts` | Enabling slice: het scherm komt pas in S10.2 |
-| 4 Uitklapdetails | S2.3 Details van een transactie | klant | `betaalrekening.spec.ts` | Breidt de story van slice 2 uit |
+| 4 Uitklapdetails | S4.1 Details van een transactie | klant | `betaalrekening.spec.ts` | Zelfde scherm als slice 2; eerst S2.3 |
 | 5 Zoeken | S5.1 Zoeken in transacties | klant | `zoeken.spec.ts` | |
 | 6 Inloggen en rollen | S6.1 Alleen eigen rekeningen; S6.2 Uitloggen | klant | `inloggen.spec.ts`, `toegang.spec.ts` | Kleiner geworden: het inloggen zelf zit in S1.1 |
 | 7 Betalen | S7.1 Betalen aan een contact | klant | `betalen.spec.ts` | Dubbel verzonden betaling is een CFR |
@@ -664,38 +664,89 @@ Het scenario "Vooruitzetten" was meteen groen: de repository vervangt de datum a
 
 ### Slice 4 – Uitklapdetails
 
-> **S2.3** Als klant wil ik een transactie kunnen uitklappen, zodat ik het type, de tegenpartij en de data zie.
+> **S4.1** Als klant wil ik een transactie kunnen uitklappen, zodat ik het type, de tegenpartij en de data zie.
 >
-> Acceptatiecriteria: de uitklapscenario's in `betaalrekening.spec.ts`. Deze slice breidt de story van slice 2 uit. Daarom heeft hij ID S2.3 en geen eigen nummer.
-
+> Acceptatiecriteria: de uitklapscenario's in `betaalrekening.spec.ts`. Het scherm is dat van slice 2, maar de story krijgt het nummer van de slice waarin hij gebouwd wordt, net als S2a.1 en S8.2. Eerst heette hij S2.3.
 
 ```ts
 // e2e/specs/betaalrekening.spec.ts (vervolg)
+/** S4.1: een transactie uitklappen toont type, Van, Naar en de data (doc/werkwijze-mse.md, slice 4). */
 test('Details van een incasso', async ({ bank }) => {
   const jan = bank.klant('Jan');
-  await bank.gegeven('op 1 oktober 2026 om 06:02 incasseerde Woningstichting Thuis € 812,40 bij Jan', () =>
-    jan.heeftBetaald({ op: '2026-10-01T06:02', bedrag: '812.40', aan: 'Woningstichting Thuis', type: 'INCASSO' }));
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+    jan.heeftBetaalrekening({ saldo: '1000.00' }),
+  );
+  await bank.en('op 1 oktober 2026 om 06:02 incasseerde Woningstichting Thuis (NL91ABNA0417164300) € 812,40 bij Jan', () =>
+    jan.heeftBetaald({
+      op: '2026-10-01T06:02',
+      bedrag: '812.40',
+      aan: 'Woningstichting Thuis',
+      tegenIban: 'NL91ABNA0417164300',
+      type: 'INCASSO',
+    }),
+  );
   await bank.als('Jan deze transactie uitklapt', () => jan.klaptTransactieUit('Woningstichting Thuis'));
   await bank.dan('ziet Jan de details van de incasso', () =>
     jan.verwachtDetails({
-      transactietype: 'Incasso',
-      van: { naam: 'Jan', metIban: true },
-      naar: { naam: 'Woningstichting Thuis', metIban: true },
-      datumTransactie: '1 oktober 2026 om 06:02',
-      uitgevoerdOp: '1 oktober 2026',
-    }));
+      transactietype: 'INCASSO',
+      van: { naam: 'Jan', iban: jan.iban() },
+      naar: { naam: 'Woningstichting Thuis', iban: 'NL91ABNA0417164300' },
+      datumTransactie: '2026-10-01T06:02',
+      uitgevoerdOp: '2026-10-01',
+    }),
+  );
+});
+
+test('Details van een bijschrijving', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+    jan.heeftBetaalrekening({ saldo: '1000.00' }),
+  );
+  await bank.en('op 2 oktober 2026 om 09:15 maakte Werkgever B.V. (NL20INGB0001234567) € 3.215,00 over via Online bankieren', () =>
+    jan.heeftOntvangen({
+      op: '2026-10-02T09:15',
+      bedrag: '3215.00',
+      van: 'Werkgever B.V.',
+      tegenIban: 'NL20INGB0001234567',
+      type: 'ONLINE_BANKIEREN',
+    }),
+  );
+  await bank.als('Jan deze transactie uitklapt', () => jan.klaptTransactieUit('Werkgever B.V.'));
+  await bank.dan('ziet Jan Werkgever B.V. bij Van en zichzelf bij Naar', () =>
+    jan.verwachtDetails({
+      transactietype: 'ONLINE_BANKIEREN',
+      van: { naam: 'Werkgever B.V.', iban: 'NL20INGB0001234567' },
+      naar: { naam: 'Jan', iban: jan.iban() },
+      datumTransactie: '2026-10-02T09:15',
+      uitgevoerdOp: '2026-10-02',
+    }),
+  );
 });
 
 test('Betaalautomaat zonder tegen-IBAN', async ({ bank }) => {
   const jan = bank.klant('Jan');
-  await bank.gegeven('Jan betaalde € 63,48 bij Albert Heijn met de betaalautomaat', () =>
-    jan.heeftBetaald({ bedrag: '63.48', aan: 'Albert Heijn', type: 'BETAALAUTOMAAT', zonderIban: true }));
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+    jan.heeftBetaalrekening({ saldo: '1000.00' }),
+  );
+  await bank.en('op 3 oktober 2026 om 13:26 betaalde Jan € 63,48 bij Albert Heijn met de betaalautomaat', () =>
+    jan.heeftBetaald({ op: '2026-10-03T13:26', bedrag: '63.48', aan: 'Albert Heijn', type: 'BETAALAUTOMAAT' }),
+  );
   await bank.als('Jan deze transactie uitklapt', () => jan.klaptTransactieUit('Albert Heijn'));
-  await bank.dan('ziet Jan geen IBAN bij Naar', () => jan.verwachtDetails({ naar: { metIban: false } }));
+  await bank.dan('ziet Jan geen IBAN bij Naar', () =>
+    jan.verwachtDetails({ transactietype: 'BETAALAUTOMAAT', naar: { naam: 'Albert Heijn', iban: null } }),
+  );
 });
 ```
 
-- **Binnenste lus:** `TransactieType` (7 typen), `Partij`, uitbreiding van `TransactieRij`; frontend-component voor de details, datumopmaak in Europe/Amsterdam.
+De verwachtingen staan in domeinnotatie, net als in de andere specs: `'INCASSO'`, `'2026-10-01T06:02'`. De UI-driver leest de schermtekst ("Incasso", "1 oktober 2026 om 06:02") terug. De opmaak zelf testen Vitest en die driver. De bijschrijving staat erbij voor de regel dat Van en Naar omdraaien: bij een afschrijving is de klant Van, bij een bijschrijving Naar. De voorbeeld-IBAN's buiten SIMB hebben een geldig controlegetal.
+
+- **Binnenste lus:**
+  - **Domein en database:** `TransactieType` (7 typen) in `bank-domain`. Migratie `V4` voegt toe: `type`, `tijdstip` (timestamptz) en `tegen_iban` aan `transactie`, en `naam` aan `rekeninghouder`. Bestaande rijen blijven geldig.
+  - **Datum blijft uitvoerdatum:** `datum` blijft de uitvoerdatum. Sortering, cursor (ADR 0011) en simulatiedatum (ADR 0013) veranderen dus niet.
+  - **`bank-api`:** de regel voor Van en Naar zit in `Transactie`. De lijst levert de details meteen mee, zonder apart endpoint; het tijdstip komt met offset in Europe/Amsterdam.
+  - **Seed:** `klant --naam`, en `transactie --tijdstip --type --tegen-iban`.
+  - **Frontend:** een klikbare regel met `aria-expanded`, en de details in een `dl`. Type en tijdstip worden opgemaakt in Europe/Amsterdam. Vitest draait in UTC (`TZ=UTC`), zodat een opmaak in de tijdzone van de browser ook lokaal opvalt.
+- **Backlog:** binnen één dag sorteren op tijdstip, in plaats van op volgorde van boeken. Omschrijving en betalingskenmerk ("indien aanwezig", FO) krijgen een eigen scenario.
 - **Origineel:** `domain/transactie/*`, `e2e/tests/betaalrekening.spec.ts` (uitklappen).
 
 ### Slice 5 – Zoeken in transacties
@@ -1353,7 +1404,7 @@ Waar komt elk onderdeel van de originele BankSim terug?
 | Origineel | Nieuw: slice | Story | Spec in `e2e/specs/` | ADR(s) |
 | --- | --- | --- | --- | --- |
 | FO Inloggen en Overzicht | 1, 6 | S1.1, S6.1, S6.2, S8.2 | `overzicht.spec.ts`, `inloggen.spec.ts` | BigDecimal, berekend saldo, Keycloak, BFF |
-| FO Betaalrekening scherm | 2, 2a, 4 | S2.1–S2.3, S2a.1 | `betaalrekening.spec.ts`, `navigatie.spec.ts` | Keyset-paginering, `JdbcClient`, Angular-router |
+| FO Betaalrekening scherm | 2, 2a, 4 | S2.1, S2.2, S2a.1, S4.1 | `betaalrekening.spec.ts`, `navigatie.spec.ts` | Keyset-paginering, `JdbcClient`, Angular-router |
 | FO Zoeken in transacties | 5 | S5.1 | `zoeken.spec.ts` | Zoeken met `pg_trgm` |
 | FO Betalen scherm | 7 | S7.1 | `betalen.spec.ts` | Grootboek, nooit rood, idempotency |
 | FO Spaarrekening scherm | 8 | S8.1, S8.2 | `spaarrekening.spec.ts` | — |

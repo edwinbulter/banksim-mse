@@ -1,13 +1,16 @@
 package nl.banksim.api.transactie;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
+import nl.banksim.domain.transactie.TransactieType;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -37,7 +40,7 @@ class JdbcTransactieRepositoryTests {
         var dataSource = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         Flyway.configure().dataSource(dataSource).load().migrate();
         jdbc = JdbcClient.create(dataSource);
-        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam) VALUES ('jan'), ('piet')").update();
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('jan', 'Jan'), ('piet', 'Piet')").update();
         jdbc.sql("""
                 INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
                 SELECT 'NL94SIMB0000000001', id, 'betaal', 1000.00 FROM rekeninghouder WHERE gebruikersnaam = 'jan'
@@ -46,10 +49,13 @@ class JdbcTransactieRepositoryTests {
                 """).update();
         // Bewust niet in datumvolgorde geboekt; twee transacties op 2 oktober.
         jdbc.sql("""
-                INSERT INTO transactie (iban, datum, bedrag, tegenpartij) VALUES
-                ('NL94SIMB0000000001', '2026-10-02', 3215.00, 'Werkgever B.V.'),
-                ('NL94SIMB0000000001', '2026-10-01', -812.40, 'Woningstichting Thuis'),
-                ('NL94SIMB0000000001', '2026-10-02', -12.50, 'Bakkerij De Korst')
+                INSERT INTO transactie (iban, datum, bedrag, tegenpartij, tijdstip, type, tegen_iban) VALUES
+                ('NL94SIMB0000000001', '2026-10-02', 3215.00, 'Werkgever B.V.', '2026-10-02T09:15:00+02:00',
+                 'ONLINE_BANKIEREN', 'NL20INGB0001234567'),
+                ('NL94SIMB0000000001', '2026-10-01', -812.40, 'Woningstichting Thuis', '2026-10-01T00:30:00+02:00',
+                 'INCASSO', 'NL91ABNA0417164300'),
+                ('NL94SIMB0000000001', '2026-10-02', -12.50, 'Bakkerij De Korst', '2026-10-02T13:26:00+02:00',
+                 'BETAALAUTOMAAT', NULL)
                 """).update();
     }
 
@@ -70,10 +76,11 @@ class JdbcTransactieRepositoryTests {
 
     @Test
     void geeftDeTransactiesVanNieuwNaarOudEnOpDezelfdeDagDeLaatstGeboekteEerst() {
-        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 50).map(Pagina::transacties)).contains(List.of(
-                new Transactie(LocalDate.of(2026, 10, 2), "Bakkerij De Korst", Bedrag.van("-12.50")),
-                new Transactie(LocalDate.of(2026, 10, 2), "Werkgever B.V.", Bedrag.van("3215.00")),
-                new Transactie(LocalDate.of(2026, 10, 1), "Woningstichting Thuis", Bedrag.van("-812.40"))));
+        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 50).orElseThrow().transacties())
+                .extracting(Transactie::datum, Transactie::tegenpartij, Transactie::bedrag).containsExactly(
+                        tuple(LocalDate.of(2026, 10, 2), "Bakkerij De Korst", Bedrag.van("-12.50")),
+                        tuple(LocalDate.of(2026, 10, 2), "Werkgever B.V.", Bedrag.van("3215.00")),
+                        tuple(LocalDate.of(2026, 10, 1), "Woningstichting Thuis", Bedrag.van("-812.40")));
     }
 
     /** De grens valt midden in 2 oktober: de volgende pagina begint bij de transactie ná de laatste getoonde. */
@@ -90,11 +97,29 @@ class JdbcTransactieRepositoryTests {
         assertThat(derde.volgende()).isEmpty();
     }
 
+    /**
+     * S4.1: type, tijdstip, de rekeninghouder en de tegenpartij met IBAN; zonder tegen-IBAN is dat leeg. Het tijdstip
+     * vlak na middernacht blijft 1 oktober, ook al is het in UTC nog 30 september.
+     */
+    @Test
+    void geeftDeDetailsVanEenTransactie() {
+        List<Transactie> transacties = repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 50)
+                .orElseThrow().transacties();
+
+        Transactie incasso = transacties.get(2);
+        assertThat(incasso.type()).isEqualTo(TransactieType.INCASSO);
+        assertThat(incasso.tijdstip()).isEqualTo(OffsetDateTime.parse("2026-10-01T00:30:00+02:00"));
+        assertThat(incasso.eigen()).isEqualTo(new Partij("Jan", Optional.of(VAN_JAN)));
+        assertThat(incasso.tegen()).isEqualTo(new Partij("Woningstichting Thuis", Optional.of(Iban.van("NL91ABNA0417164300"))));
+        assertThat(transacties.getFirst().tegen()).isEqualTo(new Partij("Bakkerij De Korst", Optional.empty()));
+        assertThat(transacties.getFirst().type()).isEqualTo(TransactieType.BETAALAUTOMAAT);
+    }
+
     /** Met offset zou de nieuwe boeking de lijst opschuiven en "Nieuwste" dubbel tonen; met keyset niet (ADR 0011). */
     @Test
     void eenNieuweBoekingTussenTweePaginasVerschuiftDeVolgendePaginaNiet() {
         Iban vanKees = Iban.simBank(2L);
-        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam) VALUES ('kees')").update();
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('kees', 'Kees')").update();
         jdbc.sql("""
                 INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
                 SELECT :iban, id, 'betaal', 0.00 FROM rekeninghouder WHERE gebruikersnaam = 'kees'""")
@@ -111,7 +136,9 @@ class JdbcTransactieRepositoryTests {
     }
 
     private static void boek(Iban iban, String datum, String tegenpartij) {
-        jdbc.sql("INSERT INTO transactie (iban, datum, bedrag, tegenpartij) VALUES (:iban, CAST(:datum AS date), -1.00, :tegenpartij)")
+        jdbc.sql("""
+                        INSERT INTO transactie (iban, datum, bedrag, tegenpartij, tijdstip)
+                        VALUES (:iban, CAST(:datum AS date), -1.00, :tegenpartij, CAST(:datum AS date))""")
                 .param("iban", iban.toString()).param("datum", datum).param("tegenpartij", tegenpartij).update();
     }
 

@@ -1,11 +1,14 @@
 package nl.banksim.api.transactie;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import nl.banksim.api.simulatie.SimulationClock;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
+import nl.banksim.domain.transactie.TransactieType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -33,11 +36,14 @@ class JdbcTransactieRepository implements TransactieRepository {
         }
         // Eén rij extra: is die er, dan volgt er nog een pagina.
         List<Rij> rijen = jdbc.sql("""
-                        SELECT id, datum, tegenpartij, bedrag FROM transactie
-                        WHERE iban = :iban
-                          AND datum <= :vandaag
-                          AND (CAST(:naDatum AS date) IS NULL OR (datum, id) < (CAST(:naDatum AS date), :naId))
-                        ORDER BY datum DESC, id DESC
+                        SELECT t.id, t.datum, t.tegenpartij, t.bedrag, t.type, t.tijdstip, t.tegen_iban, h.naam
+                        FROM transactie t
+                        JOIN rekening r ON r.iban = t.iban
+                        JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
+                        WHERE t.iban = :iban
+                          AND t.datum <= :vandaag
+                          AND (CAST(:naDatum AS date) IS NULL OR (t.datum, t.id) < (CAST(:naDatum AS date), :naId))
+                        ORDER BY t.datum DESC, t.id DESC
                         LIMIT :limiet""")
                 .param("iban", iban.toString())
                 .param("vandaag", vandaag)
@@ -46,8 +52,13 @@ class JdbcTransactieRepository implements TransactieRepository {
                 .param("limiet", aantal + 1)
                 .query((rij, nummer) -> new Rij(rij.getLong("id"), new Transactie(
                         rij.getObject("datum", LocalDate.class),
-                        rij.getString("tegenpartij"),
-                        new Bedrag(rij.getBigDecimal("bedrag")))))
+                        new Bedrag(rij.getBigDecimal("bedrag")),
+                        new Partij(rij.getString("naam"), Optional.of(iban)),
+                        new Partij(rij.getString("tegenpartij"),
+                                Optional.ofNullable(rij.getString("tegen_iban")).map(Iban::van)),
+                        TransactieType.valueOf(rij.getString("type")),
+                        // De klok van de bank (ADR 0013), ook al geeft de database het tijdstip in UTC.
+                        rij.getObject("tijdstip", OffsetDateTime.class).atZoneSameInstant(SimulationClock.BANK).toOffsetDateTime())))
                 .list();
         List<Rij> pagina = rijen.subList(0, Math.min(aantal, rijen.size()));
         Optional<Positie> volgende = rijen.size() > aantal

@@ -29,7 +29,7 @@ export class BankSeed {
   constructor(private readonly shell: ShellDriver) {}
 
   async klantMetBetaalrekening(alias: string, saldo: string): Promise<GeseedeKlant> {
-    return this.voerUit<GeseedeKlant>(['klant', '--alias', uniek(alias), '--betaalrekening', saldo]);
+    return this.voerUit<GeseedeKlant>(['klant', '--alias', uniek(alias), '--naam', alias, '--betaalrekening', saldo]);
   }
 
   /** Een login met de realm-rol beheerder, zonder rekeningen. */
@@ -37,9 +37,24 @@ export class BankSeed {
     return this.voerUit<GeseedeBeheerder>(['beheerder', '--alias', uniek(alias)]);
   }
 
-  /** Een geboekte transactie op de rekening; een negatief bedrag is een afschrijving. */
-  async transactie(iban: string, datum: string, bedrag: string, tegenpartij: string): Promise<void> {
-    await this.voerUit(['transactie', '--iban', iban, '--datum', datum, '--bedrag', bedrag, '--tegenpartij', tegenpartij]);
+  /**
+   * Een geboekte transactie op de rekening; een negatief bedrag is een afschrijving. `op` is een datum ("2026-10-01")
+   * of een tijdstip in Europe/Amsterdam ("2026-10-01T06:02"). Zonder type is het Online bankieren (S4.1).
+   */
+  async transactie(
+    iban: string,
+    op: string,
+    bedrag: string,
+    tegenpartij: string,
+    { tegenIban, type }: { tegenIban?: string; type?: string } = {},
+  ): Promise<void> {
+    await this.voerUit([
+      'transactie', '--iban', iban,
+      ...(op.includes('T') ? ['--tijdstip', op] : ['--datum', op]),
+      '--bedrag', bedrag, '--tegenpartij', tegenpartij,
+      ...(type ? ['--type', type] : []),
+      ...(tegenIban ? ['--tegen-iban', tegenIban] : []),
+    ]);
   }
 
   /**

@@ -1,5 +1,6 @@
 package nl.banksim.api.transactie;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,11 +68,25 @@ class TransactieController {
     record PaginaJson(List<TransactieJson> transacties, String volgende) {
     }
 
-    /** ADR 0010: het bedrag als string met teken, bijvoorbeeld "-812.40"; de datum als "2026-10-01". */
-    record TransactieJson(String datum, String tegenpartij, String bedrag) {
+    /**
+     * ADR 0010: het bedrag als string met teken, bijvoorbeeld "-812.40"; de datum als "2026-10-01". S4.1: het type, het
+     * tijdstip met offset in Europe/Amsterdam, en Van en Naar met naam en IBAN (null zonder IBAN).
+     */
+    record TransactieJson(String datum, String tegenpartij, String bedrag, String type, String tijdstip, PartijJson van,
+            PartijJson naar) {
 
         static TransactieJson van(Transactie transactie) {
-            return new TransactieJson(transactie.datum().toString(), transactie.tegenpartij(), transactie.bedrag().toString());
+            return new TransactieJson(transactie.datum().toString(), transactie.tegenpartij(), transactie.bedrag().toString(),
+                    transactie.type().name(),
+                    transactie.tijdstip().atZoneSameInstant(SimulationClock.BANK).toOffsetDateTime().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    PartijJson.van(transactie.van()), PartijJson.van(transactie.naar()));
+        }
+    }
+
+    record PartijJson(String naam, String iban) {
+
+        static PartijJson van(Partij partij) {
+            return new PartijJson(partij.naam(), partij.iban().map(Iban::toString).orElse(null));
         }
     }
 }

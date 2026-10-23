@@ -17,18 +17,18 @@ class SeedKlantAanmakerTests {
         logins.add(gebruikersnaam);
         return "wachtwoord-van-" + gebruikersnaam;
     };
-    private final Rekeninghouders database = (gebruikersnaam, iban, openingssaldo) ->
-            rekeningen.add(gebruikersnaam + " " + iban + " " + openingssaldo);
+    private final Rekeninghouders database = (gebruikersnaam, naam, iban, openingssaldo) ->
+            rekeningen.add(gebruikersnaam + " " + naam + " " + iban + " " + openingssaldo);
     private final Iban iban = Iban.simBank(123456789L);
 
     private final SeedKlantAanmaker aanmaker = new SeedKlantAanmaker(keycloak, database, () -> iban);
 
     @Test
     void maaktEenLoginMetDeAliasAlsGebruikersnaamEnEenBetaalrekeningMetOpeningssaldo() {
-        GeseedeKlant klant = aanmaker.klantMetBetaalrekening("jan-f4de79-1", Bedrag.van("1842.17"));
+        GeseedeKlant klant = aanmaker.klantMetBetaalrekening("jan-f4de79-1", "Jan", Bedrag.van("1842.17"));
 
         assertThat(logins).containsExactly("jan-f4de79-1");
-        assertThat(rekeningen).containsExactly("jan-f4de79-1 " + iban + " 1842.17");
+        assertThat(rekeningen).containsExactly("jan-f4de79-1 Jan " + iban + " 1842.17");
         assertThat(klant).isEqualTo(new GeseedeKlant("jan-f4de79-1", "wachtwoord-van-jan-f4de79-1", iban.toString()));
     }
 }

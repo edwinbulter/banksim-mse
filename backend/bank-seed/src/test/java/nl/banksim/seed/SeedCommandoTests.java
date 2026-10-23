@@ -18,12 +18,13 @@ import tools.jackson.databind.json.JsonMapper;
 class SeedCommandoTests {
 
     private final List<String> aanroepen = new ArrayList<>();
-    private final KlantAanmaker aanmaker = (alias, saldo) -> {
-        aanroepen.add(alias + " " + saldo);
+    private final KlantAanmaker aanmaker = (alias, naam, saldo) -> {
+        aanroepen.add(alias + " " + naam + " " + saldo);
         return new GeseedeKlant("jan-f4de79-1", "geheim-wachtwoord", "NL12SIMB0123456789");
     };
-    private final Transacties transacties = (Iban iban, LocalDate datum, Bedrag bedrag, String tegenpartij) ->
-            aanroepen.add(iban + " " + datum + " " + bedrag + " " + tegenpartij);
+    private final Transacties transacties = (Iban iban, Boeking boeking) ->
+            aanroepen.add(iban + " " + boeking.tijdstip() + " " + boeking.bedrag() + " " + boeking.tegenpartij() + " "
+                    + boeking.type() + " " + boeking.tegenIban().map(Iban::toString).orElse("-"));
     private final Beheerders beheerders = gebruikersnaam -> {
         aanroepen.add("beheerder " + gebruikersnaam);
         return "beheerder-wachtwoord";
@@ -45,9 +46,9 @@ class SeedCommandoTests {
 
     @Test
     void maaktEenKlantMetBetaalrekeningEnSchrijftHetResultaatAlsEenJsonRegel() {
-        commando.voerUit("klant", "--alias", "jan-f4de79-1", "--betaalrekening", "1842.17");
+        commando.voerUit("klant", "--alias", "jan-f4de79-1", "--naam", "Jan", "--betaalrekening", "1842.17");
 
-        assertThat(aanroepen).containsExactly("jan-f4de79-1 1842.17");
+        assertThat(aanroepen).containsExactly("jan-f4de79-1 Jan 1842.17");
         assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo(
                 "{\"gebruikersnaam\":\"jan-f4de79-1\",\"wachtwoord\":\"geheim-wachtwoord\",\"iban\":\"NL12SIMB0123456789\"}\n");
     }
@@ -57,10 +58,47 @@ class SeedCommandoTests {
         commando.voerUit("transactie", "--iban", "NL94SIMB0000000001", "--datum", "2026-10-01",
                 "--bedrag", "-812.40", "--tegenpartij", "Woningstichting Thuis");
 
-        assertThat(aanroepen).containsExactly("NL94SIMB0000000001 2026-10-01 -812.40 Woningstichting Thuis");
+        assertThat(aanroepen).containsExactly(
+                "NL94SIMB0000000001 2026-10-01T00:00 -812.40 Woningstichting Thuis ONLINE_BANKIEREN -");
         assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
                 {"iban":"NL94SIMB0000000001","datum":"2026-10-01","bedrag":"-812.40","tegenpartij":"Woningstichting Thuis"}
                 """);
+    }
+
+    /** S4.1: een tijdstip in Europe/Amsterdam, het type en het IBAN van de tegenpartij. */
+    @Test
+    void boektEenTransactieMetTijdstipTypeEnTegenIban() {
+        commando.voerUit("transactie", "--iban", "NL94SIMB0000000001", "--tijdstip", "2026-10-01T06:02",
+                "--bedrag", "-812.40", "--tegenpartij", "Woningstichting Thuis", "--type", "INCASSO",
+                "--tegen-iban", "NL91ABNA0417164300");
+
+        assertThat(aanroepen).containsExactly(
+                "NL94SIMB0000000001 2026-10-01T06:02 -812.40 Woningstichting Thuis INCASSO NL91ABNA0417164300");
+        assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
+                {"iban":"NL94SIMB0000000001","datum":"2026-10-01","bedrag":"-812.40","tegenpartij":"Woningstichting Thuis"}
+                """);
+    }
+
+    @Test
+    void weigertEenTransactieMetDatumEnTijdstipOfZonderAllebei() {
+        assertThatThrownBy(() -> commando.voerUit("transactie", "--iban", "NL94SIMB0000000001", "--datum", "2026-10-01",
+                "--tijdstip", "2026-10-01T06:02", "--bedrag", "-1.00", "--tegenpartij", "X"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("--datum of --tijdstip");
+        assertThatThrownBy(() -> commando.voerUit("transactie", "--iban", "NL94SIMB0000000001",
+                "--bedrag", "-1.00", "--tegenpartij", "X"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("--datum of --tijdstip");
+        assertThat(aanroepen).isEmpty();
+    }
+
+    @Test
+    void weigertEenOnbekendType() {
+        assertThatThrownBy(() -> commando.voerUit("transactie", "--iban", "NL94SIMB0000000001", "--datum", "2026-10-01",
+                "--bedrag", "-1.00", "--tegenpartij", "X", "--type", "CONTANT"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("CONTANT");
+        assertThat(aanroepen).isEmpty();
     }
 
     @Test
@@ -80,9 +118,9 @@ class SeedCommandoTests {
                 "--transactie", "2026-10-02,-0.01,Tegenpartij 3");
 
         assertThat(aanroepen).containsExactly(
-                "NL94SIMB0000000001 2026-10-01 -812.40 Woningstichting Thuis",
-                "NL94SIMB0000000001 2026-10-02 3215.00 Werkgever, B.V.",
-                "NL94SIMB0000000001 2026-10-02 -0.01 Tegenpartij 3");
+                "NL94SIMB0000000001 2026-10-01T00:00 -812.40 Woningstichting Thuis ONLINE_BANKIEREN -",
+                "NL94SIMB0000000001 2026-10-02T00:00 3215.00 Werkgever, B.V. ONLINE_BANKIEREN -",
+                "NL94SIMB0000000001 2026-10-02T00:00 -0.01 Tegenpartij 3 ONLINE_BANKIEREN -");
         assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
                 {"iban":"NL94SIMB0000000001","aantal":3}
                 """);
@@ -125,6 +163,14 @@ class SeedCommandoTests {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("rekening");
         assertThat(aanroepen).isEmpty();
+    }
+
+    /** Zonder --naam is de naam van de rekeninghouder de alias. */
+    @Test
+    void maaktEenKlantZonderNaamMetDeAliasAlsNaam() {
+        commando.voerUit("klant", "--alias", "jan-f4de79-1", "--betaalrekening", "1842.17");
+
+        assertThat(aanroepen).containsExactly("jan-f4de79-1 jan-f4de79-1 1842.17");
     }
 
     @Test

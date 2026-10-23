@@ -58,7 +58,7 @@ flowchart LR
 
 - **Per regel:** eerst betalen aan een contact, daarna de weigering als iemand geen contact is.
 - **Per variatie in data:** eerst de betaalrekening, later de spaarrekening (S1.1 en S8.2).
-- **Eenvoudig eerst:** eerst de lijst (S2.1), daarna pas "Toon meer" (S2.2) en de uitklapdetails (S2.3).
+- **Eenvoudig eerst:** eerst de lijst (S2.1), daarna pas "Toon meer" (S2.2) en de uitklapdetails (S4.1).
 - **Uitstellen van een kwaliteitseis:** een eis als idempotentie wordt een eigen CFR-scenario (slice 7).
 
 Een splitsing per laag ("eerst de API, dan de UI") staat niet in dit lijstje. Zo'n splitsing levert geen story op die een gebruiker kan gebruiken. Ook INVEST (Bill Wake) wijst hem af: de stukken zijn niet *Valuable* en niet *Independent*.

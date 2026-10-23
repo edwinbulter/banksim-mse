@@ -10,7 +10,8 @@ import java.time.ZoneId;
  */
 public class SimulationClock {
 
-    static final ZoneId BANK = ZoneId.of("Europe/Amsterdam");
+    /** De klok van de bank: datums en tijdstippen gelden in deze zone, ook al draait de pod in UTC. */
+    public static final ZoneId BANK = ZoneId.of("Europe/Amsterdam");
 
     private final Clock klok;
     private final SimulatiedatumRepository simulatiedatum;

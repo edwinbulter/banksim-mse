@@ -16,9 +16,10 @@ class JdbcRekeninghouders implements Rekeninghouders {
 
     @Override
     @Transactional
-    public void voegToeMetBetaalrekening(String gebruikersnaam, Iban iban, Bedrag openingssaldo) {
-        long id = jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam) VALUES (:gebruikersnaam) RETURNING id")
+    public void voegToeMetBetaalrekening(String gebruikersnaam, String naam, Iban iban, Bedrag openingssaldo) {
+        long id = jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES (:gebruikersnaam, :naam) RETURNING id")
                 .param("gebruikersnaam", gebruikersnaam)
+                .param("naam", naam)
                 .query(Long.class).single();
         jdbc.sql("""
                         INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)

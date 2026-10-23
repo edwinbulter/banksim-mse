@@ -20,6 +20,34 @@ export interface TransactiesOpDatum {
   transacties: Transactie[];
 }
 
+/** De 7 transactietypen (FO); het scherm toont ze als "Incasso", "iDEAL | Wero" enzovoort. */
+export type TransactieType =
+  | 'ONLINE_BANKIEREN'
+  | 'IDEAL_WERO'
+  | 'BETAALAUTOMAAT'
+  | 'INCASSO'
+  | 'GELDAUTOMAAT'
+  | 'OVERSCHRIJVING'
+  | 'VERZAMELBETALING';
+
+/** Een kant van de transactie: de naam en het IBAN, of null als er geen IBAN is (betaalautomaat). */
+export interface Partij {
+  naam: string;
+  iban: string | null;
+}
+
+/**
+ * De details van een uitgeklapte transactie (S4.1), in domeinnotatie: het tijdstip als "2026-10-01T06:02" en de
+ * uitvoerdatum als "2026-10-01", allebei in Europe/Amsterdam.
+ */
+export interface TransactieDetails {
+  transactietype: TransactieType;
+  van: Partij;
+  naar: Partij;
+  datumTransactie: string;
+  uitgevoerdOp: string;
+}
+
 /** Of een verzoek dat iets verandert, is uitgevoerd of door de rechten geweigerd (403). */
 export type Uitkomst = 'gelukt' | 'geweigerd';
 
@@ -40,6 +68,10 @@ export interface BankDriver {
   heeftMeer(): Promise<boolean>;
   /** De volgende portie oudere transacties laden. */
   toonMeer(): Promise<void>;
+  /** De transactie met deze tegenpartij uitklappen (S4.1). */
+  klapUit(tegenpartij: string): Promise<void>;
+  /** De details van de transactie die het laatst is uitgeklapt. */
+  details(): Promise<TransactieDetails>;
   /** Vanaf een geopende rekening terug naar het overzicht, via de link "Overzicht". */
   naarOverzicht(): Promise<void>;
   /** De terugknop van de browser; alleen in de UI-driver (@ui). */

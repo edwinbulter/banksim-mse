@@ -38,23 +38,24 @@ class JdbcRekeninghoudersTests {
 
     @Test
     void slaatDeRekeninghouderEnDeBetaalrekeningMetOpeningssaldoOp() {
-        rekeninghouders.voegToeMetBetaalrekening("jan-a1-1", Iban.simBank(1L), Bedrag.van("1842.17"));
+        rekeninghouders.voegToeMetBetaalrekening("jan-a1-1", "Jan", Iban.simBank(1L), Bedrag.van("1842.17"));
 
         Map<String, Object> rij = jdbc.sql("""
-                        SELECT h.gebruikersnaam, r.iban, r.soort, r.openingssaldo
+                        SELECT h.gebruikersnaam, h.naam, r.iban, r.soort, r.openingssaldo
                         FROM rekening r JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
                         WHERE h.gebruikersnaam = 'jan-a1-1'""")
                 .query().singleRow();
         assertThat(rij).containsEntry("iban", "NL94SIMB0000000001")
+                .containsEntry("naam", "Jan")
                 .containsEntry("soort", "betaal")
                 .containsEntry("openingssaldo", new BigDecimal("1842.17"));
     }
 
     @Test
     void eenGebruikersnaamBestaatMaarEenKeer() {
-        rekeninghouders.voegToeMetBetaalrekening("piet-a1-2", Iban.simBank(2L), Bedrag.van("1.00"));
+        rekeninghouders.voegToeMetBetaalrekening("piet-a1-2", "Piet", Iban.simBank(2L), Bedrag.van("1.00"));
 
-        assertThatThrownBy(() -> rekeninghouders.voegToeMetBetaalrekening("piet-a1-2", Iban.simBank(3L), Bedrag.van("1.00")))
+        assertThatThrownBy(() -> rekeninghouders.voegToeMetBetaalrekening("piet-a1-2", "Piet", Iban.simBank(3L), Bedrag.van("1.00")))
                 .isInstanceOf(DuplicateKeyException.class);
     }
 }

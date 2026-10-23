@@ -1,5 +1,11 @@
 import type { Page } from '@playwright/test';
-import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum, Uitkomst } from '../bank-driver';
+import type {
+  BankDriver,
+  RekeningInOverzicht,
+  TransactieDetails,
+  TransactiesOpDatum,
+  Uitkomst,
+} from '../bank-driver';
 import { wijzigSimulatiedatum } from '../simulatiedatum';
 import { BetaalrekeningPagina } from './betaalrekening-pagina';
 import { InlogPagina } from './inlog-pagina';
@@ -52,6 +58,14 @@ export class UiDriver implements BankDriver {
 
   async heeftMeer(): Promise<boolean> {
     return this.betaalrekening.heeftMeer();
+  }
+
+  async klapUit(tegenpartij: string): Promise<void> {
+    await this.betaalrekening.klapUit(tegenpartij);
+  }
+
+  async details(): Promise<TransactieDetails> {
+    return this.betaalrekening.details();
   }
 
   async toonMeer(): Promise<void> {

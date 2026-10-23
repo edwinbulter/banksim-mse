@@ -19,9 +19,9 @@ class SeedKlantAanmaker implements KlantAanmaker {
     }
 
     @Override
-    public GeseedeKlant klantMetBetaalrekening(String alias, Bedrag saldo) {
+    public GeseedeKlant klantMetBetaalrekening(String alias, String naam, Bedrag saldo) {
         Iban iban = nieuweIban.get();
-        rekeninghouders.voegToeMetBetaalrekening(alias, iban, saldo);
+        rekeninghouders.voegToeMetBetaalrekening(alias, naam, iban, saldo);
         String wachtwoord = logins.maakLogin(alias);
         return new GeseedeKlant(alias, wachtwoord, iban.toString());
     }

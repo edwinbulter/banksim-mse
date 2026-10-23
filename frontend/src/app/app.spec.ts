@@ -62,11 +62,24 @@ describe('App', () => {
     );
   }
 
+  /** Een transactie zoals bank-api hem levert, met de details van S4.1. */
+  function api(datum: string, tegenpartij: string, bedrag: string): object {
+    return {
+      datum,
+      tegenpartij,
+      bedrag,
+      type: 'ONLINE_BANKIEREN',
+      tijdstip: `${datum}T12:00:00+02:00`,
+      van: { naam: 'Jan', iban: 'NL94SIMB0000000001' },
+      naar: { naam: tegenpartij, iban: null },
+    };
+  }
+
   const JAN = [{ soort: 'betaal', iban: 'NL94SIMB0000000001', saldo: '3402.60' }];
   const TWEE_DAGEN = {
     transacties: [
-      { datum: '2026-10-02', tegenpartij: 'Werkgever B.V.', bedrag: '3215.00' },
-      { datum: '2026-10-01', tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' },
+      api('2026-10-02', 'Werkgever B.V.', '3215.00'),
+      api('2026-10-01', 'Woningstichting Thuis', '-812.40'),
     ],
     volgende: null,
   };
@@ -137,8 +150,8 @@ describe('App', () => {
     const pagina = await start('/rekeningen/NL94SIMB0000000001');
     await transacties('/api/rekeningen/NL94SIMB0000000001/transacties', {
       transacties: [
-        { datum: '2026-10-02', tegenpartij: 'Werkgever B.V.', bedrag: '3215.00' },
-        { datum: '2026-10-01', tegenpartij: 'Bakkerij De Korst', bedrag: '-12.50' },
+        api('2026-10-02', 'Werkgever B.V.', '3215.00'),
+        api('2026-10-01', 'Bakkerij De Korst', '-12.50'),
       ],
       volgende: 'MjAyNi0xMC0wMSwy.q-_x',
     });
@@ -146,7 +159,7 @@ describe('App', () => {
     knop(pagina, 'Toon meer')?.click();
     await ververs();
     await transacties('/api/rekeningen/NL94SIMB0000000001/transacties?na=MjAyNi0xMC0wMSwy.q-_x', {
-      transacties: [{ datum: '2026-10-01', tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' }],
+      transacties: [api('2026-10-01', 'Woningstichting Thuis', '-812.40')],
       volgende: null,
     });
 

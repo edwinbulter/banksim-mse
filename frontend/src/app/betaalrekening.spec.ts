@@ -1,13 +1,27 @@
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { Betaalrekening } from './betaalrekening';
+import { Betaalrekening, type Transactie } from './betaalrekening';
+
+/** Een transactie zoals de API hem levert; details die een test niet noemt, krijgen een standaardwaarde. */
+function transactie(t: Pick<Transactie, 'datum' | 'tegenpartij' | 'bedrag'> & Partial<Transactie>): Transactie {
+  return {
+    type: 'ONLINE_BANKIEREN',
+    tijdstip: `${t.datum}T12:00:00+02:00`,
+    van: { naam: 'Jan', iban: 'NL94SIMB0000000001' },
+    naar: { naam: t.tegenpartij, iban: null },
+    ...t,
+  };
+}
 
 /** S2.1: de transacties zoals de API ze levert (nieuw naar oud), gegroepeerd per datum. */
 describe('Betaalrekening', () => {
   let fixture: ComponentFixture<Betaalrekening>;
 
-  function toon(transacties: { datum: string; tegenpartij: string; bedrag: string }[], meer = false): HTMLElement {
+  function toon(
+    transacties: (Pick<Transactie, 'datum' | 'tegenpartij' | 'bedrag'> & Partial<Transactie>)[],
+    meer = false,
+  ): HTMLElement {
     fixture = TestBed.createComponent(Betaalrekening);
-    fixture.componentRef.setInput('transacties', transacties);
+    fixture.componentRef.setInput('transacties', transacties.map(transactie));
     fixture.componentRef.setInput('meer', meer);
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
@@ -60,5 +74,75 @@ describe('Betaalrekening', () => {
   it('toont geen "Toon meer" aan het eind van de lijst', () => {
     const pagina = toon([{ datum: '2026-10-01', tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' }], false);
     expect(toonMeerKnop(pagina)).toBeUndefined();
+  });
+
+  function regel(pagina: HTMLElement, tegenpartij: string): HTMLButtonElement | undefined {
+    return [...pagina.querySelectorAll<HTMLButtonElement>('ul[aria-label="Transacties"] button')].find((knop) =>
+      knop.textContent?.trim().startsWith(tegenpartij),
+    );
+  }
+
+  function details(pagina: HTMLElement, tegenpartij: string): Record<string, string> | undefined {
+    const lijst = pagina.querySelector(`dl[aria-label="Details van ${tegenpartij}"]`);
+    if (!lijst) return undefined;
+    return Object.fromEntries(
+      [...lijst.querySelectorAll('dt')].map((dt) => [
+        dt.textContent?.trim() ?? '',
+        dt.nextElementSibling?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      ]),
+    );
+  }
+
+  const INCASSO = {
+    datum: '2026-10-01',
+    tegenpartij: 'Woningstichting Thuis',
+    bedrag: '-812.40',
+    type: 'INCASSO',
+    tijdstip: '2026-10-01T06:02:00+02:00',
+    van: { naam: 'Jan', iban: 'NL94SIMB0000000001' },
+    naar: { naam: 'Woningstichting Thuis', iban: 'NL91ABNA0417164300' },
+  };
+
+  it('klapt een transactie uit met type, Van, Naar, datum transactie en uitgevoerd op (S4.1)', () => {
+    const pagina = toon([INCASSO]);
+    expect(regel(pagina, 'Woningstichting Thuis')?.getAttribute('aria-expanded')).toBe('false');
+    expect(details(pagina, 'Woningstichting Thuis')).toBeUndefined();
+
+    regel(pagina, 'Woningstichting Thuis')?.click();
+    fixture.detectChanges();
+
+    expect(regel(pagina, 'Woningstichting Thuis')?.getAttribute('aria-expanded')).toBe('true');
+    expect(details(pagina, 'Woningstichting Thuis')).toEqual({
+      Transactietype: 'Incasso',
+      Van: 'Jan NL94SIMB0000000001',
+      Naar: 'Woningstichting Thuis NL91ABNA0417164300',
+      'Datum transactie': '1 oktober 2026 om 06:02',
+      'Uitgevoerd op': '1 oktober 2026',
+    });
+  });
+
+  it('toont bij Naar alleen de naam als er geen IBAN is (betaalautomaat, S4.1)', () => {
+    const pagina = toon([
+      {
+        datum: '2026-10-03',
+        tegenpartij: 'Albert Heijn',
+        bedrag: '-63.48',
+        type: 'BETAALAUTOMAAT',
+        naar: { naam: 'Albert Heijn', iban: null },
+      },
+    ]);
+    regel(pagina, 'Albert Heijn')?.click();
+    fixture.detectChanges();
+    expect(details(pagina, 'Albert Heijn')?.['Naar']).toBe('Albert Heijn');
+  });
+
+  it('klapt een uitgeklapte transactie met een tweede klik weer in', () => {
+    const pagina = toon([INCASSO]);
+    regel(pagina, 'Woningstichting Thuis')?.click();
+    fixture.detectChanges();
+    regel(pagina, 'Woningstichting Thuis')?.click();
+    fixture.detectChanges();
+    expect(regel(pagina, 'Woningstichting Thuis')?.getAttribute('aria-expanded')).toBe('false');
+    expect(details(pagina, 'Woningstichting Thuis')).toBeUndefined();
   });
 });

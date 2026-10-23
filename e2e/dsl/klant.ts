@@ -1,5 +1,12 @@
 import { expect } from '@playwright/test';
-import type { BankDriver, Soort, TransactiesOpDatum, Uitkomst } from '../drivers/bank-driver';
+import type {
+  BankDriver,
+  Soort,
+  TransactieDetails,
+  TransactieType,
+  TransactiesOpDatum,
+  Uitkomst,
+} from '../drivers/bank-driver';
 
 interface GeseedeTransactie {
   datum: string;
@@ -7,6 +14,14 @@ interface GeseedeTransactie {
   bedrag: string;
 }
 import type { BankSeed, GeseedeKlant } from '../drivers/shell/bank-seed';
+
+/** Een boeking uit "Gegeven"; zonder type is het Online bankieren, zonder tegenIban is er geen IBAN. */
+interface Boeking {
+  op: string;
+  bedrag: string;
+  tegenIban?: string;
+  type?: TransactieType;
+}
 
 /**
  * Een rekeninghouder, aangesproken met een alias ("Jan"). De seed maakt per alias een unieke klant aan (ADR 0003),
@@ -25,16 +40,23 @@ export class Klant {
     private readonly seed: BankSeed,
   ) {}
 
+  /** De alias is ook de naam van de rekeninghouder, zoals Van en Naar hem tonen. */
   async heeftBetaalrekening({ saldo }: { saldo: string }): Promise<void> {
     this.gegevens = await this.seed.klantMetBetaalrekening(this.alias, saldo);
   }
 
-  async heeftBetaald({ op, bedrag, aan }: { op: string; bedrag: string; aan: string }): Promise<void> {
-    await this.seed.transactie(this.vereisGegevens().iban, op, `-${bedrag}`, aan);
+  /** `op` is een datum ("2026-10-01") of een tijdstip in Europe/Amsterdam ("2026-10-01T06:02"). */
+  async heeftBetaald({ op, bedrag, aan, tegenIban, type }: Boeking & { aan: string }): Promise<void> {
+    await this.seed.transactie(this.vereisGegevens().iban, op, `-${bedrag}`, aan, { tegenIban, type });
   }
 
-  async heeftOntvangen({ op, bedrag, van }: { op: string; bedrag: string; van: string }): Promise<void> {
-    await this.seed.transactie(this.vereisGegevens().iban, op, bedrag, van);
+  async heeftOntvangen({ op, bedrag, van, tegenIban, type }: Boeking & { van: string }): Promise<void> {
+    await this.seed.transactie(this.vereisGegevens().iban, op, bedrag, van, { tegenIban, type });
+  }
+
+  /** Het IBAN van de betaalrekening uit "Gegeven", voor de verwachting bij Van of Naar. */
+  iban(): string {
+    return this.vereisGegevens().iban;
   }
 
   /**
@@ -123,6 +145,17 @@ export class Klant {
 
   async toontMeer(keer: number): Promise<void> {
     for (let i = 0; i < keer; i++) await this.driver.toonMeer();
+  }
+
+  /** Op de geopende betaalrekening. */
+  async klaptTransactieUit(tegenpartij: string): Promise<void> {
+    await this.opentBetaalrekening();
+    await this.driver.klapUit(tegenpartij);
+  }
+
+  /** Alleen de genoemde velden; bij Van en Naar de naam en het IBAN (null: geen IBAN). */
+  async verwachtDetails(verwacht: Partial<TransactieDetails>): Promise<void> {
+    expect(await this.driver.details(), `details bij ${this.alias}`).toMatchObject(verwacht);
   }
 
   private vereisGegevens(): GeseedeKlant {

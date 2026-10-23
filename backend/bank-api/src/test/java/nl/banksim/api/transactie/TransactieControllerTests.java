@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,7 @@ import nl.banksim.api.simulatie.GeheugenSimulatiedatum;
 import nl.banksim.api.simulatie.SimulationClock;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
+import nl.banksim.domain.transactie.TransactieType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -60,14 +62,21 @@ class TransactieControllerTests {
     Cursor cursor;
 
     @Test
+    /** S4.1: ook type, tijdstip in Europe/Amsterdam, Van en Naar; zonder IBAN (betaalautomaat) is het iban null. */
     void geeftDeEerstePaginaVan50MetDatumEnBedragAlsStringEnZonderVolgendeAanHetEind() throws Exception {
         AANROEPEN.clear();
         mvc.perform(get("/api/rekeningen/" + OOK_VAN_JAN + "/transacties").with(gebruiker("jan-a1-1")))
                 .andExpect(status().isOk())
                 .andExpect(content().json("""
                         {"transacties": [
-                           {"datum": "2026-10-02", "tegenpartij": "Werkgever B.V.", "bedrag": "3215.00"},
-                           {"datum": "2026-10-01", "tegenpartij": "Woningstichting Thuis", "bedrag": "-812.40"}],
+                           {"datum": "2026-10-02", "tegenpartij": "Werkgever B.V.", "bedrag": "3215.00",
+                            "type": "ONLINE_BANKIEREN", "tijdstip": "2026-10-02T09:15:00+02:00",
+                            "van": {"naam": "Werkgever B.V.", "iban": "NL20INGB0001234567"},
+                            "naar": {"naam": "Jan", "iban": "NL94SIMB0000000001"}},
+                           {"datum": "2026-10-01", "tegenpartij": "Albert Heijn", "bedrag": "-63.48",
+                            "type": "BETAALAUTOMAAT", "tijdstip": "2026-10-01T13:26:00+02:00",
+                            "van": {"naam": "Jan", "iban": "NL94SIMB0000000001"},
+                            "naar": {"naam": "Albert Heijn", "iban": null}}],
                          "volgende": null}""",
                         JsonCompareMode.STRICT));
         assertThat(AANROEPEN).containsExactly(OOK_VAN_JAN + " tot 2026-10-05 vanaf het begin, 50");
@@ -143,9 +152,14 @@ class TransactieControllerTests {
                 if (!"jan-a1-1".equals(gebruikersnaam) || !(VAN_JAN.equals(iban) || OOK_VAN_JAN.equals(iban))) {
                     return Optional.empty();
                 }
+                Partij jan = new Partij("Jan", Optional.of(VAN_JAN));
                 return Optional.of(new Pagina(List.of(
-                        new Transactie(LocalDate.of(2026, 10, 2), "Werkgever B.V.", Bedrag.van("3215.00")),
-                        new Transactie(LocalDate.of(2026, 10, 1), "Woningstichting Thuis", Bedrag.van("-812.40"))),
+                        new Transactie(LocalDate.of(2026, 10, 2), Bedrag.van("3215.00"), jan,
+                                new Partij("Werkgever B.V.", Optional.of(Iban.van("NL20INGB0001234567"))),
+                                TransactieType.ONLINE_BANKIEREN, OffsetDateTime.parse("2026-10-02T07:15:00Z")),
+                        new Transactie(LocalDate.of(2026, 10, 1), Bedrag.van("-63.48"), jan,
+                                new Partij("Albert Heijn", Optional.empty()),
+                                TransactieType.BETAALAUTOMAAT, OffsetDateTime.parse("2026-10-01T11:26:00Z"))),
                         VAN_JAN.equals(iban) ? Optional.of(LAATSTE_OP_PAGINA) : Optional.empty()));
             };
         }

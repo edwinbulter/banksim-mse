@@ -2,13 +2,17 @@ package nl.banksim.seed;
 
 import java.io.PrintStream;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
+import nl.banksim.domain.transactie.TransactieType;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -55,7 +59,7 @@ class SeedCommando {
     private GeseedeKlant klant(Map<String, String> opties) {
         String alias = verplicht(opties, "--alias");
         Bedrag saldo = Bedrag.van(verplicht(opties, "--betaalrekening"));
-        return klanten.klantMetBetaalrekening(alias, saldo);
+        return klanten.klantMetBetaalrekening(alias, opties.getOrDefault("--naam", alias), saldo);
     }
 
     private GeseedeBeheerder beheerder(Map<String, String> opties) {
@@ -67,13 +71,38 @@ class SeedCommando {
     record GeseedeBeheerder(String gebruikersnaam, String wachtwoord) {
     }
 
+    /**
+     * Eén transactie, op een {@code --datum} (middernacht) of een {@code --tijdstip} in Europe/Amsterdam; optioneel
+     * {@code --type} (standaard Online bankieren) en {@code --tegen-iban} (S4.1).
+     */
     private GeboekteTransactie transactie(Map<String, String> opties) {
         Iban iban = Iban.van(verplicht(opties, "--iban"));
-        LocalDate datum = LocalDate.parse(verplicht(opties, "--datum"));
+        LocalDateTime tijdstip = tijdstip(opties);
         Bedrag bedrag = Bedrag.van(verplicht(opties, "--bedrag"));
         String tegenpartij = verplicht(opties, "--tegenpartij");
-        transacties.boek(iban, datum, bedrag, tegenpartij);
-        return new GeboekteTransactie(iban.toString(), datum.toString(), bedrag.toString(), tegenpartij);
+        TransactieType type = type(opties.getOrDefault("--type", TransactieType.ONLINE_BANKIEREN.name()));
+        Optional<Iban> tegenIban = Optional.ofNullable(opties.get("--tegen-iban")).map(Iban::van);
+        Boeking boeking = new Boeking(tijdstip, bedrag, tegenpartij, type, tegenIban);
+        transacties.boek(iban, boeking);
+        return new GeboekteTransactie(iban.toString(), boeking.datum().toString(), bedrag.toString(), tegenpartij);
+    }
+
+    private static LocalDateTime tijdstip(Map<String, String> opties) {
+        String datum = opties.get("--datum");
+        String tijdstip = opties.get("--tijdstip");
+        if ((datum == null) == (tijdstip == null)) {
+            throw new IllegalArgumentException("Geef --datum of --tijdstip, niet allebei en niet geen van beide");
+        }
+        return datum != null ? LocalDate.parse(datum).atStartOfDay() : LocalDateTime.parse(tijdstip);
+    }
+
+    private static TransactieType type(String naam) {
+        try {
+            return TransactieType.valueOf(naam);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Onbekend --type: " + naam + " (verwacht een van "
+                    + Arrays.toString(TransactieType.values()) + ")");
+        }
     }
 
     /**
@@ -88,7 +117,7 @@ class SeedCommando {
                 regels.add(Regel.van(args[i + 1]));
             }
         }
-        regels.forEach(regel -> transacties.boek(iban, regel.datum(), regel.bedrag(), regel.tegenpartij()));
+        regels.forEach(regel -> transacties.boek(iban, Boeking.opDatum(regel.datum(), regel.bedrag(), regel.tegenpartij())));
         return new GeboekteTransacties(iban.toString(), regels.size());
     }
 

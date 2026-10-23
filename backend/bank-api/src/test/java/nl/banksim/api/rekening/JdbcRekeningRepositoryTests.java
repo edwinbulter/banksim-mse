@@ -32,7 +32,7 @@ class JdbcRekeningRepositoryTests {
         var dataSource = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         Flyway.configure().dataSource(dataSource).load().migrate();
         jdbc = JdbcClient.create(dataSource);
-        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam) VALUES ('jan'), ('piet'), ('kees')").update();
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('jan', 'Jan'), ('piet', 'Piet'), ('kees', 'Kees')").update();
         jdbc.sql("""
                 INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
                 SELECT 'NL94SIMB0000000001', id, 'betaal', 1842.17 FROM rekeninghouder WHERE gebruikersnaam = 'jan'
@@ -42,9 +42,9 @@ class JdbcRekeningRepositoryTests {
                 SELECT 'NL08SIMB2010265342', id, 'betaal', 1000.00 FROM rekeninghouder WHERE gebruikersnaam = 'kees'
                 """).update();
         jdbc.sql("""
-                INSERT INTO transactie (iban, datum, bedrag, tegenpartij) VALUES
-                ('NL08SIMB2010265342', '2026-10-01', -812.40, 'Woningstichting Thuis'),
-                ('NL08SIMB2010265342', '2026-10-02', 3215.00, 'Werkgever B.V.')
+                INSERT INTO transactie (iban, datum, bedrag, tegenpartij, tijdstip) VALUES
+                ('NL08SIMB2010265342', '2026-10-01', -812.40, 'Woningstichting Thuis', '2026-10-01T06:02:00+02:00'),
+                ('NL08SIMB2010265342', '2026-10-02', 3215.00, 'Werkgever B.V.', '2026-10-02T09:15:00+02:00')
                 """).update();
     }
 

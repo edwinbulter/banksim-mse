@@ -1,5 +1,13 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum, Uitkomst } from '../bank-driver';
+import type {
+  BankDriver,
+  Partij,
+  RekeningInOverzicht,
+  TransactieDetails,
+  TransactieType,
+  TransactiesOpDatum,
+  Uitkomst,
+} from '../bank-driver';
 import { wijzigSimulatiedatum } from '../simulatiedatum';
 
 /**
@@ -10,6 +18,7 @@ export class RestDriver implements BankDriver {
   private geopend?: string;
   private geladen: Pagina['transacties'] = [];
   private volgende: string | null = null;
+  private uitgeklapt?: TransactieJson;
 
   constructor(private readonly request: APIRequestContext) {}
 
@@ -76,6 +85,18 @@ export class RestDriver implements BankDriver {
   }
 
   /** Het overzicht is één API-aanroep, die rekeningenInOverzicht doet. */
+  /** De API levert de details al in de lijst; uitklappen is hier de geladen transactie kiezen. */
+  async klapUit(tegenpartij: string): Promise<void> {
+    this.uitgeklapt = this.geladen.find((transactie) => transactie.tegenpartij === tegenpartij);
+    expect(this.uitgeklapt, `geladen transactie met tegenpartij ${tegenpartij}`).toBeDefined();
+  }
+
+  async details(): Promise<TransactieDetails> {
+    const { type, tijdstip, datum, van, naar } = this.uitgeklapt!;
+    // "2026-10-01T06:02:00+02:00": de API geeft het tijdstip al in Europe/Amsterdam.
+    return { transactietype: type, van, naar, datumTransactie: tijdstip?.slice(0, 16) ?? '', uitgevoerdOp: datum };
+  }
+
   async naarOverzicht(): Promise<void> {
     this.geopend = undefined;
   }
@@ -115,6 +136,17 @@ export class RestDriver implements BankDriver {
 
 /** Een pagina transacties van bank-api; `volgende` is de cursor voor "Toon meer", of null aan het eind. */
 interface Pagina {
-  transacties: { datum: string; tegenpartij: string; bedrag: string }[];
+  transacties: TransactieJson[];
   volgende: string | null;
+}
+
+/** Een transactie van bank-api, met de details voor het uitklappen (S4.1). */
+interface TransactieJson {
+  datum: string;
+  tegenpartij: string;
+  bedrag: string;
+  type: TransactieType;
+  tijdstip: string;
+  van: Partij;
+  naar: Partij;
 }

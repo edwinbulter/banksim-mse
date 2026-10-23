@@ -1,9 +1,33 @@
 package nl.banksim.api.transactie;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 
 import nl.banksim.domain.geld.Bedrag;
+import nl.banksim.domain.transactie.TransactieType;
 
-/** Een geboekte transactie; een negatief bedrag is een afschrijving. */
-record Transactie(LocalDate datum, String tegenpartij, Bedrag bedrag) {
+/**
+ * Een geboekte transactie op de eigen rekening; een negatief bedrag is een afschrijving. De datum is de uitvoerdatum,
+ * het tijdstip het moment van de transactie (S4.1).
+ */
+record Transactie(LocalDate datum, Bedrag bedrag, Partij eigen, Partij tegen, TransactieType type,
+        OffsetDateTime tijdstip) {
+
+    String tegenpartij() {
+        return tegen.naam();
+    }
+
+    /** Bij een afschrijving gaat het geld van de eigen rekening naar de tegenpartij; bij een bijschrijving andersom. */
+    Partij van() {
+        return isAfschrijving() ? eigen : tegen;
+    }
+
+    Partij naar() {
+        return isAfschrijving() ? tegen : eigen;
+    }
+
+    // Een bedrag van 0 bestaat niet (CHECK bedrag <> 0 in V2); de mutant "< 0 wordt <= 0" is daardoor gelijkwaardig.
+    private boolean isAfschrijving() {
+        return bedrag.waarde().signum() < 0;
+    }
 }
