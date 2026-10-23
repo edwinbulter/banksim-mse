@@ -114,7 +114,8 @@ export default defineConfig<Opties>({
 - **Tags:**
   - `@wip` sluit je overal uit.
   - `@ui` alleen in `rest`.
-  - Scenario's die een gedeelde toestand veranderen, krijgen een eigen tag en draaien met `--workers=1`.
+  - Scenario's die een gedeelde toestand veranderen, krijgen een eigen tag en draaien serieel: in eigen projecten met `workers: 1`, achter elkaar via `dependencies`, en uitgesloten in de gewone projecten met `grepInvert`.
+- **Projecten met `dependencies`:** `--project=<naam>` draait eerst alle projecten waar het van afhangt. Voor één scenario gebruik je `--no-deps`.
 - **Het project `rest` start technisch toch een browser** als de fixture `page` in de fixture-functie wordt gevraagd. Dat is onschuldig, maar maakt het iets trager. Wil je dat niet, maak `page` dan lui, via een aparte fixture per driver.
 - **Typecheck van de specs** (`tsc --noEmit`) hoort in de commit stage. Dan ontdek je een kapotte DSL al vóór de acceptance stage.
 - **Zelfondertekend certificaat** in de testomgeving? Zet `ignoreHTTPSErrors: true` en leg in een ADR vast wanneer het strenger wordt.

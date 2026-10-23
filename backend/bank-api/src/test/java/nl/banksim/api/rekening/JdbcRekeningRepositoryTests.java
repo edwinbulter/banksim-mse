@@ -2,6 +2,8 @@ package nl.banksim.api.rekening;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDate;
+
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import org.flywaydb.core.Flyway;
@@ -46,22 +48,32 @@ class JdbcRekeningRepositoryTests {
                 """).update();
     }
 
+    /** Na alle transacties in deze test, zodat de tests niet afhangen van de dag waarop ze draaien. */
+    static final LocalDate NA_ALLES = LocalDate.of(2026, 12, 31);
+
     private final JdbcRekeningRepository repository = new JdbcRekeningRepository(jdbc);
 
     @Test
     void geeftAlleenDeRekeningenVanDeGebruikerMetOpeningssaldoAlsSaldo() {
-        assertThat(repository.vanGebruiker("jan")).containsExactly(
+        assertThat(repository.vanGebruiker("jan", NA_ALLES)).containsExactly(
                 new Rekening(Soort.BETAAL, Iban.van("NL94SIMB0000000001"), Bedrag.van("1842.17")));
     }
 
     @Test
     void hetSaldoIsHetOpeningssaldoPlusDeTransacties() {
-        assertThat(repository.vanGebruiker("kees")).containsExactly(
+        assertThat(repository.vanGebruiker("kees", NA_ALLES)).containsExactly(
                 new Rekening(Soort.BETAAL, Iban.van("NL08SIMB2010265342"), Bedrag.van("3402.60")));
+    }
+
+    /** ADR 0013: een transactie na "vandaag" telt niet mee; een transactie óp vandaag wel. */
+    @Test
+    void hetSaldoTeltAlleenDeTransactiesTotEnMetVandaag() {
+        assertThat(repository.vanGebruiker("kees", LocalDate.of(2026, 10, 1))).containsExactly(
+                new Rekening(Soort.BETAAL, Iban.van("NL08SIMB2010265342"), Bedrag.van("187.60")));
     }
 
     @Test
     void geeftNietsVoorEenOnbekendeGebruiker() {
-        assertThat(repository.vanGebruiker("onbekend")).isEmpty();
+        assertThat(repository.vanGebruiker("onbekend", NA_ALLES)).isEmpty();
     }
 }

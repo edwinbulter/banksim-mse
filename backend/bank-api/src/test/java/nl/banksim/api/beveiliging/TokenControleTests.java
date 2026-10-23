@@ -8,6 +8,8 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -81,16 +83,39 @@ class TokenControleTests {
                 .andExpect(status().isUnauthorized());
     }
 
+    /** ADR 0015: de realm-rollen van Keycloak staan in realm_access.roles en worden rechten met ROLE_. */
+    @Test
+    void deRealmRolBeheerderUitHetTokenGeeftToegangTotBeheer() throws Exception {
+        mvc.perform(get("/api/beheer/beveiligd")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(ISSUER, "bank-api", SLEUTEL, List.of("beheerder"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void zonderDeRealmRolBeheerderIsBeheer403() throws Exception {
+        mvc.perform(get("/api/beheer/beveiligd")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(ISSUER, "bank-api", SLEUTEL, List.of("offline_access"))))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/beheer/beveiligd").header(HttpHeaders.AUTHORIZATION, bearer(ISSUER, "bank-api")))
+                .andExpect(status().isForbidden());
+    }
+
     private static String bearer(String issuer, String audience) throws JOSEException {
         return bearer(issuer, audience, SLEUTEL);
     }
 
     private static String bearer(String issuer, String audience, RSAKey sleutel) throws JOSEException {
+        return bearer(issuer, audience, sleutel, null);
+    }
+
+    private static String bearer(String issuer, String audience, RSAKey sleutel, List<String> realmRollen)
+            throws JOSEException {
         var claims = new JWTClaimsSet.Builder()
                 .issuer(issuer)
                 .audience(audience)
                 .subject("jan")
                 .claim("preferred_username", "jan")
+                .claim("realm_access", realmRollen == null ? null : Map.of("roles", realmRollen))
                 .expirationTime(Date.from(Instant.now().plusSeconds(300)))
                 .build();
         var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(SLEUTEL.getKeyID()).build(), claims);
@@ -129,6 +154,11 @@ class TokenControleTests {
 
         @org.springframework.web.bind.annotation.GetMapping("/api/beveiligd")
         String beveiligd() {
+            return "ok";
+        }
+
+        @org.springframework.web.bind.annotation.GetMapping("/api/beheer/beveiligd")
+        String beheer() {
             return "ok";
         }
     }

@@ -4,11 +4,12 @@ Bestand: [`RekeningControllerTests.java`](RekeningControllerTests.java)
 
 ## Doel
 
-De test controleert het endpoint `GET /api/rekeningen` van `RekeningController`. Dat endpoint hoort bij story S1.1 en toont de rekeningen van de ingelogde klant. De test bekijkt drie dingen:
+De test controleert het endpoint `GET /api/rekeningen` van `RekeningController`. Dat endpoint hoort bij story S1.1 en toont de rekeningen van de ingelogde klant. De test bekijkt vier dingen:
 
 1. Een ingelogde klant krijgt zijn eigen rekeningen terug, met het saldo als string (ADR 0010).
 2. Een andere klant ziet die rekeningen niet (de basis voor S6.1).
-3. Zonder token is het antwoord 401.
+3. Het saldo geldt op "vandaag" volgens de `SimulationClock` (ADR 0013, slice 3).
+4. Zonder token is het antwoord 401.
 
 Het is een **slicetest**. Alleen de weblaag draait. Er komen geen database, geen Keycloak en geen echte server aan te pas.
 
@@ -28,7 +29,7 @@ Het is een **slicetest**. Alleen de weblaag draait. Er komen geen database, geen
 | --- | --- |
 | `BeveiligingConfig` | De **echte** security-filterchain van `bank-api`: `/api/**` vereist authenticatie, stateless, met een JWT-resource server. Zonder deze klasse zou de test de standaardbeveiliging van Spring gebruiken en niet die van ons. |
 | `IngelogdeGebruiker` | Leest `preferred_username` uit het JWT in de `SecurityContext`. Het is een `@Component` die `@WebMvcTest` niet zelf meescant. |
-| `Rekeningen` (de geneste `@TestConfiguration`) | Levert een nep-`RekeningRepository` (zie hieronder). |
+| `Rekeningen` (de geneste `@TestConfiguration`) | Levert een nep-`RekeningRepository` (zie hieronder) en een `SimulationClock` met de simulatiedatum 5 oktober 2026. |
 
 ### 2. `MockMvc`
 
@@ -51,13 +52,16 @@ Het is een **slicetest**. Alleen de weblaag draait. Er komen geen database, geen
 ```java
 @Bean
 RekeningRepository rekeningRepository() {
-    return gebruikersnaam -> "jan-a1-1".equals(gebruikersnaam)
-            ? List.of(new Rekening(Soort.BETAAL, Iban.simBank(1L), Bedrag.van("1842.17")))
-            : List.of();
+    return (gebruikersnaam, vandaag) -> {
+        GEVRAAGD.add(vandaag);
+        return "jan-a1-1".equals(gebruikersnaam)
+                ? List.of(new Rekening(Soort.BETAAL, Iban.simBank(1L), Bedrag.van("1842.17")))
+                : List.of();
+    };
 }
 ```
 
-`RekeningRepository` heeft één methode, `vanGebruiker(String)`, en is daardoor met een lambda te implementeren. De nep-repository kent precies één klant:
+`RekeningRepository` heeft één methode, `vanGebruiker(String, LocalDate)`, en is daardoor met een lambda te implementeren. De lambda onthoudt in `GEVRAAGD` op welke datum de controller het saldo vroeg. De nep-repository kent precies één klant:
 
 - `jan-a1-1` heeft één betaalrekening, `Iban.simBank(1L)` (= `NL94SIMB0000000001`), met een saldo van `1842.17`;
 - iedere andere gebruiker heeft geen rekeningen.
@@ -83,12 +87,13 @@ MockMvc ──► security-filters (BeveiligingConfig: geauthenticeerd? ja)
         ──► Jackson → JSON-antwoord
 ```
 
-## De drie tests
+## De vier tests
 
 | Test | Request | Verwachting | Wat het bewijst |
 | --- | --- | --- | --- |
 | `geeftDeRekeningenVanDeIngelogdeGebruikerMetSaldoAlsString` | JWT met `preferred_username=jan-a1-1` | `200` en precies `[{"soort":"betaal","iban":"NL94SIMB0000000001","saldo":"1842.17"}]` | De gebruikersnaam komt uit het token; de mapping is juist; het saldo is een **string** (ADR 0010) |
 | `geeftGeenRekeningenVanEenAndereGebruiker` | JWT met `preferred_username=piet-a1-2` | `200` en `[]` | De controller filtert op de ingelogde gebruiker en niet op een parameter die de client meestuurt |
+| `vraagtHetSaldoOpDeDatumVanDeSimulationClock` | JWT met `preferred_username=jan-a1-1` | `GEVRAAGD` is `[2026-10-05]` | De controller vraagt het saldo op "vandaag" voor de bank, de simulatiedatum, en niet op de systeemdatum (ADR 0013). Of de query die datum gebruikt, toont `JdbcRekeningRepositoryTests`. |
 | `zonderTokenIs401` | geen token | `401` | `BeveiligingConfig` beschermt `/api/rekeningen` |
 
 ### Waarom `JsonCompareMode.STRICT`
@@ -116,7 +121,7 @@ Het is de **echte** klasse, geen nep. In de test komt alleen de repository van d
 ### Stap 2: Spring geeft hem aan de controller
 
 ```java
-RekeningController(RekeningRepository rekeningen, IngelogdeGebruiker gebruiker) { … }
+RekeningController(RekeningRepository rekeningen, IngelogdeGebruiker gebruiker, SimulationClock klok) { … }
 ```
 
 Net als bij de repository: Spring ziet dat de constructor een `IngelogdeGebruiker` vraagt, vindt de bean uit stap 1 en geeft die mee.
@@ -135,7 +140,7 @@ mvc.perform(get("/api/rekeningen")
 ```java
 @GetMapping("/api/rekeningen")
 List<RekeningJson> rekeningen() {
-    return rekeningen.vanGebruiker(gebruiker.gebruikersnaam())   // ◄── hier
+    return rekeningen.vanGebruiker(gebruiker.gebruikersnaam(), klok.vandaag())   // ◄── hier
             .stream().map(RekeningJson::van).toList();
 }
 ```

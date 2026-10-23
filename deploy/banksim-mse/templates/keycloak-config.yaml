@@ -1,0 +1,56 @@
+{{- /*
+  ADR 0017: keycloak-config-cli past de realm-JSON toe na elke installatie en upgrade, ook op een bestaande realm.
+  --import-realm van Keycloak zelf slaat een bestaande realm over; deze Job niet.
+*/}}
+{{- $ctx := dict "root" . "name" "keycloak-config" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+  annotations:
+    # Na --wait: Keycloak is dan gereed. Faalt de Job, dan faalt de installatie.
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "banksim-mse.labels" $ctx | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: keycloak-config
+          image: {{ .Values.images.keycloakConfigCli }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KEYCLOAK_URL
+              value: http://keycloak:8080
+            - name: KEYCLOAK_USER
+              value: admin
+            - name: KEYCLOAK_PASSWORD
+              valueFrom: { secretKeyRef: { name: keycloak, key: KC_BOOTSTRAP_ADMIN_PASSWORD } }
+            - name: KEYCLOAK_AVAILABILITYCHECK_ENABLED
+              value: "true"
+            - name: IMPORT_FILES_LOCATIONS
+              value: /config/realm-banksim-mse.json
+            # $(env:...) in de realm-JSON: de client secrets uit de Secrets, nooit in Git.
+            - name: IMPORT_VARSUBSTITUTION_ENABLED
+              value: "true"
+            - name: BFF_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: bank-bff, key: BANKSIM_BFF_CLIENT_SECRET } }
+            - name: SEED_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: bank-seed, key: BANKSIM_SEED_CLIENT_SECRET } }
+          resources:
+            {{- toYaml .Values.resources.keycloakConfig | nindent 12 }}
+          volumeMounts:
+            - name: realm
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm

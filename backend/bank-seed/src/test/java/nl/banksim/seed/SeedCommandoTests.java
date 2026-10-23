@@ -24,9 +24,24 @@ class SeedCommandoTests {
     };
     private final Transacties transacties = (Iban iban, LocalDate datum, Bedrag bedrag, String tegenpartij) ->
             aanroepen.add(iban + " " + datum + " " + bedrag + " " + tegenpartij);
+    private final Beheerders beheerders = gebruikersnaam -> {
+        aanroepen.add("beheerder " + gebruikersnaam);
+        return "beheerder-wachtwoord";
+    };
     private final ByteArrayOutputStream uitvoer = new ByteArrayOutputStream();
-    private final SeedCommando commando = new SeedCommando(aanmaker, transacties, JsonMapper.builder().build(),
+    private final SeedCommando commando = new SeedCommando(aanmaker, transacties, beheerders, JsonMapper.builder().build(),
             new PrintStream(uitvoer, true, StandardCharsets.UTF_8));
+
+    /** ADR 0015: een login met de realm-rol beheerder, zonder rekeninghouder of rekening. */
+    @Test
+    void maaktEenBeheerderEnSchrijftGebruikersnaamEnWachtwoordAlsEenJsonRegel() {
+        commando.voerUit("beheerder", "--alias", "beheerder-f4de79-1");
+
+        assertThat(aanroepen).containsExactly("beheerder beheerder-f4de79-1");
+        assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
+                {"gebruikersnaam":"beheerder-f4de79-1","wachtwoord":"beheerder-wachtwoord"}
+                """);
+    }
 
     @Test
     void maaktEenKlantMetBetaalrekeningEnSchrijftHetResultaatAlsEenJsonRegel() {

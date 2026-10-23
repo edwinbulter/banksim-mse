@@ -8,7 +8,7 @@ metadata:
   labels:
     {{- include "banksim-mse.labels" $ctx | nindent 4 }}
 data:
-  # ${...} vervangt Keycloak bij de import door omgevingsvariabelen uit Secrets.
+  # keycloak-config-cli past dit toe en vervangt $(env:...) door omgevingsvariabelen uit Secrets (ADR 0017).
   realm-banksim-mse.json: |
     {{- tpl (.Files.Get "files/realm-banksim-mse.json") . | nindent 4 }}
 ---
@@ -49,7 +49,8 @@ spec:
         - name: keycloak
           image: {{ .Values.images.keycloak }}
           imagePullPolicy: IfNotPresent
-          args: [start, --import-realm]
+          # Geen --import-realm: dat slaat een bestaande realm over. De Job keycloak-config past de realm toe (ADR 0017).
+          args: [start]
           env:
             # Eén replica: geen Infinispan-cluster.
             - name: KC_CACHE
@@ -77,10 +78,6 @@ spec:
               value: admin
             - name: KC_BOOTSTRAP_ADMIN_PASSWORD
               valueFrom: { secretKeyRef: { name: keycloak, key: KC_BOOTSTRAP_ADMIN_PASSWORD } }
-            - name: BFF_CLIENT_SECRET
-              valueFrom: { secretKeyRef: { name: bank-bff, key: BANKSIM_BFF_CLIENT_SECRET } }
-            - name: SEED_CLIENT_SECRET
-              valueFrom: { secretKeyRef: { name: bank-seed, key: BANKSIM_SEED_CLIENT_SECRET } }
             - name: JAVA_OPTS_KC_HEAP
               value: -XX:MaxRAMPercentage=70
           ports:
@@ -100,11 +97,3 @@ spec:
             periodSeconds: 5
           resources:
             {{- toYaml .Values.resources.keycloak | nindent 12 }}
-          volumeMounts:
-            - name: realm
-              mountPath: /opt/keycloak/data/import
-              readOnly: true
-      volumes:
-        - name: realm
-          configMap:
-            name: keycloak-realm

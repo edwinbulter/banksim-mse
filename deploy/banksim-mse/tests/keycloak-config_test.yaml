@@ -1,0 +1,59 @@
+# ADR 0017: keycloak-config-cli past de realm-JSON toe bij elke installatie en upgrade, ook op een bestaande realm.
+suite: keycloak-config
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+templates:
+  - templates/keycloak-config.yaml
+tests:
+  - it: is een Helm-hook-Job na installatie en upgrade, die bij een nieuwe run de vorige opruimt
+    asserts:
+      - isKind: { of: Job }
+      - equal:
+          path: metadata.namespace
+          value: banksim-mse
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+  - it: draait keycloak-config-cli op digest tegen de interne Keycloak
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: adorsys/keycloak-config-cli:6.5.1-26.5.5@sha256:0955d98c8a341898b7aa177477edf8a1e90569ae50bbe7598141c1270b773274
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: KEYCLOAK_URL, value: http://keycloak:8080 }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: IMPORT_VARSUBSTITUTION_ENABLED, value: "true" }
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: Never
+  - it: logt in als bootstrap-admin en vult de client secrets in, allemaal uit Secrets
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KEYCLOAK_PASSWORD
+            valueFrom: { secretKeyRef: { name: keycloak, key: KC_BOOTSTRAP_ADMIN_PASSWORD } }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BFF_CLIENT_SECRET
+            valueFrom: { secretKeyRef: { name: bank-bff, key: BANKSIM_BFF_CLIENT_SECRET } }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SEED_CLIENT_SECRET
+            valueFrom: { secretKeyRef: { name: bank-seed, key: BANKSIM_SEED_CLIENT_SECRET } }
+  - it: leest de realm uit de ConfigMap keycloak-realm
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content: { name: realm, configMap: { name: keycloak-realm } }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: IMPORT_FILES_LOCATIONS, value: /config/realm-banksim-mse.json }

@@ -20,6 +20,11 @@
   "internationalizationEnabled": true,
   "supportedLocales": ["nl", "en"],
   "defaultLocale": "nl",
+  "roles": {
+    "realm": [
+      { "name": "beheerder", "description": "Beheert de bank, zoals de simulatiedatum (ADR 0015)" }
+    ]
+  },
   "clients": [
     {
       "clientId": "bank-bff",
@@ -28,7 +33,7 @@
       "protocol": "openid-connect",
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${BFF_CLIENT_SECRET}",
+      "secret": "$(env:BFF_CLIENT_SECRET)",
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
@@ -52,7 +57,7 @@
           }
         }
       ],
-      "defaultClientScopes": ["basic", "profile", "acr"],
+      "defaultClientScopes": ["basic", "profile", "acr", "roles"],
       "optionalClientScopes": []
     },
     {
@@ -62,7 +67,7 @@
       "protocol": "openid-connect",
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${SEED_CLIENT_SECRET}",
+      "secret": "$(env:SEED_CLIENT_SECRET)",
       "standardFlowEnabled": false,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
@@ -76,7 +81,7 @@
       "enabled": true,
       "serviceAccountClientId": "bank-seed",
       "clientRoles": {
-        "realm-management": ["manage-users", "view-users"]
+        "realm-management": ["manage-users", "view-users", "view-realm"]
       }
     }
   ]

@@ -4,7 +4,7 @@
   "description": "Acceptatietests voor BankSim-MSE: Playwright-specs met een interne DSL (doc/werkwijze-mse.md, hoofdstuk 5)",
   "type": "module",
   "scripts": {
-    "test": "playwright test --project=rest --project=chromium --project=firefox --project=webkit",
+    "test": "playwright test --project=rest --project=chromium --project=firefox --project=webkit --project='simulatiedatum-*'",
     "test:infra": "playwright test --project=infra",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",

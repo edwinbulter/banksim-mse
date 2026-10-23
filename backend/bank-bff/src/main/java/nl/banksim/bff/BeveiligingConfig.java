@@ -39,6 +39,8 @@ class BeveiligingConfig {
                 .oauth2Login(login -> login
                         .loginPage(LOGIN)
                         .authorizationEndpoint(endpoint -> endpoint.authorizationRequestResolver(pkce)))
+                // ADR 0016: het token in het leesbare cookie XSRF-TOKEN; Angular stuurt het terug als X-XSRF-TOKEN.
+                .csrf(csrf -> csrf.spa())
                 // De Angular-app krijgt een 401 en toont dan de link "Inloggen".
                 .exceptionHandling(fouten -> fouten.defaultAuthenticationEntryPointFor(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),

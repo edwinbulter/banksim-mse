@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { BankDriver, Soort, TransactiesOpDatum } from '../drivers/bank-driver';
+import type { BankDriver, Soort, TransactiesOpDatum, Uitkomst } from '../drivers/bank-driver';
 
 interface GeseedeTransactie {
   datum: string;
@@ -16,6 +16,8 @@ export class Klant {
   private gegevens?: GeseedeKlant;
   /** Wat heeftTransacties boekte, in boekingsvolgorde. */
   private geseed: GeseedeTransactie[] = [];
+  private ingelogd = false;
+  private uitkomst?: Uitkomst;
 
   constructor(
     private readonly alias: string,
@@ -49,10 +51,27 @@ export class Klant {
     this.geseed.push(...transacties);
   }
 
+  /** Logt de eerste keer in; daarna is Jan al ingelogd. */
   async opentOverzicht(): Promise<void> {
+    await this.logtIn();
+    await this.driver.openOverzicht();
+  }
+
+  /** Met de eigen sessie: een klant heeft de rol beheerder niet. */
+  async probeertSimulatiedatumTeZetten(datum: string): Promise<void> {
+    await this.logtIn();
+    this.uitkomst = await this.driver.zetSimulatiedatum(datum);
+  }
+
+  async verwachtGeweigerd(): Promise<void> {
+    expect(this.uitkomst, `uitkomst voor ${this.alias}`).toBe('geweigerd');
+  }
+
+  private async logtIn(): Promise<void> {
+    if (this.ingelogd) return;
     const { gebruikersnaam, wachtwoord } = this.vereisGegevens();
     await this.driver.logIn(gebruikersnaam, wachtwoord);
-    await this.driver.openOverzicht();
+    this.ingelogd = true;
   }
 
   async verwachtRekeningInOverzicht(soort: Soort, saldo: string): Promise<void> {

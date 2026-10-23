@@ -88,6 +88,19 @@ drie weigertests ook slagen als alles altijd met 401 werd geweigerd, bijvoorbeel
 Samen leggen de vier tests ADR 0008 vast: `bank-api` accepteert alleen tokens van realm `banksim-mse` die voor
 `bank-api` bedoeld zijn.
 
+## De rol `beheerder` uit het token (ADR 0015)
+
+Twee tests gebruiken dezelfde opbouw voor de rollen. De testcontroller heeft daarvoor een tweede endpoint, `/api/beheer/beveiligd`. Daar geldt dezelfde regel als voor `/api/beheer/simulatiedatum`: `hasRole("beheerder")`.
+
+| Test | Token | Verwachting |
+| --- | --- | --- |
+| `deRealmRolBeheerderUitHetTokenGeeftToegangTotBeheer` | `realm_access.roles = ["beheerder"]` | `200` |
+| `zonderDeRealmRolBeheerderIsBeheer403` | een andere rol (`offline_access`), en een token zonder `realm_access` | twee keer `403` |
+
+Keycloak zet realm-rollen in de claim `realm_access.roles`. Spring Security leest standaard alleen `scope`. De `JwtAuthenticationConverter` uit `BeveiligingConfig.realmRollen()` zet elke realm-rol om naar een recht met `ROLE_`, zodat `hasRole("beheerder")` werkt.
+
+Waarom hier, en niet in `SimulatiedatumControllerTests`? Daar zet `jwt()` de rechten rechtstreeks in de `SecurityContext`, met `.authorities(...)`. De omzetter van de app wordt dan overgeslagen. Alleen deze test stuurt een echt token door de echte keten, en bewijst dus dat de omzetter werkt. Met de sabotage `SCOPE_` in plaats van `ROLE_` faalt `deRealmRolBeheerder…` met `Status expected:<200> but was:<403>`.
+
 **Klein detail:** in `bearer(...)` staat de `kid` altijd op `SLEUTEL.getKeyID()`, ook als met een andere sleutel wordt
 ondertekend. Dat is bewust zo. In de test met de andere sleutel vindt de decoder daardoor wel een sleutel bij de `kid`,
 maar faalt de handtekening, en dat is precies wat die test wil aantonen.

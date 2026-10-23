@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
+import nl.banksim.api.simulatie.SimulationClock;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -15,7 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * De transacties van een rekening van de ingelogde klant, van nieuw naar oud, per {@value #PER_PAGINA} (S2.1, S2.2).
+ * De transacties van een rekening van de ingelogde klant tot en met "vandaag" voor de bank (ADR 0013), van nieuw naar
+ * oud, per {@value #PER_PAGINA} (S2.1, S2.2).
  * "Toon meer" stuurt de cursor uit {@code volgende} terug als {@code na} (ADR 0011).
  */
 @RestController
@@ -26,18 +28,21 @@ class TransactieController {
     private final TransactieRepository transacties;
     private final IngelogdeGebruiker gebruiker;
     private final Cursor cursor;
+    private final SimulationClock klok;
 
-    TransactieController(TransactieRepository transacties, IngelogdeGebruiker gebruiker, Cursor cursor) {
+    TransactieController(TransactieRepository transacties, IngelogdeGebruiker gebruiker, Cursor cursor,
+            SimulationClock klok) {
         this.transacties = transacties;
         this.gebruiker = gebruiker;
         this.cursor = cursor;
+        this.klok = klok;
     }
 
     @GetMapping("/api/rekeningen/{iban}/transacties")
     PaginaJson transacties(@PathVariable String iban, @RequestParam Optional<String> na) {
         Iban rekening = ibanOf404(iban);
         Optional<Positie> positie = na.map(tekst -> cursor.lees(rekening, tekst));
-        Pagina pagina = transacties.vanRekening(gebruiker.gebruikersnaam(), rekening, positie, PER_PAGINA)
+        Pagina pagina = transacties.vanRekening(gebruiker.gebruikersnaam(), rekening, klok.vandaag(), positie, PER_PAGINA)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return new PaginaJson(
                 pagina.transacties().stream().map(TransactieJson::van).toList(),

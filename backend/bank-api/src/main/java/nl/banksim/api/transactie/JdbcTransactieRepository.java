@@ -20,7 +20,8 @@ class JdbcTransactieRepository implements TransactieRepository {
     }
 
     @Override
-    public Optional<Pagina> vanRekening(String gebruikersnaam, Iban iban, Optional<Positie> na, int aantal) {
+    public Optional<Pagina> vanRekening(String gebruikersnaam, Iban iban, LocalDate vandaag, Optional<Positie> na,
+            int aantal) {
         boolean eigenRekening = jdbc.sql("""
                         SELECT count(*) FROM rekening r JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
                         WHERE r.iban = :iban AND h.gebruikersnaam = :gebruikersnaam""")
@@ -34,10 +35,12 @@ class JdbcTransactieRepository implements TransactieRepository {
         List<Rij> rijen = jdbc.sql("""
                         SELECT id, datum, tegenpartij, bedrag FROM transactie
                         WHERE iban = :iban
+                          AND datum <= :vandaag
                           AND (CAST(:naDatum AS date) IS NULL OR (datum, id) < (CAST(:naDatum AS date), :naId))
                         ORDER BY datum DESC, id DESC
                         LIMIT :limiet""")
                 .param("iban", iban.toString())
+                .param("vandaag", vandaag)
                 .param("naDatum", na.map(Positie::datum).orElse(null))
                 .param("naId", na.map(Positie::id).orElse(0L))
                 .param("limiet", aantal + 1)

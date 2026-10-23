@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum } from '../bank-driver';
+import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum, Uitkomst } from '../bank-driver';
+import { wijzigSimulatiedatum } from '../simulatiedatum';
 
 /**
  * Spreekt BankSim aan via de publieke API-paden achter de ingress, net als de browser: inloggen via de BFF en
@@ -89,6 +90,14 @@ export class RestDriver implements BankDriver {
 
   async herlaad(): Promise<void> {
     throw new Error('Geen browser in de REST-driver: een scenario met herladen hoort de tag @ui te hebben');
+  }
+
+  async zetSimulatiedatum(datum: string): Promise<Uitkomst> {
+    return wijzigSimulatiedatum(this.request, async () => (await this.request.storageState()).cookies, datum);
+  }
+
+  async wisSimulatiedatum(): Promise<Uitkomst> {
+    return wijzigSimulatiedatum(this.request, async () => (await this.request.storageState()).cookies, null);
   }
 
   private async laadPagina(pad: string): Promise<void> {

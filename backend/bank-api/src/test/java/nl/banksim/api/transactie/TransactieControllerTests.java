@@ -7,13 +7,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
+import nl.banksim.api.simulatie.GeheugenSimulatiedatum;
+import nl.banksim.api.simulatie.SimulationClock;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import org.junit.jupiter.api.Test;
@@ -65,7 +70,7 @@ class TransactieControllerTests {
                            {"datum": "2026-10-01", "tegenpartij": "Woningstichting Thuis", "bedrag": "-812.40"}],
                          "volgende": null}""",
                         JsonCompareMode.STRICT));
-        assertThat(AANROEPEN).containsExactly(OOK_VAN_JAN + " vanaf het begin, 50");
+        assertThat(AANROEPEN).containsExactly(OOK_VAN_JAN + " tot 2026-10-05 vanaf het begin, 50");
     }
 
     @Test
@@ -79,7 +84,7 @@ class TransactieControllerTests {
         mvc.perform(get("/api/rekeningen/" + VAN_JAN + "/transacties").param("na", volgende).with(gebruiker("jan-a1-1")))
                 .andExpect(status().isOk());
 
-        assertThat(AANROEPEN).containsExactly(VAN_JAN + " na " + LAATSTE_OP_PAGINA + ", 50");
+        assertThat(AANROEPEN).containsExactly(VAN_JAN + " tot 2026-10-05 na " + LAATSTE_OP_PAGINA + ", 50");
     }
 
     @Test
@@ -121,11 +126,20 @@ class TransactieControllerTests {
     @TestConfiguration
     static class Transacties {
 
+        /** ADR 0013: de transacties tot en met "vandaag" volgens de SimulationClock, hier 5 oktober 2026. */
+        @Bean
+        SimulationClock simulationClock() {
+            var simulatiedatum = new GeheugenSimulatiedatum();
+            simulatiedatum.zet(LocalDate.of(2026, 10, 5));
+            return new SimulationClock(Clock.fixed(Instant.parse("2026-10-22T12:00:00Z"), ZoneId.of("UTC")), simulatiedatum);
+        }
+
         @Bean
         TransactieRepository transactieRepository() {
             // Op VAN_JAN volgt nog een pagina, op OOK_VAN_JAN niet.
-            return (gebruikersnaam, iban, na, aantal) -> {
-                AANROEPEN.add(iban + na.map(positie -> " na " + positie).orElse(" vanaf het begin") + ", " + aantal);
+            return (gebruikersnaam, iban, vandaag, na, aantal) -> {
+                AANROEPEN.add(iban + " tot " + vandaag + na.map(positie -> " na " + positie).orElse(" vanaf het begin")
+                        + ", " + aantal);
                 if (!"jan-a1-1".equals(gebruikersnaam) || !(VAN_JAN.equals(iban) || OOK_VAN_JAN.equals(iban))) {
                     return Optional.empty();
                 }

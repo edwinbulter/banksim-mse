@@ -53,11 +53,24 @@ class JdbcTransactieRepositoryTests {
                 """).update();
     }
 
+    /** Na alle transacties in deze test, zodat de tests niet afhangen van de dag waarop ze draaien. */
+    static final LocalDate NA_ALLES = LocalDate.of(2026, 12, 31);
+
     private final JdbcTransactieRepository repository = new JdbcTransactieRepository(jdbc);
+
+    /** ADR 0013: transacties na "vandaag" zijn onzichtbaar, ook voor de cursor; een transactie óp vandaag niet. */
+    @Test
+    void geeftAlleenDeTransactiesTotEnMetVandaag() {
+        Pagina pagina = repository.vanRekening("jan", VAN_JAN, LocalDate.of(2026, 10, 1), Optional.empty(), 1)
+                .orElseThrow();
+
+        assertThat(pagina.transacties()).extracting(Transactie::tegenpartij).containsExactly("Woningstichting Thuis");
+        assertThat(pagina.volgende()).isEmpty();
+    }
 
     @Test
     void geeftDeTransactiesVanNieuwNaarOudEnOpDezelfdeDagDeLaatstGeboekteEerst() {
-        assertThat(repository.vanRekening("jan", VAN_JAN, Optional.empty(), 50).map(Pagina::transacties)).contains(List.of(
+        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 50).map(Pagina::transacties)).contains(List.of(
                 new Transactie(LocalDate.of(2026, 10, 2), "Bakkerij De Korst", Bedrag.van("-12.50")),
                 new Transactie(LocalDate.of(2026, 10, 2), "Werkgever B.V.", Bedrag.van("3215.00")),
                 new Transactie(LocalDate.of(2026, 10, 1), "Woningstichting Thuis", Bedrag.van("-812.40"))));
@@ -66,9 +79,9 @@ class JdbcTransactieRepositoryTests {
     /** De grens valt midden in 2 oktober: de volgende pagina begint bij de transactie ná de laatste getoonde. */
     @Test
     void dePaginaNaDeLaatsteGaatVerderBinnenDezelfdeDag() {
-        Pagina eerste = repository.vanRekening("jan", VAN_JAN, Optional.empty(), 1).orElseThrow();
-        Pagina tweede = repository.vanRekening("jan", VAN_JAN, eerste.volgende(), 1).orElseThrow();
-        Pagina derde = repository.vanRekening("jan", VAN_JAN, tweede.volgende(), 1).orElseThrow();
+        Pagina eerste = repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 1).orElseThrow();
+        Pagina tweede = repository.vanRekening("jan", VAN_JAN, NA_ALLES, eerste.volgende(), 1).orElseThrow();
+        Pagina derde = repository.vanRekening("jan", VAN_JAN, NA_ALLES, tweede.volgende(), 1).orElseThrow();
 
         assertThat(List.of(eerste, tweede, derde)).extracting(pagina -> pagina.transacties().getFirst().tegenpartij())
                 .containsExactly("Bakkerij De Korst", "Werkgever B.V.", "Woningstichting Thuis");
@@ -88,10 +101,10 @@ class JdbcTransactieRepositoryTests {
                 .param("iban", vanKees.toString()).update();
         boek(vanKees, "2026-10-01", "Oudste");
         boek(vanKees, "2026-10-02", "Nieuwste");
-        Pagina eerste = repository.vanRekening("kees", vanKees, Optional.empty(), 1).orElseThrow();
+        Pagina eerste = repository.vanRekening("kees", vanKees, NA_ALLES, Optional.empty(), 1).orElseThrow();
         boek(vanKees, "2026-10-03", "Later geboekt");
 
-        Pagina tweede = repository.vanRekening("kees", vanKees, eerste.volgende(), 1).orElseThrow();
+        Pagina tweede = repository.vanRekening("kees", vanKees, NA_ALLES, eerste.volgende(), 1).orElseThrow();
 
         assertThat(eerste.transacties()).extracting(Transactie::tegenpartij).containsExactly("Nieuwste");
         assertThat(tweede.transacties()).extracting(Transactie::tegenpartij).containsExactly("Oudste");
@@ -104,18 +117,18 @@ class JdbcTransactieRepositoryTests {
 
     @Test
     void eenPaginaMetPreciesAlleResterendeTransactiesHeeftGeenVolgende() {
-        assertThat(repository.vanRekening("jan", VAN_JAN, Optional.empty(), 3).orElseThrow().volgende()).isEmpty();
-        assertThat(repository.vanRekening("jan", VAN_JAN, Optional.empty(), 2).orElseThrow().volgende()).isPresent();
+        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 3).orElseThrow().volgende()).isEmpty();
+        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 2).orElseThrow().volgende()).isPresent();
     }
 
     @Test
     void eenEigenRekeningZonderTransactiesGeeftEenLegePagina() {
-        assertThat(repository.vanRekening("piet", VAN_PIET, Optional.empty(), 50))
+        assertThat(repository.vanRekening("piet", VAN_PIET, NA_ALLES, Optional.empty(), 50))
                 .contains(new Pagina(List.of(), Optional.empty()));
     }
 
     @Test
     void eenRekeningVanEenAnderGeeftNiets() {
-        assertThat(repository.vanRekening("piet", VAN_JAN, Optional.empty(), 50)).isEmpty();
+        assertThat(repository.vanRekening("piet", VAN_JAN, NA_ALLES, Optional.empty(), 50)).isEmpty();
     }
 }

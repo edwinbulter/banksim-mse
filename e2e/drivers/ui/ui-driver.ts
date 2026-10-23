@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
-import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum } from '../bank-driver';
+import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum, Uitkomst } from '../bank-driver';
+import { wijzigSimulatiedatum } from '../simulatiedatum';
 import { BetaalrekeningPagina } from './betaalrekening-pagina';
 import { InlogPagina } from './inlog-pagina';
 import { OverzichtPagina } from './overzicht-pagina';
@@ -75,5 +76,14 @@ export class UiDriver implements BankDriver {
 
   async herlaad(): Promise<void> {
     await this.page.reload();
+  }
+
+  /** Er is nog geen scherm (S10.2): via de API, met de cookies van deze browser. */
+  async zetSimulatiedatum(datum: string): Promise<Uitkomst> {
+    return wijzigSimulatiedatum(this.page.request, () => this.page.context().cookies(), datum);
+  }
+
+  async wisSimulatiedatum(): Promise<Uitkomst> {
+    return wijzigSimulatiedatum(this.page.request, () => this.page.context().cookies(), null);
   }
 }

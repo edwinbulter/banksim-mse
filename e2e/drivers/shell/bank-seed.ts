@@ -11,6 +11,12 @@ export interface GeseedeKlant {
   iban: string;
 }
 
+/** Wat bank-seed teruggeeft voor een aangemaakte beheerder. */
+export interface GeseedeBeheerder {
+  gebruikersnaam: string;
+  wachtwoord: string;
+}
+
 // Eén prefix per testrun, zodat aliassen uit verschillende runs en projecten nooit botsen (ADR 0003).
 const RUN = randomBytes(3).toString('hex');
 let teller = 0;
@@ -24,6 +30,11 @@ export class BankSeed {
 
   async klantMetBetaalrekening(alias: string, saldo: string): Promise<GeseedeKlant> {
     return this.voerUit<GeseedeKlant>(['klant', '--alias', uniek(alias), '--betaalrekening', saldo]);
+  }
+
+  /** Een login met de realm-rol beheerder, zonder rekeningen. */
+  async beheerder(alias: string): Promise<GeseedeBeheerder> {
+    return this.voerUit<GeseedeBeheerder>(['beheerder', '--alias', uniek(alias)]);
   }
 
   /** Een geboekte transactie op de rekening; een negatief bedrag is een afschrijving. */

@@ -330,6 +330,9 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | PostgreSQL met Flyway, `JdbcClient` in plaats van JPA | TO §3.1, §4 | 1 Overzicht |
 | Keyset-paginering met HMAC-ondertekende cursor | TO §3.2 | 2 Transactielijst (ADR 0011) |
 | `SimulationClock` vervangt systeemtijd | TO §8 | 3 Simulatiedatum |
+| Rol `beheerder` als realm-rol in het token | TO §10 | 3 Simulatiedatum |
+| CSRF in de BFF met een `XSRF-TOKEN`-cookie | TO §10 | 3 Simulatiedatum |
+| Realm-wijzigingen op een bestaande installatie met keycloak-config-cli | – | 3 Simulatiedatum |
 | Zoeken met `pg_trgm` en vaste SQL-fragmenten | TO §4, §11 (A05) | 5 Zoeken |
 | Keycloak als identity provider | TO §1.1, §17 | 6 Inloggen |
 | Backend-for-Frontend in plaats van tokens in de browser | TO §1.2, §10 | 6 Inloggen |
@@ -577,43 +580,61 @@ Alle scenario's hebben de tag `@ui`. Navigeren is gedrag van de browser; de API 
 
 > **S3.1** Als beheerder wil ik de bank op een gekozen datum laten draaien, zodat ik een situatie in het verleden of de toekomst kan laten zien.
 >
-> Acceptatiecriteria: de scenario's in `simulatiedatum.spec.ts`. Dit is een *enabling slice*. De beheerder heeft pas in slice 10 een scherm (S10.2). Tot dan zet de DSL de datum via de API en zie je het effect bij de klant.
-
+> Acceptatiecriteria: de scenario's in `simulatiedatum.spec.ts`. Dit is een *enabling slice*. De beheerder heeft pas in slice 10 een scherm (S10.2). Tot dan zet de beheerder de datum via de API, met de rol `beheerder`, en zie je het effect bij de klant.
 
 ```ts
 // e2e/specs/simulatiedatum.spec.ts
 test.describe('Simulatiedatum', { tag: '@simulatiedatum' }, () => {
-  test.beforeEach(async ({ bank }) => {
-    const jan = bank.klant('Jan');
-    await bank.gegeven('Jan heeft een betaalrekening met openingssaldo € 100,00',
-      () => jan.heeftBetaalrekening({ openingssaldo: '100.00' }));
-    await bank.en('op 1 oktober 2026 ontving Jan € 50,00',
-      () => jan.heeftOntvangen({ op: '2026-10-01', bedrag: '50.00' }));
-    await bank.en('op 10 oktober 2026 ontving Jan € 25,00',
-      () => jan.heeftOntvangen({ op: '2026-10-10', bedrag: '25.00' }));
-  });
-
   test('Transacties na de simulatiedatum zijn onzichtbaar', async ({ bank }) => {
     const jan = bank.klant('Jan');
-    await bank.gegeven('de simulatiedatum is 5 oktober 2026', () => bank.zetSimulatiedatum('2026-10-05'));
+    const beheerder = bank.beheerder();
+    await bank.gegeven('Jan heeft een betaalrekening met saldo € 100,00', () =>
+      jan.heeftBetaalrekening({ saldo: '100.00' }));
+    await bank.en('op 1 oktober 2026 ontving Jan € 50,00 van Werkgever B.V.', () =>
+      jan.heeftOntvangen({ op: '2026-10-01', bedrag: '50.00', van: 'Werkgever B.V.' }));
+    await bank.en('op 10 oktober 2026 ontving Jan € 25,00 van Werkgever B.V.', () =>
+      jan.heeftOntvangen({ op: '2026-10-10', bedrag: '25.00', van: 'Werkgever B.V.' }));
+    await bank.en('de beheerder zet de simulatiedatum op 5 oktober 2026', () =>
+      beheerder.zetSimulatiedatum('2026-10-05'));
+    await bank.als('Jan het overzicht opent', () => jan.opentOverzicht());
+    await bank.dan('ziet Jan de betaalrekening met saldo € 150,00', () =>
+      jan.verwachtRekeningInOverzicht('betaal', '150.00'));
     await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
-    await bank.dan('is het saldo € 150,00', () => jan.verwachtSaldo('150.00'));
-    await bank.en('ziet Jan de transactie van 10 oktober niet', () => jan.verwachtGeenTransactieOp('2026-10-10'));
+    await bank.dan('ziet Jan alleen de transactie van 1 oktober 2026', () =>
+      jan.verwachtTransactielijst([
+        { datum: '2026-10-01', transacties: [{ tegenpartij: 'Werkgever B.V.', bedrag: '50.00' }] },
+      ]));
   });
 
-  test('Vooruitzetten maakt transacties weer zichtbaar', async ({ bank }) => {
+  test('Een klant kan de simulatiedatum niet zetten', async ({ bank }) => {
     const jan = bank.klant('Jan');
-    await bank.gegeven('de simulatiedatum is 5 oktober 2026', () => bank.zetSimulatiedatum('2026-10-05'));
-    await bank.als('de simulatiedatum naar 15 oktober 2026 gaat', () => bank.zetSimulatiedatum('2026-10-15'));
-    await bank.dan('is het saldo van Jan € 175,00', () => jan.verwachtSaldo('175.00'));
+    await bank.gegeven('Jan heeft een betaalrekening met saldo € 100,00', () =>
+      jan.heeftBetaalrekening({ saldo: '100.00' }));
+    await bank.als('Jan de simulatiedatum op 5 oktober 2026 probeert te zetten', () =>
+      jan.probeertSimulatiedatumTeZetten('2026-10-05'));
+    await bank.dan('wordt dat geweigerd', () => jan.verwachtGeweigerd());
   });
 });
 ```
 
-- **Binnenste lus:** `SimulationClock` (met vaste `Clock` in tests), tabel `instelling`, filter `boekdatum <= D` in alle queries; kopbalk toont de datum.
-- **ADR's:** `SimulationClock` vervangt systeemtijd; scenario's met `@simulatiedatum` draaien serieel.
-- **Fitness functions:** ArchUnit: geen `LocalDate.now()`/`Instant.now()` zonder `Clock`.
-- **Origineel:** `simulation/*`, TO §8. Het admin-scherm om de datum te zetten komt pas in slice 10; tot dan zet de DSL de datum via `PUT /api/admin/simulation-date`. Dat is het echte productie-endpoint, alleen nog zonder beveiliging; in slice 6 komt het onder de rol `admin` en logt de driver daarvoor als beheerder in. Zolang er geen login is, draait de app alleen lokaal en in het tijdelijke CI-cluster.
+Het tweede scenario volgt uit de keuze om de datum via de API te zetten. De simulatiedatum geldt voor iedereen, dus een klant mag hem niet kunnen veranderen. "Vooruitzetten maakt transacties weer zichtbaar" (saldo € 175,00 na 15 oktober) is het volgende scenario.
+
+**De beheerder.** De seed maakt een beheerder met de realm-rol `beheerder`. De beheerder heeft in de DSL een eigen verzoekcontext, los van de browser of de context van Jan. Anders zou Jan via de single sign-on van Keycloak stilletjes als beheerder ingelogd raken. Tot S10.2 zet de beheerder de datum via `PUT /api/beheer/simulatiedatum`, ook in de projecten met een browser. Jan probeert het in het tweede scenario met zijn eigen sessie: via de REST driver met zijn request-context, in de UI driver met de cookies van zijn browser.
+
+**Gedeelde toestand.** De simulatiedatum is één waarde voor de hele bank. Aliassen helpen daar niet: een scenario dat tegelijk draait, ziet de datum ook. Daarom draaien de scenario's met `@simulatiedatum` na alle andere, één voor één en over alle drivers heen. Na elk scenario wist de DSL de datum, ook als het scenario faalt. Wissen, niet op vandaag zetten: anders bevriest de bank op de testdag.
+
+**Een bestaande installatie.** De rol `beheerder` en de scope `roles` voor `bank-bff` zijn wijzigingen aan de realm. Keycloak importeert de realm alleen bij de eerste start (`--import-realm`), dus een bestaande installatie en de upgrade in CI zouden ze missen. Een Job met keycloak-config-cli past de realm-JSON bij elke installatie en upgrade toe.
+
+**CSRF.** Het zetten van de datum is het eerste verzoek dat iets verandert. De BFF houdt CSRF-bescherming aan, met een `XSRF-TOKEN`-cookie dat Angular en de REST driver terugsturen als header. Zonder token zou ook de beheerder 403 krijgen, en zou het tweede scenario om de verkeerde reden groen zijn.
+
+- **Binnenste lus:**
+  - `bank-api`: `SimulationClock` (de simulatiedatum, of vandaag in Europe/Amsterdam als er geen is), tabel `instelling` (migratie `V3`), filter `datum <= D` in de saldo-query en de transactie-query, `PUT` en `DELETE /api/beheer/simulatiedatum`, rollen uit `realm_access.roles`;
+  - `bank-bff`: CSRF met een cookie;
+  - `bank-seed`: commando `beheerder`, met de realm-rol;
+  - chart: de Job met keycloak-config-cli, de rol en de scope in de realm-JSON.
+- **ADR's:** `SimulationClock` vervangt de systeemtijd; scenario's met `@simulatiedatum` draaien serieel; de rol `beheerder` in het token; CSRF in de BFF met een cookie; realm-wijzigingen met keycloak-config-cli.
+- **Fitness functions:** ArchUnit: geen `LocalDate.now()` of `Instant.now()` zonder `Clock`; sabotage zonder rolcontrole maakt het tweede scenario rood.
+- **Origineel:** `simulation/*`, TO §8. Het admin-scherm om de datum te zetten komt in slice 10 (S10.2). Het origineel gebruikt `PUT /api/admin/simulation-date`; hier heten de paden Nederlands, zoals de rest van de API.
 
 ### Slice 4 – Uitklapdetails
 
@@ -743,7 +764,7 @@ test('Uitloggen', async ({ bank }) => {
 });
 ```
 
-- **Binnenste lus:** API als OAuth2 resource server; `IngelogdeGebruiker` uit het JWT; eigenaarschap in elke rekeningquery; BFF met OIDC + PKCE, sessiecookie, CSRF; frontend `SessionService`, guards en de interceptor voor een verlopen sessie.
+- **Binnenste lus:** API als OAuth2 resource server; `IngelogdeGebruiker` uit het JWT; eigenaarschap in elke rekeningquery; BFF met OIDC + PKCE, sessiecookie, CSRF (de BFF en CSRF bestaan sinds slice 1 en 3); frontend `SessionService`, guards en de interceptor voor een verlopen sessie.
 - **ADR's:** Keycloak; BFF in plaats van tokens in de browser; versleutelde sessie in PostgreSQL; andermans IBAN geeft 404.
 - **Fitness functions:** ArchUnit: elke controller-methode heeft `@PreAuthorize` (deny by default); slicetests per endpoint: 401 zonder token, 403 met verkeerde rol, 404 op andermans IBAN; POST zonder CSRF-token geeft 403.
 - **Driver-impact:** alleen de protocol drivers en het setup-project leren inloggen; de specs van slice 1–5 veranderen niet. Dat is de toets of je lagen goed gescheiden zijn.
@@ -1076,7 +1097,7 @@ Dit is de enige plek waar de werkwijze tools toevoegt aan de stack van het origi
 | --- | --- | --- |
 | Helm-chart `deploy/banksim-mse/` | `helm lint`; [helm-unittest](https://github.com/helm-unittest/helm-unittest) per template; `kubeconform` tegen de Kubernetes-versie van `single-node`; `conftest` (OPA) of `kube-linter` voor beleidsregels | Installatiescenario's |
 | Scripts `deploy/scripts/*.sh` | `shellcheck`; `bats` met nep-`kubectl`/`helm`/`kind` in het `PATH`, zodat je de aanroepen en foutpaden kunt controleren | Installatiescenario's |
-| Keycloak-realm (JSON) | Integratietest: Keycloak in Testcontainers importeert de realm, en clients, rollen en mappers bestaan | Inlogscenario's (slice 6) |
+| Keycloak-realm (JSON) | helm-unittest op de JSON in de ConfigMap; later een integratietest: keycloak-config-cli past de realm toe op Keycloak in Testcontainers, en clients, rollen en mappers bestaan | Inlogscenario's en scenario's met de beheerder (slice 3) |
 | Images (Jib, `Dockerfile` van `bank-web`) | `hadolint`; check dat base images op digest staan | Trivy-scan in de acceptance stage |
 | CI-workflow `.github/workflows/*.yml` | `actionlint`; check dat Actions op commit-SHA staan | De pipeline zelf |
 
@@ -1236,7 +1257,8 @@ Daarna is het scenario groen. Nieuwe ontdekkingen, zoals de kubelet-probes op de
 | --- | --- | --- | --- |
 | 0 Skelet | Chart met `bank-api`, `bank-web`, Ingress op `bank-mse.localtest.me`; `install.sh` en `uninstall.sh` met contextcontrole | helm-unittest: host en namespace; `bats`: verkeerde context faalt; check: geen cluster-brede resources | `installatie.spec.ts`: installeren, opnieuw installeren, andere context, origineel onaangeroerd |
 | 1 Overzicht | PostgreSQL StatefulSet met PVC, Keycloak met realm, `bank-bff`, Ingress voor `auth-mse`; Secrets via `install.sh`; Flyway bij het starten van `bank-api`; de seed-CLI als pod | helm-unittest: images op digest, wachtwoorden uit Secrets, routes naar de BFF, PVC op `standard`; bats: Secrets één keer aanmaken; geen letterlijke geheimen in de chart | `installatie.spec.ts`: opnieuw installeren laat ook StatefulSet, ConfigMaps en Secrets ongewijzigd; `upgrade.spec.ts`: data blijft behouden; nog open: een herstart van PostgreSQL en Keycloak behoudt de data |
-| 6 Inloggen | Keycloak met realm-import op `auth-mse.localtest.me`; `bank-bff`; Secrets met gegenereerde wachtwoorden | Realm-importtest in Testcontainers; `bats`: bestaande Secrets worden niet overschreven | Inloggen via `auth-mse.localtest.me`; opnieuw installeren laat sessies en wachtwoorden heel |
+| 3 Simulatiedatum | De Job `keycloak-config` (keycloak-config-cli) past de realm-JSON toe bij elke installatie en upgrade; `--import-realm` vervalt (ADR 0017); de realm krijgt de rol `beheerder` en de scope `roles` | helm-unittest: de Job als hook, het image op digest, de wachtwoorden uit Secrets, de rol en de scope in de JSON | `installatie.spec.ts`: opnieuw installeren verandert niets, ook met de Job; lokaal gecontroleerd dat een bestaande realm de rol krijgt |
+| 6 Inloggen | Keycloak op `auth-mse.localtest.me`; `bank-bff`; Secrets met gegenereerde wachtwoorden | Realm-importtest in Testcontainers; `bats`: bestaande Secrets worden niet overschreven | Inloggen via `auth-mse.localtest.me`; opnieuw installeren laat sessies en wachtwoorden heel |
 | 11 Realistische data | `bank-datagen`-Job in modus `ALS_LEEG`/`ALTIJD`; `reset-data.sh` | `bats`: `reset-data.sh` weigert een andere context | `huishoudens.spec.ts`; een upgrade wist de data niet |
 | CFR Zero trust | `certs.sh` met eigen CA; mTLS-configuratie; NetworkPolicies | `bats` voor `certs.sh` (CA wordt hergebruikt, `--rotate` vernieuwt); helm-unittest NetworkPolicies | `netwerk.spec.ts`; aanroep zonder clientcertificaat wordt geweigerd |
 | CFR Resilience | 2 replica's, PodDisruptionBudget, startup-, liveness- en readinessprobes, graceful shutdown | helm-unittest: replica's, PDB `minAvailable: 1`, probes op de management-poort | `storing.spec.ts`; rolling update zonder foutmeldingen in de UI |

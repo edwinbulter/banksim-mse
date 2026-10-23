@@ -54,4 +54,33 @@ class KeycloakLoginsTests {
         assertThat(wachtwoord).isEqualTo("gegenereerd-wachtwoord");
         keycloak.verify();
     }
+
+    /** ADR 0015: de gebruiker krijgt de realm-rol beheerder; het id komt uit de Location van het aanmaken. */
+    @Test
+    void maaktEenBeheerderEnKentDeRealmRolBeheerderToe() {
+        keycloak.expect(requestTo("http://keycloak:8080/realms/banksim-mse/protocol/openid-connect/token"))
+                .andRespond(withSuccess("{\"access_token\":\"tok\",\"token_type\":\"Bearer\"}", MediaType.APPLICATION_JSON));
+        keycloak.expect(requestTo("http://keycloak:8080/admin/realms/banksim-mse/users"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {"username": "beheerder-f4de79-1", "lastName": "Beheerder"}""",
+                        org.springframework.test.json.JsonCompareMode.LENIENT))
+                .andRespond(withCreatedEntity(URI.create("http://keycloak:8080/admin/realms/banksim-mse/users/u-42")));
+        keycloak.expect(requestTo("http://keycloak:8080/admin/realms/banksim-mse/roles/beheerder"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer tok"))
+                .andRespond(withSuccess("{\"id\":\"r-7\",\"name\":\"beheerder\",\"composite\":false}",
+                        MediaType.APPLICATION_JSON));
+        keycloak.expect(requestTo("http://keycloak:8080/admin/realms/banksim-mse/users/u-42/role-mappings/realm"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer tok"))
+                .andExpect(content().json("""
+                        [{"id": "r-7", "name": "beheerder"}]""", org.springframework.test.json.JsonCompareMode.LENIENT))
+                .andRespond(withSuccess());
+
+        String wachtwoord = logins.maakBeheerder("beheerder-f4de79-1");
+
+        assertThat(wachtwoord).isEqualTo("gegenereerd-wachtwoord");
+        keycloak.verify();
+    }
 }

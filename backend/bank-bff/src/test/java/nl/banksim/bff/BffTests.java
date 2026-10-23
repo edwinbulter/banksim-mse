@@ -3,6 +3,7 @@ package nl.banksim.bff;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -125,6 +126,43 @@ class BffTests {
     void stuurtEenGetZonderBodyDoorZonderBody() throws Exception {
         mvc.perform(get("/api/versie")).andExpect(status().isOk());
         assertThat(TRANSFER_ENCODINGS).containsExactly("");
+    }
+
+    /** ADR 0016: Angular leest het CSRF-token uit een cookie en stuurt het terug als header X-XSRF-TOKEN. */
+    @Test
+    void zetHetCsrfTokenInEenCookieDatJavaScriptKanLezen() throws Exception {
+        Cookie token = mvc.perform(get("/api/versie")).andExpect(status().isOk())
+                .andReturn().getResponse().getCookie("XSRF-TOKEN");
+
+        assertThat(token).isNotNull();
+        assertThat(token.getValue()).isNotBlank();
+        assertThat(token.isHttpOnly()).isFalse();
+    }
+
+    /** ADR 0016: een verzoek dat iets verandert, zonder token, komt niet bij bank-api. */
+    @Test
+    void eenPutZonderCsrfTokenGeeft403() throws Exception {
+        mvc.perform(put("/api/beheer/simulatiedatum")
+                        .contentType("application/json").content("{\"datum\":\"2026-10-05\"}")
+                        .with(oauth2Login().clientRegistration(registraties.findByRegistrationId("keycloak"))))
+                .andExpect(status().isForbidden());
+        assertThat(AUTHORIZATION).isEmpty();
+    }
+
+    /** ADR 0016: met het token uit het cookie als header gaat de PUT met het access token door naar bank-api. */
+    @Test
+    void eenPutMetHetCsrfTokenUitHetCookieGaatDoorNaarBankApi() throws Exception {
+        Cookie token = mvc.perform(get("/api/versie")).andReturn().getResponse().getCookie("XSRF-TOKEN");
+        AUTHORIZATION.clear();
+
+        mvc.perform(put("/api/beheer/simulatiedatum")
+                        .cookie(token)
+                        .header("X-XSRF-TOKEN", token.getValue())
+                        .contentType("application/json").content("{\"datum\":\"2026-10-05\"}")
+                        .with(oauth2Login().clientRegistration(registraties.findByRegistrationId("keycloak"))))
+                .andExpect(status().isOk())
+                .andExpect(content().string("{\"pad\":\"/api/beheer/simulatiedatum\"}"));
+        assertThat(AUTHORIZATION).containsExactly("Bearer access-token");
     }
 
     /** Geeft het pad terug en onthoudt welke Authorization-, Cookie-, Upgrade- en Transfer-Encoding-header binnenkwamen. */

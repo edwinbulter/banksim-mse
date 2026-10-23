@@ -40,10 +40,11 @@ public class BankSeedApplication {
     }
 
     @Bean
-    CommandLineRunner seed(Logins logins, Rekeninghouders rekeninghouders, Transacties transacties, JsonMapper json) {
+    CommandLineRunner seed(KeycloakLogins logins, Rekeninghouders rekeninghouders, Transacties transacties,
+            JsonMapper json) {
         var aanmaker = new SeedKlantAanmaker(logins, rekeninghouders,
                 () -> Iban.simBank(RANDOM.nextLong(10_000_000_000L)));
-        return args -> new SeedCommando(aanmaker, transacties, json, System.out).voerUit(args);
+        return args -> new SeedCommando(aanmaker, transacties, logins, json, System.out).voerUit(args);
     }
 
     private static byte[] bytes(int aantal) {

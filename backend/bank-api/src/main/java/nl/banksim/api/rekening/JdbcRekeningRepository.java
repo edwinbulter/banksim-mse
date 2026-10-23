@@ -1,5 +1,6 @@
 package nl.banksim.api.rekening;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import nl.banksim.domain.geld.Bedrag;
@@ -17,14 +18,16 @@ class JdbcRekeningRepository implements RekeningRepository {
     }
 
     @Override
-    public List<Rekening> vanGebruiker(String gebruikersnaam) {
+    public List<Rekening> vanGebruiker(String gebruikersnaam, LocalDate vandaag) {
         return jdbc.sql("""
                         SELECT r.soort, r.iban,
-                               r.openingssaldo + coalesce((SELECT sum(t.bedrag) FROM transactie t WHERE t.iban = r.iban), 0) AS saldo
+                               r.openingssaldo + coalesce((SELECT sum(t.bedrag) FROM transactie t
+                                                           WHERE t.iban = r.iban AND t.datum <= :vandaag), 0) AS saldo
                         FROM rekening r JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
                         WHERE h.gebruikersnaam = :gebruikersnaam
                         ORDER BY r.soort, r.iban""")
                 .param("gebruikersnaam", gebruikersnaam)
+                .param("vandaag", vandaag)
                 .query((rij, nummer) -> new Rekening(
                         Soort.van(rij.getString("soort")),
                         Iban.van(rij.getString("iban")),
