@@ -23,8 +23,8 @@ class JdbcTransactieRepository implements TransactieRepository {
     }
 
     @Override
-    public Optional<Pagina> vanRekening(String gebruikersnaam, Iban iban, LocalDate vandaag, Optional<Positie> na,
-            int aantal) {
+    public Optional<Pagina> vanRekening(String gebruikersnaam, Iban iban, LocalDate vandaag, Zoekfilter filter,
+            Optional<Positie> na, int aantal) {
         boolean eigenRekening = jdbc.sql("""
                         SELECT count(*) FROM rekening r JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
                         WHERE r.iban = :iban AND h.gebruikersnaam = :gebruikersnaam""")
@@ -42,11 +42,27 @@ class JdbcTransactieRepository implements TransactieRepository {
                         JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
                         WHERE t.iban = :iban
                           AND t.datum <= :vandaag
+                          -- S5.1: elk veld is een vaste voorwaarde met een parameter, of doet niet mee (null).
+                          AND (CAST(:tekst AS text) IS NULL
+                               OR t.tegenpartij ILIKE CAST(:tekst AS text) ESCAPE '\\'
+                               OR t.tegen_iban LIKE CAST(:ibanPatroon AS text) ESCAPE '\\')
+                          AND (CAST(:van AS numeric) IS NULL OR abs(t.bedrag) >= CAST(:van AS numeric))
+                          AND (CAST(:tm AS numeric) IS NULL OR abs(t.bedrag) <= CAST(:tm AS numeric))
+                          AND (CAST(:type AS text) IS NULL OR t.type = CAST(:type AS text))
+                          AND (CAST(:richting AS text) IS NULL
+                               OR (CAST(:richting AS text) = 'INKOMEND' AND t.bedrag > 0)
+                               OR (CAST(:richting AS text) = 'UITGAAND' AND t.bedrag < 0))
                           AND (CAST(:naDatum AS date) IS NULL OR (t.datum, t.id) < (CAST(:naDatum AS date), :naId))
                         ORDER BY t.datum DESC, t.id DESC
                         LIMIT :limiet""")
                 .param("iban", iban.toString())
                 .param("vandaag", vandaag)
+                .param("tekst", filter.tekstPatroon().orElse(null))
+                .param("ibanPatroon", filter.ibanPatroon().orElse(null))
+                .param("van", filter.van().map(Bedrag::waarde).orElse(null))
+                .param("tm", filter.tm().map(Bedrag::waarde).orElse(null))
+                .param("type", filter.type().map(Enum::name).orElse(null))
+                .param("richting", filter.richting().map(Enum::name).orElse(null))
                 .param("naDatum", na.map(Positie::datum).orElse(null))
                 .param("naId", na.map(Positie::id).orElse(0L))
                 .param("limiet", aantal + 1)

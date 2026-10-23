@@ -48,6 +48,30 @@ export interface TransactieDetails {
   uitgevoerdOp: string;
 }
 
+/** Inkomend: bedrag > 0; uitgaand: bedrag < 0 (FO "Filteren op"). */
+export type Richting = 'inkomend' | 'uitgaand';
+
+/**
+ * Een zoekopdracht zoals de klant hem invult (S5.1); lege velden doen niet mee, alle ingevulde moeten gelden. Bedragen
+ * zijn de letterlijke invoer, ook met komma ("27,95"), en gelden voor de absolute waarde.
+ */
+export interface Zoekopdracht {
+  tekst?: string;
+  van?: string;
+  tm?: string;
+  type?: TransactieType;
+  richting?: Richting;
+}
+
+/** Het zoekformulier zoals het op het scherm staat; type '' is "Alle transactietypes", richting 'alle' de standaard. */
+export interface Zoekformulier {
+  tekst: string;
+  van: string;
+  tm: string;
+  type: string;
+  richting: Richting | 'alle';
+}
+
 /** Of een verzoek dat iets verandert, is uitgevoerd of door de rechten geweigerd (403). */
 export type Uitkomst = 'gelukt' | 'geweigerd';
 
@@ -72,6 +96,15 @@ export interface BankDriver {
   klapUit(tegenpartij: string): Promise<void>;
   /** De details van de transactie die het laatst is uitgeklapt. */
   details(): Promise<TransactieDetails>;
+  /** Zoeken in de transacties van de geopende rekening; de lijst toont daarna wat gevonden is (S5.1). */
+  zoek(opdracht: Zoekopdracht): Promise<void>;
+  /** Het probleemtype ("ongeldig-bedragbereik") als de laatste zoekopdracht geweigerd werd, anders undefined. */
+  weigering(): Promise<string | undefined>;
+  /** Alleen in de UI-driver (@ui): het zoekformulier openen, de tekst van de knop, wissen en de inhoud lezen. */
+  openZoeken(): Promise<void>;
+  zoekknop(): Promise<string>;
+  wisZoeken(): Promise<void>;
+  zoekformulier(): Promise<Zoekformulier>;
   /** Vanaf een geopende rekening terug naar het overzicht, via de link "Overzicht". */
   naarOverzicht(): Promise<void>;
   /** De terugknop van de browser; alleen in de UI-driver (@ui). */

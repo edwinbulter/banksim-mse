@@ -5,12 +5,15 @@ import type {
   TransactieDetails,
   TransactiesOpDatum,
   Uitkomst,
+  Zoekformulier,
+  Zoekopdracht,
 } from '../bank-driver';
 import { wijzigSimulatiedatum } from '../simulatiedatum';
 import { BetaalrekeningPagina } from './betaalrekening-pagina';
 import { InlogPagina } from './inlog-pagina';
 import { OverzichtPagina } from './overzicht-pagina';
 import { StartPagina } from './start-pagina';
+import { ZoekenPagina } from './zoeken-pagina';
 
 /** Spreekt BankSim aan via de browser, met page objects per scherm. */
 export class UiDriver implements BankDriver {
@@ -18,12 +21,14 @@ export class UiDriver implements BankDriver {
   private readonly inlog: InlogPagina;
   private readonly overzicht: OverzichtPagina;
   private readonly betaalrekening: BetaalrekeningPagina;
+  private readonly zoeken: ZoekenPagina;
 
   constructor(private readonly page: Page) {
     this.start = new StartPagina(page);
     this.inlog = new InlogPagina(page);
     this.overzicht = new OverzichtPagina(page);
     this.betaalrekening = new BetaalrekeningPagina(page);
+    this.zoeken = new ZoekenPagina(page);
   }
 
   async openStartpagina(): Promise<void> {
@@ -66,6 +71,30 @@ export class UiDriver implements BankDriver {
 
   async details(): Promise<TransactieDetails> {
     return this.betaalrekening.details();
+  }
+
+  async zoek(opdracht: Zoekopdracht): Promise<void> {
+    await this.zoeken.zoek(opdracht);
+  }
+
+  async weigering(): Promise<string | undefined> {
+    return this.zoeken.weigering();
+  }
+
+  async openZoeken(): Promise<void> {
+    await this.zoeken.open();
+  }
+
+  async zoekknop(): Promise<string> {
+    return this.zoeken.knop();
+  }
+
+  async wisZoeken(): Promise<void> {
+    await this.zoeken.wis();
+  }
+
+  async zoekformulier(): Promise<Zoekformulier> {
+    return this.zoeken.inhoud();
   }
 
   async toonMeer(): Promise<void> {

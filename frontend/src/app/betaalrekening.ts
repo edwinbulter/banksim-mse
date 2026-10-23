@@ -31,7 +31,7 @@ export interface Partij {
   template: `
     <h2>Betaalrekening</h2>
     @if (dagen().length === 0) {
-      <p>Nog geen af- of bijschrijvingen.</p>
+      <p>{{ gezocht() ? 'Geen transacties gevonden.' : 'Nog geen af- of bijschrijvingen.' }}</p>
     } @else {
       <ul aria-label="Transacties">
         @for (dag of dagen(); track dag.datum) {
@@ -87,6 +87,8 @@ export class Betaalrekening {
   readonly transacties = input.required<Transactie[]>();
   /** Of er nog oudere transacties zijn. */
   readonly meer = input(false);
+  /** Of de lijst het resultaat van een zoekopdracht is (S5.1); dan heet een lege lijst "Geen transacties gevonden.". */
+  readonly gezocht = input(false);
   readonly toonMeer = output();
 
   /** De transactie waarvan de details open zijn; hooguit één tegelijk. */

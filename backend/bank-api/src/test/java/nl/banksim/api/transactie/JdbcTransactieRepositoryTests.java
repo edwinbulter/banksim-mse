@@ -67,7 +67,7 @@ class JdbcTransactieRepositoryTests {
     /** ADR 0013: transacties na "vandaag" zijn onzichtbaar, ook voor de cursor; een transactie óp vandaag niet. */
     @Test
     void geeftAlleenDeTransactiesTotEnMetVandaag() {
-        Pagina pagina = repository.vanRekening("jan", VAN_JAN, LocalDate.of(2026, 10, 1), Optional.empty(), 1)
+        Pagina pagina = repository.vanRekening("jan", VAN_JAN, LocalDate.of(2026, 10, 1), Zoekfilter.GEEN, Optional.empty(), 1)
                 .orElseThrow();
 
         assertThat(pagina.transacties()).extracting(Transactie::tegenpartij).containsExactly("Woningstichting Thuis");
@@ -76,7 +76,7 @@ class JdbcTransactieRepositoryTests {
 
     @Test
     void geeftDeTransactiesVanNieuwNaarOudEnOpDezelfdeDagDeLaatstGeboekteEerst() {
-        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 50).orElseThrow().transacties())
+        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 50).orElseThrow().transacties())
                 .extracting(Transactie::datum, Transactie::tegenpartij, Transactie::bedrag).containsExactly(
                         tuple(LocalDate.of(2026, 10, 2), "Bakkerij De Korst", Bedrag.van("-12.50")),
                         tuple(LocalDate.of(2026, 10, 2), "Werkgever B.V.", Bedrag.van("3215.00")),
@@ -86,9 +86,9 @@ class JdbcTransactieRepositoryTests {
     /** De grens valt midden in 2 oktober: de volgende pagina begint bij de transactie ná de laatste getoonde. */
     @Test
     void dePaginaNaDeLaatsteGaatVerderBinnenDezelfdeDag() {
-        Pagina eerste = repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 1).orElseThrow();
-        Pagina tweede = repository.vanRekening("jan", VAN_JAN, NA_ALLES, eerste.volgende(), 1).orElseThrow();
-        Pagina derde = repository.vanRekening("jan", VAN_JAN, NA_ALLES, tweede.volgende(), 1).orElseThrow();
+        Pagina eerste = repository.vanRekening("jan", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 1).orElseThrow();
+        Pagina tweede = repository.vanRekening("jan", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, eerste.volgende(), 1).orElseThrow();
+        Pagina derde = repository.vanRekening("jan", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, tweede.volgende(), 1).orElseThrow();
 
         assertThat(List.of(eerste, tweede, derde)).extracting(pagina -> pagina.transacties().getFirst().tegenpartij())
                 .containsExactly("Bakkerij De Korst", "Werkgever B.V.", "Woningstichting Thuis");
@@ -103,7 +103,7 @@ class JdbcTransactieRepositoryTests {
      */
     @Test
     void geeftDeDetailsVanEenTransactie() {
-        List<Transactie> transacties = repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 50)
+        List<Transactie> transacties = repository.vanRekening("jan", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 50)
                 .orElseThrow().transacties();
 
         Transactie incasso = transacties.get(2);
@@ -113,6 +113,97 @@ class JdbcTransactieRepositoryTests {
         assertThat(incasso.tegen()).isEqualTo(new Partij("Woningstichting Thuis", Optional.of(Iban.van("NL91ABNA0417164300"))));
         assertThat(transacties.getFirst().tegen()).isEqualTo(new Partij("Bakkerij De Korst", Optional.empty()));
         assertThat(transacties.getFirst().type()).isEqualTo(TransactieType.BETAALAUTOMAAT);
+    }
+
+    private List<String> zoek(LocalDate vandaag, Zoekfilter filter) {
+        return repository.vanRekening("jan", VAN_JAN, vandaag, filter, Optional.empty(), 50).orElseThrow().transacties()
+                .stream().map(Transactie::tegenpartij).toList();
+    }
+
+    private static Zoekfilter filter(String tekst, String van, String tm, String type, String richting) {
+        return Zoekfilter.van(Optional.ofNullable(tekst), Optional.ofNullable(van), Optional.ofNullable(tm),
+                Optional.ofNullable(type), Optional.ofNullable(richting));
+    }
+
+    /** S5.1: een deel van de naam, hoofdletterongevoelig. */
+    @Test
+    void zoektOpEenDeelVanDeNaam() {
+        assertThat(zoek(NA_ALLES, filter("KORST", null, null, null, null))).containsExactly("Bakkerij De Korst");
+    }
+
+    @Test
+    void zoektOpHetIbanVanDeTegenpartijOokMetSpaties() {
+        assertThat(zoek(NA_ALLES, filter("nl91 abna", null, null, null, null))).containsExactly("Woningstichting Thuis");
+    }
+
+    /** Het bereik geldt voor de absolute waarde, met de grenzen erbij. */
+    @Test
+    void zoektOpBedragInclusiefDeGrenzenOpAbsoluteWaarde() {
+        assertThat(zoek(NA_ALLES, filter(null, "12,50", "812.40", null, null)))
+                .containsExactly("Bakkerij De Korst", "Woningstichting Thuis");
+    }
+
+    @Test
+    void zoektOpType() {
+        assertThat(zoek(NA_ALLES, filter(null, null, null, "BETAALAUTOMAAT", null))).containsExactly("Bakkerij De Korst");
+    }
+
+    @Test
+    void zoektOpRichting() {
+        assertThat(zoek(NA_ALLES, filter(null, null, null, null, "inkomend"))).containsExactly("Werkgever B.V.");
+        assertThat(zoek(NA_ALLES, filter(null, null, null, null, "uitgaand")))
+                .containsExactly("Bakkerij De Korst", "Woningstichting Thuis");
+    }
+
+    /** Alle ingevulde velden moeten gelden (EN). */
+    @Test
+    void alleIngevuldeVeldenMoetenGelden() {
+        assertThat(zoek(NA_ALLES, filter(null, "100", null, null, "uitgaand"))).containsExactly("Woningstichting Thuis");
+    }
+
+    /** ADR 0013: ook zoeken vindt niets na "vandaag". */
+    @Test
+    void zoekenVindtNietsNaVandaag() {
+        assertThat(zoek(LocalDate.of(2026, 10, 1), filter(null, null, null, null, "uitgaand")))
+                .containsExactly("Woningstichting Thuis");
+    }
+
+    /** "Toon meer" met een zoekopdracht: de volgende pagina blijft binnen het filter. */
+    @Test
+    void deVolgendePaginaBlijftBinnenHetFilter() {
+        Zoekfilter uitgaand = filter(null, null, null, null, "uitgaand");
+        Pagina eerste = repository.vanRekening("jan", VAN_JAN, NA_ALLES, uitgaand, Optional.empty(), 1).orElseThrow();
+        Pagina tweede = repository.vanRekening("jan", VAN_JAN, NA_ALLES, uitgaand, eerste.volgende(), 1).orElseThrow();
+
+        assertThat(eerste.transacties()).extracting(Transactie::tegenpartij).containsExactly("Bakkerij De Korst");
+        assertThat(tweede.transacties()).extracting(Transactie::tegenpartij).containsExactly("Woningstichting Thuis");
+        assertThat(tweede.volgende()).isEmpty();
+    }
+
+    /** Injectie (slice 5): %, _ en ' zijn gewone tekens; ze geven geen andere resultaten en geen fout. */
+    @Test
+    void jokertekensEnAanhalingstekensZijnGewoneTekens() {
+        Iban vanLies = Iban.simBank(3L);
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('lies', 'Lies')").update();
+        jdbc.sql("""
+                INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
+                SELECT :iban, id, 'betaal', 0.00 FROM rekeninghouder WHERE gebruikersnaam = 'lies'""")
+                .param("iban", vanLies.toString()).update();
+        boek(vanLies, "2026-10-01", "50% korting");
+        boek(vanLies, "2026-10-02", "Bakker_Jansen");
+        boek(vanLies, "2026-10-03", "Bakkerij 't Hoekje");
+
+        assertThat(zoekBij("lies", vanLies, "%")).containsExactly("50% korting");
+        // Als jokerteken zou "ker_j" ook "Bakkerij 't Hoekje" vinden.
+        assertThat(zoekBij("lies", vanLies, "ker_j")).containsExactly("Bakker_Jansen");
+        assertThat(zoekBij("lies", vanLies, "_")).containsExactly("Bakker_Jansen");
+        assertThat(zoekBij("lies", vanLies, "'t")).containsExactly("Bakkerij 't Hoekje");
+        assertThat(zoekBij("lies", vanLies, "\\")).isEmpty();
+    }
+
+    private List<String> zoekBij(String gebruikersnaam, Iban iban, String tekst) {
+        return repository.vanRekening(gebruikersnaam, iban, NA_ALLES, filter(tekst, null, null, null, null),
+                Optional.empty(), 50).orElseThrow().transacties().stream().map(Transactie::tegenpartij).toList();
     }
 
     /** Met offset zou de nieuwe boeking de lijst opschuiven en "Nieuwste" dubbel tonen; met keyset niet (ADR 0011). */
@@ -126,10 +217,10 @@ class JdbcTransactieRepositoryTests {
                 .param("iban", vanKees.toString()).update();
         boek(vanKees, "2026-10-01", "Oudste");
         boek(vanKees, "2026-10-02", "Nieuwste");
-        Pagina eerste = repository.vanRekening("kees", vanKees, NA_ALLES, Optional.empty(), 1).orElseThrow();
+        Pagina eerste = repository.vanRekening("kees", vanKees, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 1).orElseThrow();
         boek(vanKees, "2026-10-03", "Later geboekt");
 
-        Pagina tweede = repository.vanRekening("kees", vanKees, NA_ALLES, eerste.volgende(), 1).orElseThrow();
+        Pagina tweede = repository.vanRekening("kees", vanKees, NA_ALLES, Zoekfilter.GEEN, eerste.volgende(), 1).orElseThrow();
 
         assertThat(eerste.transacties()).extracting(Transactie::tegenpartij).containsExactly("Nieuwste");
         assertThat(tweede.transacties()).extracting(Transactie::tegenpartij).containsExactly("Oudste");
@@ -144,18 +235,18 @@ class JdbcTransactieRepositoryTests {
 
     @Test
     void eenPaginaMetPreciesAlleResterendeTransactiesHeeftGeenVolgende() {
-        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 3).orElseThrow().volgende()).isEmpty();
-        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Optional.empty(), 2).orElseThrow().volgende()).isPresent();
+        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 3).orElseThrow().volgende()).isEmpty();
+        assertThat(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 2).orElseThrow().volgende()).isPresent();
     }
 
     @Test
     void eenEigenRekeningZonderTransactiesGeeftEenLegePagina() {
-        assertThat(repository.vanRekening("piet", VAN_PIET, NA_ALLES, Optional.empty(), 50))
+        assertThat(repository.vanRekening("piet", VAN_PIET, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 50))
                 .contains(new Pagina(List.of(), Optional.empty()));
     }
 
     @Test
     void eenRekeningVanEenAnderGeeftNiets() {
-        assertThat(repository.vanRekening("piet", VAN_JAN, NA_ALLES, Optional.empty(), 50)).isEmpty();
+        assertThat(repository.vanRekening("piet", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 50)).isEmpty();
     }
 }

@@ -68,6 +68,22 @@ export class BankSeed {
     ]);
   }
 
+  /**
+   * Boekingen met tijdstip, type en tegen-IBAN, in één pod en in deze volgorde (S5.1). Per boeking één argument
+   * "tijdstip,bedrag,type,tegenIban,tegenpartij"; een leeg tegenIban is geen IBAN.
+   */
+  async boekingen(
+    iban: string,
+    boekingen: { op: string; bedrag: string; type: string; tegenpartij: string; tegenIban?: string }[],
+  ): Promise<void> {
+    await this.voerUit([
+      'transacties', '--iban', iban,
+      ...boekingen.flatMap(({ op, bedrag, type, tegenIban, tegenpartij }) => [
+        '--boeking', `${op},${bedrag},${type},${tegenIban ?? ''},${tegenpartij}`,
+      ]),
+    ]);
+  }
+
   private async voerUit<T>(args: string[]): Promise<T> {
     const tag = (await this.shell.helmWaarden(NAMESPACE, RELEASE))?.imageTag;
     if (!tag) throw new Error(`BankSim-MSE is niet geïnstalleerd in ${this.shell.context}`);

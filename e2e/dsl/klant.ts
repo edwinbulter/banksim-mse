@@ -6,6 +6,8 @@ import type {
   TransactieType,
   TransactiesOpDatum,
   Uitkomst,
+  Zoekformulier,
+  Zoekopdracht,
 } from '../drivers/bank-driver';
 
 interface GeseedeTransactie {
@@ -15,12 +17,21 @@ interface GeseedeTransactie {
 }
 import type { BankSeed, GeseedeKlant } from '../drivers/shell/bank-seed';
 
-/** Een boeking uit "Gegeven"; zonder type is het Online bankieren, zonder tegenIban is er geen IBAN. */
-interface Boeking {
+/** Een betaling of ontvangst uit "Gegeven"; zonder type is het Online bankieren, zonder tegenIban is er geen IBAN. */
+interface Betaling {
   op: string;
   bedrag: string;
   tegenIban?: string;
   type?: TransactieType;
+}
+
+/** Een boeking met teken ("-812.40" is een afschrijving), tijdstip in Europe/Amsterdam, type en tegenpartij (S5.1). */
+export interface Boeking {
+  op: string;
+  bedrag: string;
+  type: TransactieType;
+  tegenpartij: string;
+  tegenIban?: string;
 }
 
 /**
@@ -46,12 +57,17 @@ export class Klant {
   }
 
   /** `op` is een datum ("2026-10-01") of een tijdstip in Europe/Amsterdam ("2026-10-01T06:02"). */
-  async heeftBetaald({ op, bedrag, aan, tegenIban, type }: Boeking & { aan: string }): Promise<void> {
+  async heeftBetaald({ op, bedrag, aan, tegenIban, type }: Betaling & { aan: string }): Promise<void> {
     await this.seed.transactie(this.vereisGegevens().iban, op, `-${bedrag}`, aan, { tegenIban, type });
   }
 
-  async heeftOntvangen({ op, bedrag, van, tegenIban, type }: Boeking & { van: string }): Promise<void> {
+  async heeftOntvangen({ op, bedrag, van, tegenIban, type }: Betaling & { van: string }): Promise<void> {
     await this.seed.transactie(this.vereisGegevens().iban, op, bedrag, van, { tegenIban, type });
+  }
+
+  /** Alle boekingen in één keer, in deze volgorde. */
+  async heeftBoekingen(boekingen: Boeking[]): Promise<void> {
+    await this.seed.boekingen(this.vereisGegevens().iban, boekingen);
   }
 
   /** Het IBAN van de betaalrekening uit "Gegeven", voor de verwachting bij Van of Naar. */
@@ -156,6 +172,41 @@ export class Klant {
   /** Alleen de genoemde velden; bij Van en Naar de naam en het IBAN (null: geen IBAN). */
   async verwachtDetails(verwacht: Partial<TransactieDetails>): Promise<void> {
     expect(await this.driver.details(), `details bij ${this.alias}`).toMatchObject(verwacht);
+  }
+
+  /** Op de geopende betaalrekening (S5.1). */
+  async zoekt(opdracht: Zoekopdracht): Promise<void> {
+    await this.opentBetaalrekening();
+    await this.driver.zoek(opdracht);
+  }
+
+  /** De tegenpartijen in de lijst, nieuw naar oud; leeg als er niets gevonden is. */
+  async verwachtGevonden(tegenpartijen: string[]): Promise<void> {
+    const gevonden = (await this.driver.transacties()).flatMap((dag) => dag.transacties.map((t) => t.tegenpartij));
+    expect(gevonden, `gevonden transacties van ${this.alias}`).toEqual(tegenpartijen);
+  }
+
+  async verwachtWeigering(probleemtype: string): Promise<void> {
+    expect(await this.driver.weigering(), `weigering bij ${this.alias}`).toBe(probleemtype);
+  }
+
+  async opentZoeken(): Promise<void> {
+    await this.opentBetaalrekening();
+    await this.driver.openZoeken();
+  }
+
+  async verwachtZoekknop(tekst: string): Promise<void> {
+    expect(await this.driver.zoekknop(), 'de knop bij het zoekformulier').toBe(tekst);
+  }
+
+  async zoektEnWist(opdracht: Zoekopdracht): Promise<void> {
+    await this.driver.zoek(opdracht);
+    await this.driver.wisZoeken();
+  }
+
+  async verwachtLeegZoekformulier(): Promise<void> {
+    const leeg: Zoekformulier = { tekst: '', van: '', tm: '', type: '', richting: 'alle' };
+    expect(await this.driver.zoekformulier(), 'het zoekformulier na wissen').toEqual(leeg);
   }
 
   private vereisGegevens(): GeseedeKlant {

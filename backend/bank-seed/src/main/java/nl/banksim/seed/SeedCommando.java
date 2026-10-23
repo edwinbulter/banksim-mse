@@ -106,19 +106,33 @@ class SeedCommando {
     }
 
     /**
-     * Boekt de {@code --transactie}-waarden in de gegeven volgorde, maar pas als ze allemaal geldig zijn. Elke waarde is
-     * "datum,bedrag,tegenpartij"; de tegenpartij mag zelf komma's bevatten.
+     * Boekt de {@code --transactie}- en {@code --boeking}-waarden in de gegeven volgorde, maar pas als ze allemaal geldig
+     * zijn. Een {@code --transactie} is "datum,bedrag,tegenpartij"; een {@code --boeking} (S5.1) is
+     * "tijdstip,bedrag,type,tegenIban,tegenpartij", met een leeg tegenIban als er geen IBAN is. De tegenpartij staat
+     * achteraan en mag zelf komma's bevatten.
      */
     private GeboekteTransacties transacties(String[] args) {
         Iban iban = Iban.van(verplicht(opties(args), "--iban"));
-        List<Regel> regels = new ArrayList<>();
+        List<Boeking> boekingen = new ArrayList<>();
         for (int i = 1; i < args.length; i += 2) {
             if (args[i].equals("--transactie")) {
-                regels.add(Regel.van(args[i + 1]));
+                Regel regel = Regel.van(args[i + 1]);
+                boekingen.add(Boeking.opDatum(regel.datum(), regel.bedrag(), regel.tegenpartij()));
+            } else if (args[i].equals("--boeking")) {
+                boekingen.add(boeking(args[i + 1]));
             }
         }
-        regels.forEach(regel -> transacties.boek(iban, Boeking.opDatum(regel.datum(), regel.bedrag(), regel.tegenpartij())));
-        return new GeboekteTransacties(iban.toString(), regels.size());
+        boekingen.forEach(boeking -> transacties.boek(iban, boeking));
+        return new GeboekteTransacties(iban.toString(), boekingen.size());
+    }
+
+    private static Boeking boeking(String waarde) {
+        String[] delen = waarde.split(",", 5);
+        if (delen.length < 5 || delen[4].isBlank()) {
+            throw new IllegalArgumentException("--boeking verwacht tijdstip,bedrag,type,tegenIban,tegenpartij: " + waarde);
+        }
+        Optional<Iban> tegenIban = delen[3].isEmpty() ? Optional.empty() : Optional.of(Iban.van(delen[3]));
+        return new Boeking(LocalDateTime.parse(delen[0]), Bedrag.van(delen[1]), delen[4], type(delen[2]), tegenIban);
     }
 
     private record Regel(LocalDate datum, Bedrag bedrag, String tegenpartij) {

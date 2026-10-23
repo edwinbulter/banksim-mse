@@ -333,7 +333,7 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | Rol `beheerder` als realm-rol in het token | TO §10 | 3 Simulatiedatum |
 | CSRF in de BFF met een `XSRF-TOKEN`-cookie | TO §10 | 3 Simulatiedatum |
 | Realm-wijzigingen op een bestaande installatie met keycloak-config-cli | – | 3 Simulatiedatum |
-| Zoeken met `pg_trgm` en vaste SQL-fragmenten | TO §4, §11 (A05) | 5 Zoeken |
+| Zoeken met `pg_trgm` en vaste SQL-fragmenten | TO §4, §11 (A05) | Uitgesteld bij S5.1: de vaste voorwaarden met parameters volgen het bestaande patroon; de index pas als realistische data (slice 11) of een prestatie-eis erom vraagt |
 | Keycloak als identity provider | TO §1.1, §17 | 6 Inloggen |
 | Backend-for-Frontend in plaats van tokens in de browser | TO §1.2, §10 | 6 Inloggen |
 | BFF-sessie versleuteld in PostgreSQL | TO §2 | 6 Inloggen (zodra er 2 replica's zijn) |
@@ -746,57 +746,96 @@ De verwachtingen staan in domeinnotatie, net als in de andere specs: `'INCASSO'`
   - **`bank-api`:** de regel voor Van en Naar zit in `Transactie`. De lijst levert de details meteen mee, zonder apart endpoint; het tijdstip komt met offset in Europe/Amsterdam.
   - **Seed:** `klant --naam`, en `transactie --tijdstip --type --tegen-iban`.
   - **Frontend:** een klikbare regel met `aria-expanded`, en de details in een `dl`. Type en tijdstip worden opgemaakt in Europe/Amsterdam. Vitest draait in UTC (`TZ=UTC`), zodat een opmaak in de tijdzone van de browser ook lokaal opvalt.
-- **Backlog:** binnen één dag sorteren op tijdstip, in plaats van op volgorde van boeken. Omschrijving en betalingskenmerk ("indien aanwezig", FO) krijgen een eigen scenario.
+- **Backlog:** zie de [losse backlogpunten](#losse-backlogpunten) (sorteren op tijdstip, omschrijving en betalingskenmerk).
 - **Origineel:** `domain/transactie/*`, `e2e/tests/betaalrekening.spec.ts` (uitklappen).
 
 ### Slice 5 – Zoeken in transacties
 
-> **S5.1** Als klant wil ik in mijn transacties zoeken op tekst, IBAN, bedrag, type en richting, zodat ik een betaling snel terugvind.
+> **S5.1** Als klant wil ik in mijn transacties zoeken op naam of IBAN, bedrag, type en richting, zodat ik een betaling snel terugvind.
 >
 > Acceptatiecriteria: de scenario's in `zoeken.spec.ts`, ook het ongeldige bedragbereik en het wissen van het formulier.
 
-
-Voorbeeldtabellen zijn gewoon een lijst in TypeScript met een test per regel.
+Voorbeeldtabellen zijn gewoon een lijst in TypeScript, met een test per regel. De transacties staan zichtbaar in de spec, en elk voorbeeld noemt wat Jan vindt. Een verborgen dataset met alleen een aantal zou niet laten zien waarom de uitkomst klopt.
 
 ```ts
 // e2e/specs/zoeken.spec.ts
+import { test } from '../dsl/fixtures';
+import type { Boeking } from '../dsl/klant';
+
+/**
+ * S5.1: zoeken in de transacties op tekst (naam of IBAN), bedrag, type en richting (doc/werkwijze-mse.md, slice 5).
+ * De transacties staan hier, zodat je ziet waarom een voorbeeld deze uitkomst heeft.
+ */
+const TRANSACTIES: Boeking[] = [
+  { op: '2026-10-01T06:02', bedrag: '-812.40', type: 'INCASSO', tegenpartij: 'Woningstichting Thuis', tegenIban: 'NL91ABNA0417164300' },
+  { op: '2026-10-02T09:15', bedrag: '3215.00', type: 'ONLINE_BANKIEREN', tegenpartij: 'Werkgever B.V.', tegenIban: 'NL20INGB0001234567' },
+  { op: '2026-10-03T13:26', bedrag: '-63.48', type: 'BETAALAUTOMAAT', tegenpartij: 'Albert Heijn' },
+  { op: '2026-10-04T20:10', bedrag: '-27.95', type: 'IDEAL_WERO', tegenpartij: 'Albert Heijn Online', tegenIban: 'NL44RABO0123456789' },
+  { op: '2026-10-05T07:00', bedrag: '-95.00', type: 'INCASSO', tegenpartij: 'Vattenfall', tegenIban: 'NL71INGB0009876543' },
+  { op: '2026-10-06T18:30', bedrag: '50.00', type: 'ONLINE_BANKIEREN', tegenpartij: 'Piet', tegenIban: 'NL07ABNA0555666777' },
+];
+
 const voorbeelden = [
-  { criterium: 'tekst "albert"', zoek: { tekst: 'albert' }, aantal: 3 },
-  { criterium: 'IBAN zonder spaties', zoek: { tekst: 'NL12SIMB0123456789' }, aantal: 2 },
-  { criterium: 'bedrag van 50 t/m 100', zoek: { van: '50', tm: '100' }, aantal: 4 },
-  { criterium: 'type Incasso', zoek: { type: 'INCASSO' }, aantal: 5 },
-  { criterium: 'inkomende transacties', zoek: { richting: 'IN' }, aantal: 2 },
+  { criterium: 'tekst "albert"', zoek: { tekst: 'albert' }, gevonden: ['Albert Heijn Online', 'Albert Heijn'] },
+  { criterium: 'IBAN met spaties', zoek: { tekst: 'NL91 ABNA 0417 1643 00' }, gevonden: ['Woningstichting Thuis'] },
+  { criterium: 'bedrag van 50 t/m 100', zoek: { van: '50', tm: '100' }, gevonden: ['Piet', 'Vattenfall', 'Albert Heijn'] },
+  { criterium: 'bedrag met komma 27,95 t/m 27,95', zoek: { van: '27,95', tm: '27,95' }, gevonden: ['Albert Heijn Online'] },
+  { criterium: 'type Incasso', zoek: { type: 'INCASSO' }, gevonden: ['Vattenfall', 'Woningstichting Thuis'] },
+  { criterium: 'inkomende transacties', zoek: { richting: 'inkomend' }, gevonden: ['Piet', 'Werkgever B.V.'] },
+  { criterium: 'type Incasso en bedrag t/m 100', zoek: { type: 'INCASSO', tm: '100' }, gevonden: ['Vattenfall'] },
+  { criterium: 'tekst "Jumbo"', zoek: { tekst: 'Jumbo' }, gevonden: [] },
 ] as const;
 
 for (const v of voorbeelden) {
-  test(`Filteren op ${v.criterium}`, async ({ bank }) => {
+  test(`Zoeken op ${v.criterium}`, async ({ bank }) => {
     const jan = bank.klant('Jan');
-    await bank.gegeven('Jan heeft de transactieset "zoeken"', () => jan.heeftTransactieset('zoeken'));
+    await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00 en de 6 transacties hierboven', async () => {
+      await jan.heeftBetaalrekening({ saldo: '1000.00' });
+      await jan.heeftBoekingen(TRANSACTIES);
+    });
     await bank.als(`Jan zoekt op ${v.criterium}`, () => jan.zoekt(v.zoek));
-    await bank.dan(`vindt Jan ${v.aantal} transacties`, () => jan.verwachtAantalResultaten(v.aantal));
+    await bank.dan(
+      v.gevonden.length === 0 ? 'vindt Jan niets' : `vindt Jan ${v.gevonden.join(', ')}`,
+      () => jan.verwachtGevonden([...v.gevonden]),
+    );
   });
 }
 
 test('Ongeldig bedragbereik', async ({ bank }) => {
   const jan = bank.klant('Jan');
-  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening());
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+    jan.heeftBetaalrekening({ saldo: '1000.00' }),
+  );
   await bank.als('Jan zoekt met bedrag van 100 t/m 50', () => jan.zoekt({ van: '100', tm: '50' }));
   await bank.dan('krijgt Jan een melding over het bereik', () => jan.verwachtWeigering('ongeldig-bedragbereik'));
 });
 
 test('Zoekformulier openen en wissen', { tag: '@ui' }, async ({ bank }) => {
   const jan = bank.klant('Jan');
-  await bank.gegeven('Jan heeft de betaalrekening open', () => jan.opentBetaalrekening());
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00 en de 6 transacties hierboven', async () => {
+    await jan.heeftBetaalrekening({ saldo: '1000.00' });
+    await jan.heeftBoekingen(TRANSACTIES);
+  });
   await bank.als('Jan "Zoeken in transacties" kiest', () => jan.opentZoeken());
   await bank.dan('heet de knop "Verberg zoeken"', () => jan.verwachtZoekknop('Verberg zoeken'));
-  await bank.als('Jan een zoekopdracht invult en wist', () => jan.vultZoekenInEnWist({ tekst: 'albert' }));
+  await bank.als('Jan zoekt op "albert" en daarna "Wissen" kiest', () => jan.zoektEnWist({ tekst: 'albert' }));
   await bank.dan('zijn alle velden leeg en is "Alle transacties" gekozen', () => jan.verwachtLeegZoekformulier());
+  await bank.en('ziet Jan weer alle 6 transacties', () =>
+    jan.verwachtGevonden(['Piet', 'Vattenfall', 'Albert Heijn Online', 'Albert Heijn', 'Werkgever B.V.', 'Woningstichting Thuis']),
+  );
 });
 ```
 
-- **Binnenste lus:** `Zoekfilter` (validatie, komma als decimaalteken), `Zoektekst` (ge-escapete jokertekens), SQL uit vaste fragmenten; frontend `ZoekFormulier`.
-- **ADR's:** zoeken met `pg_trgm`-index en geparametriseerde fragmenten.
-- **Fitness functions:** test dat invoer met `%`, `_` en `'` geen andere resultaten of fouten geeft (injectie).
+- **Keuzes bij het goedkeuren:**
+  - Het tekstveld zoekt op naam en IBAN; daarom heet het "Naam of IBAN" en niet "Naam, bedrag, IBAN of omschrijving" zoals in het FO.
+  - De melding "Geen transacties gevonden." komt niet uit het FO.
+- **Binnenste lus:**
+  - **`Zoekfilter` (`bank-api`):** controleert de velden. Bedragen gelden absoluut, met een komma als decimaalteken, en van ≤ t/m. Type en richting komen uit een vaste lijst. Van de tekst maakt hij letterlijke patronen, waarin `%`, `_` en `\` gewone tekens zijn; voor het IBAN zonder spaties en in hoofdletters.
+  - **De query:** bestaat uit vaste voorwaarden met parameters. Een leeg veld is `null` en doet niet mee. Een ongeldige zoekopdracht geeft een 400 met `ProblemDetail`, bijvoorbeeld type `urn:banksim:probleem:ongeldig-bedragbereik`.
+  - **Frontend:** `ZoekFormulier` zonder `@angular/forms`. Het scherm stuurt de velden ook mee met "Toon meer".
+  - **Seed:** `transacties --boeking "tijdstip,bedrag,type,tegenIban,tegenpartij"`, zodat een scenario één seed-pod per Gegeven nodig heeft.
+- **Fitness functions:** een repositorytest met `%`, `_`, `'` en `\` als zoektekst. Die geeft geen andere resultaten en geen fout (injectie). PIT muteert geen SQL. Een handmatige sabotage (`abs()` weg) maakte twee repositorytests rood.
+- **ADR:** geen. De query breidt het bestaande patroon met vaste voorwaarden en parameters uit; er viel geen nieuwe keuze. De `pg_trgm`-index is uitgesteld (zie de ADR-backlog en de losse backlogpunten).
 - **Origineel:** `transaction/Zoekfilter`, `account/Zoektekst`, `e2e/tests/zoeken.spec.ts`.
 
 ### Slice 6 – Inloggen en rollen
@@ -1108,6 +1147,25 @@ Niet-functionele eisen uit het TO (zero trust, OWASP, resilience) zijn geen fase
 | OWASP Top 10 | Per categorie een test of check; de matrix uit TO §11 groeit mee per slice in plaats van achteraf | — | TO §11 |
 | Supply chain | CI faalt op een kwetsbaarheid ≥ high (Trivy, Dependency-Check, `npm audit`); SBOM als artefact (CycloneDX) | Vaste versies en Renovate | TO §16 |
 | Container-hardening | Template- of policy-check: non-root, read-only rootfs, `drop: [ALL]` | — | TO §15.3 |
+
+### Losse backlogpunten
+
+Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hier staat het werk dat niet al een plek heeft in een slice, de ADR-backlog (hoofdstuk 6) of de infrastructuur (hoofdstuk 9.4). Een punt wordt een scenario, een test of een ADR zodra een slice erom vraagt; dan verdwijnt het hier.
+
+| Punt | Reden van uitstel | Komt terug bij |
+| --- | --- | --- |
+| Binnen één dag sorteren op tijdstip in plaats van op volgorde van boeken | Geen scenario vroeg erom; de cursor (ADR 0011) sorteert op datum en id | Een scenario met twee transacties op één dag in een andere volgorde, uiterlijk slice 7 (betalen) |
+| Omschrijving en betalingskenmerk in de details, en zoeken op omschrijving | Bestaan nog niet in de data (FO: "indien aanwezig") | Slice 7: een betaling krijgt een omschrijving |
+| Zoeken op bedrag in het tekstveld (FO: "Naam, bedrag, IBAN of omschrijving") | Bij S5.1 gekozen voor naam en IBAN; op bedrag zoeken kan via het bedragbereik | Eigen scenario, samen met de omschrijving |
+| Het aantal resultaten ("12 resultaten", FO) | Niet in S5.1 meegenomen | Eigen scenario in `zoeken.spec.ts` |
+| `pg_trgm`-index voor zoeken | Geen test kan de prestatie nu eisen | Zie de ADR-backlog (hoofdstuk 6): slice 11 of een prestatie-eis |
+| `npm audit`: 2 kwetsbaarheden (1 low, 1 high) in `vite` via `@angular/build` (gezien op 2026-10-23); de oplossing van npm is een breaking downgrade naar `@angular/build` 22.1.9 | Een Angular-update hoort bij een eigen wijziging met de commit stage als vangnet | CFR Supply chain (`npm audit` in CI), of eerder bij een Angular-patch |
+| Rotatie van de cursorsleutel (ADR 0011) | Geen test: een cursor van vóór de rotatie geeft 400, en dat is nooit gecontroleerd | Een installatiescenario met `--rotate`, of CFR Resilience |
+| Webkit in CI: twee scenario's van `betaalrekening.spec.ts` liepen in de time-out van 30 s (één bij de klik op `#kc-login` van Keycloak) en slaagden bij de herkansing (run 40021127418) | Eén keer gezien; lokaal nooit | Komt het terug, dan onderzoeken met de trace uit het Playwright-rapport |
+| Contract-first OpenAPI | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend de API vaker aanroept |
+| Integratietest van de realm met Testcontainers | Zie hoofdstuk 9.1 | Bij de volgende realm-wijziging (slice 6 of 10) |
+| Herstart van PostgreSQL en Keycloak behoudt de data | Zie hoofdstuk 9.4 | CFR Resilience |
+| Mutation testing van de frontend met Stryker | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend meer logica krijgt (slice 7) |
 
 ## 8. Eén iteratie in de praktijk
 

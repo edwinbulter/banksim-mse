@@ -96,6 +96,32 @@ class TransactieControllerTests {
         assertThat(AANROEPEN).containsExactly(VAN_JAN + " tot 2026-10-05 na " + LAATSTE_OP_PAGINA + ", 50");
     }
 
+    /** S5.1: de zoekvelden gaan als filter naar de repository, ook met "Toon meer". */
+    @Test
+    void geeftDeZoekveldenAlsFilterDoor() throws Exception {
+        AANROEPEN.clear();
+        mvc.perform(get("/api/rekeningen/" + OOK_VAN_JAN + "/transacties").with(gebruiker("jan-a1-1"))
+                        .param("tekst", "albert").param("van", "27,95").param("tm", "100").param("type", "INCASSO")
+                        .param("richting", "uitgaand"))
+                .andExpect(status().isOk());
+
+        assertThat(AANROEPEN).containsExactly(OOK_VAN_JAN + " tot 2026-10-05 vanaf het begin, 50, " + Zoekfilter.van(
+                Optional.of("albert"), Optional.of("27,95"), Optional.of("100"), Optional.of("INCASSO"),
+                Optional.of("uitgaand")));
+    }
+
+    /** RFC 9457: een ongeldige zoekopdracht is een 400 met een probleemtype en de melding voor de klant. */
+    @Test
+    void eenOngeldigBedragbereikGeeft400MetProbleemtype() throws Exception {
+        AANROEPEN.clear();
+        mvc.perform(get("/api/rekeningen/" + VAN_JAN + "/transacties").with(gebruiker("jan-a1-1"))
+                        .param("van", "100").param("tm", "50"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:ongeldig-bedragbereik"))
+                .andExpect(jsonPath("$.detail").value("Bedrag van mag niet groter zijn dan Bedrag t/m"));
+        assertThat(AANROEPEN).isEmpty();
+    }
+
     @Test
     void eenOnleesbareCursorGeeft400() throws Exception {
         mvc.perform(get("/api/rekeningen/" + VAN_JAN + "/transacties").param("na", "geen-cursor").with(gebruiker("jan-a1-1")))
@@ -146,9 +172,9 @@ class TransactieControllerTests {
         @Bean
         TransactieRepository transactieRepository() {
             // Op VAN_JAN volgt nog een pagina, op OOK_VAN_JAN niet.
-            return (gebruikersnaam, iban, vandaag, na, aantal) -> {
+            return (gebruikersnaam, iban, vandaag, filter, na, aantal) -> {
                 AANROEPEN.add(iban + " tot " + vandaag + na.map(positie -> " na " + positie).orElse(" vanaf het begin")
-                        + ", " + aantal);
+                        + ", " + aantal + (filter.equals(Zoekfilter.GEEN) ? "" : ", " + filter));
                 if (!"jan-a1-1".equals(gebruikersnaam) || !(VAN_JAN.equals(iban) || OOK_VAN_JAN.equals(iban))) {
                     return Optional.empty();
                 }

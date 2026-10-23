@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from '@playwright/test';
+import { expect, type APIRequestContext, type APIResponse } from '@playwright/test';
 import type {
   BankDriver,
   Partij,
@@ -7,6 +7,8 @@ import type {
   TransactieType,
   TransactiesOpDatum,
   Uitkomst,
+  Zoekformulier,
+  Zoekopdracht,
 } from '../bank-driver';
 import { wijzigSimulatiedatum } from '../simulatiedatum';
 
@@ -19,6 +21,9 @@ export class RestDriver implements BankDriver {
   private geladen: Pagina['transacties'] = [];
   private volgende: string | null = null;
   private uitgeklapt?: TransactieJson;
+  /** De zoekvelden van de laatste zoekopdracht; leeg na het openen van de rekening. */
+  private filter = new URLSearchParams();
+  private probleem?: string;
 
   constructor(private readonly request: APIRequestContext) {}
 
@@ -61,6 +66,7 @@ export class RestDriver implements BankDriver {
   async openRekening(iban: string): Promise<void> {
     this.geopend = iban;
     this.geladen = [];
+    this.filter = new URLSearchParams();
     await this.laadPagina(`/api/rekeningen/${iban}/transacties`);
   }
 
@@ -81,10 +87,11 @@ export class RestDriver implements BankDriver {
   /** "Toon meer": de volgende pagina met de cursor uit de vorige. */
   async toonMeer(): Promise<void> {
     if (!this.geopend || this.volgende === null) throw new Error('Geen volgende pagina');
-    await this.laadPagina(`/api/rekeningen/${this.geopend}/transacties?na=${encodeURIComponent(this.volgende)}`);
+    const parameters = new URLSearchParams(this.filter);
+    parameters.set('na', this.volgende);
+    await this.laadPagina(`/api/rekeningen/${this.geopend}/transacties?${parameters}`);
   }
 
-  /** Het overzicht is één API-aanroep, die rekeningenInOverzicht doet. */
   /** De API levert de details al in de lijst; uitklappen is hier de geladen transactie kiezen. */
   async klapUit(tegenpartij: string): Promise<void> {
     this.uitgeklapt = this.geladen.find((transactie) => transactie.tegenpartij === tegenpartij);
@@ -97,6 +104,48 @@ export class RestDriver implements BankDriver {
     return { transactietype: type, van, naar, datumTransactie: tijdstip?.slice(0, 16) ?? '', uitgevoerdOp: datum };
   }
 
+  /**
+   * GET met de zoekvelden als parameters, letterlijk zoals de klant ze invult; "Toon meer" stuurt ze opnieuw mee.
+   * Een 400 is een weigering met een probleemtype (RFC 9457).
+   */
+  async zoek(opdracht: Zoekopdracht): Promise<void> {
+    if (!this.geopend) throw new Error('Open eerst een rekening');
+    this.filter = new URLSearchParams(
+      Object.entries(opdracht).filter((veld): veld is [string, string] => veld[1] !== undefined && veld[1] !== ''),
+    );
+    this.geladen = [];
+    this.probleem = undefined;
+    const pad = `/api/rekeningen/${this.geopend}/transacties?${this.filter}`;
+    const antwoord = await this.request.get(pad);
+    if (antwoord.status() === 400) {
+      const { type } = (await antwoord.json()) as { type?: string };
+      this.probleem = type?.split(':').at(-1);
+      return;
+    }
+    await this.verwerkPagina(pad, antwoord);
+  }
+
+  async weigering(): Promise<string | undefined> {
+    return this.probleem;
+  }
+
+  async openZoeken(): Promise<void> {
+    throw new Error('Het zoekformulier bestaat alleen in de browser (@ui)');
+  }
+
+  async zoekknop(): Promise<string> {
+    throw new Error('Het zoekformulier bestaat alleen in de browser (@ui)');
+  }
+
+  async wisZoeken(): Promise<void> {
+    throw new Error('Het zoekformulier bestaat alleen in de browser (@ui)');
+  }
+
+  async zoekformulier(): Promise<Zoekformulier> {
+    throw new Error('Het zoekformulier bestaat alleen in de browser (@ui)');
+  }
+
+  /** Het overzicht is één API-aanroep, die rekeningenInOverzicht doet. */
   async naarOverzicht(): Promise<void> {
     this.geopend = undefined;
   }
@@ -122,7 +171,10 @@ export class RestDriver implements BankDriver {
   }
 
   private async laadPagina(pad: string): Promise<void> {
-    const antwoord = await this.request.get(pad);
+    await this.verwerkPagina(pad, await this.request.get(pad));
+  }
+
+  private async verwerkPagina(pad: string, antwoord: APIResponse): Promise<void> {
     expect(antwoord.status(), `GET ${pad}`).toBe(200);
     const pagina = (await antwoord.json()) as Pagina;
     expect(Object.keys(pagina).sort(), `GET ${pad} geeft een pagina met transacties en volgende`).toEqual([

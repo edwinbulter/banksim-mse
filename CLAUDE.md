@@ -64,6 +64,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - `doc/werkwijze-mse.md`:
   - slices: hoofdstuk 7;
   - eisen die over de hele applicatie gaan: hoofdstuk 7, laatste deel;
+  - losse backlogpunten (uitgesteld werk met reden): hoofdstuk 7, sectie "Losse backlogpunten";
   - ADR-backlog: hoofdstuk 6;
   - infrastructuur: hoofdstuk 9;
   - traceerbaarheid naar het origineel: hoofdstuk 11;
@@ -71,3 +72,4 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - Voortgang: de status in `README.md`, de bestaande specs en `@wip`-tags, en de bestaande ADR's in `doc/adr/`.
 - Werken in een team (werk verdelen, samenwerkingsmomenten): `doc/teamwerk-mse.md`.
 - Controle door de mens: `doc/werkwijze-mse.md` §10.1. Schrijf geen controle-documenten per slice meer; de oude staan in `doc/archief/`.
+- Leren door de mens: `doc/werkwijze-mse.md` §10.2. Uitleg van een deel van het systeem: skill `uitleg` (`/uitleg <onderwerp>`).

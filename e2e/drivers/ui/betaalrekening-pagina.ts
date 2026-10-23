@@ -33,7 +33,8 @@ export class BetaalrekeningPagina {
 
   async transacties(): Promise<TransactiesOpDatum[]> {
     const lijst = this.page.getByRole('list', { name: 'Transacties' });
-    const leeg = this.page.getByText('Nog geen af- of bijschrijvingen.');
+    // Zonder transacties, of zonder zoekresultaat (S5.1): allebei een lege lijst.
+    const leeg = this.page.getByText(/^(Nog geen af- of bijschrijvingen\.|Geen transacties gevonden\.)$/);
     await expect(lijst.or(leeg)).toBeVisible();
     if (await leeg.isVisible()) return [];
     const perDatum: TransactiesOpDatum[] = [];

@@ -1,6 +1,7 @@
 package nl.banksim.api.transactie;
 
 import java.time.format.DateTimeFormatter;
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
@@ -8,6 +9,7 @@ import nl.banksim.api.beveiliging.IngelogdeGebruiker;
 import nl.banksim.api.simulatie.SimulationClock;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,15 +41,27 @@ class TransactieController {
         this.klok = klok;
     }
 
+    /** S5.1: de zoekvelden zijn optioneel; "Toon meer" stuurt ze opnieuw mee, naast {@code na}. */
     @GetMapping("/api/rekeningen/{iban}/transacties")
-    PaginaJson transacties(@PathVariable String iban, @RequestParam Optional<String> na) {
+    PaginaJson transacties(@PathVariable String iban, @RequestParam Optional<String> na,
+            @RequestParam Optional<String> tekst, @RequestParam Optional<String> van, @RequestParam Optional<String> tm,
+            @RequestParam Optional<String> type, @RequestParam Optional<String> richting) {
         Iban rekening = ibanOf404(iban);
-        Optional<Positie> positie = na.map(tekst -> cursor.lees(rekening, tekst));
-        Pagina pagina = transacties.vanRekening(gebruiker.gebruikersnaam(), rekening, klok.vandaag(), positie, PER_PAGINA)
+        Zoekfilter filter = Zoekfilter.van(tekst, van, tm, type, richting);
+        Optional<Positie> positie = na.map(cursortekst -> cursor.lees(rekening, cursortekst));
+        Pagina pagina = transacties.vanRekening(gebruiker.gebruikersnaam(), rekening, klok.vandaag(), filter, positie, PER_PAGINA)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return new PaginaJson(
                 pagina.transacties().stream().map(TransactieJson::van).toList(),
                 pagina.volgende().map(volgende -> cursor.maak(rekening, volgende)).orElse(null));
+    }
+
+    /** RFC 9457: het probleemtype voor de software, de melding voor de klant. */
+    @ExceptionHandler(OngeldigZoekfilter.class)
+    ProblemDetail ongeldigZoekfilter(OngeldigZoekfilter fout) {
+        ProblemDetail probleem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, fout.getMessage());
+        probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem()));
+        return probleem;
     }
 
     @ExceptionHandler(OngeldigeCursor.class)

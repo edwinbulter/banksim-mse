@@ -126,6 +126,30 @@ class SeedCommandoTests {
                 """);
     }
 
+    /** S5.1: per boeking ook tijdstip, type en tegen-IBAN, in één pod; een leeg tegen-IBAN is geen IBAN. */
+    @Test
+    void boektBoekingenMetTijdstipTypeEnTegenIban() {
+        commando.voerUit("transacties", "--iban", "NL94SIMB0000000001",
+                "--boeking", "2026-10-01T06:02,-812.40,INCASSO,NL91ABNA0417164300,Woningstichting Thuis",
+                "--boeking", "2026-10-03T13:26,-63.48,BETAALAUTOMAAT,,Albert Heijn, filiaal 1");
+
+        assertThat(aanroepen).containsExactly(
+                "NL94SIMB0000000001 2026-10-01T06:02 -812.40 Woningstichting Thuis INCASSO NL91ABNA0417164300",
+                "NL94SIMB0000000001 2026-10-03T13:26 -63.48 Albert Heijn, filiaal 1 BETAALAUTOMAAT -");
+        assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
+                {"iban":"NL94SIMB0000000001","aantal":2}
+                """);
+    }
+
+    @Test
+    void weigertEenOnvolledigeBoeking() {
+        assertThatThrownBy(() -> commando.voerUit("transacties", "--iban", "NL94SIMB0000000001",
+                "--boeking", "2026-10-01T06:02,-812.40,INCASSO,NL91ABNA0417164300"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("tijdstip,bedrag,type,tegenIban,tegenpartij");
+        assertThat(aanroepen).isEmpty();
+    }
+
     @Test
     void boektNietsAlsEenVanDeTransactiesOngeldigIs() {
         assertThatThrownBy(() -> commando.voerUit("transacties", "--iban", "NL94SIMB0000000001",

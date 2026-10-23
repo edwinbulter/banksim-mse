@@ -177,4 +177,99 @@ describe('App', () => {
     await ververs();
     expect(link(pagina, 'Inloggen')).toBeDefined();
   });
+
+  /** S5.1: het zoekformulier openen, velden invullen en "Zoeken" kiezen. */
+  async function zoek(pagina: HTMLElement, velden: Record<string, string>): Promise<void> {
+    if (knop(pagina, 'Zoeken in transacties')) {
+      knop(pagina, 'Zoeken in transacties')?.click();
+      await ververs();
+    }
+    for (const [label, waarde] of Object.entries(velden)) {
+      const element = [...pagina.querySelectorAll('label')].find((l) => l.textContent?.trim() === label);
+      const invoer = pagina.querySelector(`#${element?.htmlFor}`) as HTMLInputElement;
+      invoer.value = waarde;
+      invoer.dispatchEvent(new Event('input'));
+      await ververs();
+    }
+    knop(pagina, 'Zoeken')?.click();
+    await ververs();
+  }
+
+  const PAD = '/api/rekeningen/NL94SIMB0000000001/transacties';
+
+  it('zoekt met de ingevulde velden en vervangt de lijst door wat gevonden is (S5.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001');
+    await transacties(PAD, TWEE_DAGEN);
+
+    await zoek(pagina, { 'Naam of IBAN': 'woning', 'Bedrag van (€)': '27,95' });
+    await transacties(`${PAD}?tekst=woning&van=27,95`, {
+      transacties: [api('2026-10-01', 'Woningstichting Thuis', '-812.40')],
+      volgende: null,
+    });
+
+    expect(datumkoppen(pagina)).toEqual(['Donderdag 1 oktober 2026']);
+  });
+
+  it('"Toon meer" na zoeken stuurt de zoekvelden mee met de cursor (S5.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001');
+    await transacties(PAD, TWEE_DAGEN);
+    await zoek(pagina, { 'Naam of IBAN': 'albert' });
+    await transacties(`${PAD}?tekst=albert`, {
+      transacties: [api('2026-10-04', 'Albert Heijn Online', '-27.95')],
+      volgende: 'MjAyNi0xMC0wNCw0.q-_x',
+    });
+
+    knop(pagina, 'Toon meer')?.click();
+    await ververs();
+    await transacties(`${PAD}?tekst=albert&na=MjAyNi0xMC0wNCw0.q-_x`, {
+      transacties: [api('2026-10-03', 'Albert Heijn', '-63.48')],
+      volgende: null,
+    });
+
+    expect(datumkoppen(pagina)).toEqual(['Zondag 4 oktober 2026', 'Zaterdag 3 oktober 2026']);
+  });
+
+  it('meldt "Geen transacties gevonden." als een zoekopdracht niets vindt (S5.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001');
+    await transacties(PAD, TWEE_DAGEN);
+    await zoek(pagina, { 'Naam of IBAN': 'Jumbo' });
+    await transacties(`${PAD}?tekst=Jumbo`, { transacties: [], volgende: null });
+
+    expect(pagina.textContent).toContain('Geen transacties gevonden.');
+    expect(pagina.textContent).not.toContain('Nog geen af- of bijschrijvingen.');
+  });
+
+  it('toont de melding van de API bij een ongeldige zoekopdracht (S5.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001');
+    await transacties(PAD, TWEE_DAGEN);
+    await zoek(pagina, { 'Bedrag van (€)': '100', 'Bedrag t/m (€)': '50' });
+    http.expectOne(`${PAD}?van=100&tm=50`).flush(
+      {
+        type: 'urn:banksim:probleem:ongeldig-bedragbereik',
+        detail: 'Bedrag van mag niet groter zijn dan Bedrag t/m',
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    await ververs();
+
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe(
+      'Bedrag van mag niet groter zijn dan Bedrag t/m',
+    );
+  });
+
+  it('"Wissen" laadt weer alle transacties, zonder zoekvelden (S5.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001');
+    await transacties(PAD, TWEE_DAGEN);
+    await zoek(pagina, { 'Naam of IBAN': 'woning' });
+    await transacties(`${PAD}?tekst=woning`, {
+      transacties: [api('2026-10-01', 'Woningstichting Thuis', '-812.40')],
+      volgende: null,
+    });
+
+    knop(pagina, 'Wissen')?.click();
+    await ververs();
+    await transacties(PAD, TWEE_DAGEN);
+
+    expect(datumkoppen(pagina)).toEqual(['Vrijdag 2 oktober 2026', 'Donderdag 1 oktober 2026']);
+  });
 });

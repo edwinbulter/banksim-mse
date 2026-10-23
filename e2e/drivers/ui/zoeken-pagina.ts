@@ -1,0 +1,73 @@
+import { expect, type Page } from '@playwright/test';
+import type { Zoekformulier, Zoekopdracht } from '../bank-driver';
+
+/** De meldingen van het zoekformulier, terug naar het probleemtype van de API (S5.1). */
+const WEIGERINGEN: Record<string, string> = {
+  'Bedrag van mag niet groter zijn dan Bedrag t/m': 'ongeldig-bedragbereik',
+};
+
+const RICHTINGEN = { alle: 'Alle transacties', uitgaand: 'Uitgaande transacties', inkomend: 'Inkomende transacties' };
+
+/** Het zoekformulier op de betaalrekening: openen met "Zoeken in transacties", sluiten met "Verberg zoeken". */
+export class ZoekenPagina {
+  constructor(private readonly page: Page) {}
+
+  async open(): Promise<void> {
+    if (!(await this.formulier().isVisible())) {
+      await this.page.getByRole('button', { name: 'Zoeken in transacties' }).click();
+    }
+    await expect(this.formulier()).toBeVisible();
+  }
+
+  async knop(): Promise<string> {
+    const knop = this.page.getByRole('button', { name: /^(Zoeken in transacties|Verberg zoeken)$/ });
+    return ((await knop.textContent()) ?? '').trim();
+  }
+
+  /** Vult de velden in zoals de klant (bedragen letterlijk, ook met komma) en wacht op het antwoord van de API. */
+  async zoek(opdracht: Zoekopdracht): Promise<void> {
+    await this.open();
+    const formulier = this.formulier();
+    await formulier.getByLabel('Naam of IBAN').fill(opdracht.tekst ?? '');
+    await formulier.getByLabel('Bedrag van (€)').fill(opdracht.van ?? '');
+    await formulier.getByLabel('Bedrag t/m (€)').fill(opdracht.tm ?? '');
+    await formulier.getByLabel('Transactietype').selectOption(opdracht.type ?? '');
+    await formulier.getByRole('radio', { name: RICHTINGEN[opdracht.richting ?? 'alle'] }).check();
+    const antwoord = this.page.waitForResponse((r) => r.url().includes('/transacties'));
+    await formulier.getByRole('button', { name: 'Zoeken', exact: true }).click();
+    await antwoord;
+  }
+
+  /** De melding onder het formulier, als probleemtype; undefined zonder melding. */
+  async weigering(): Promise<string | undefined> {
+    const melding = this.formulier().getByRole('alert');
+    if (!(await melding.isVisible())) return undefined;
+    const tekst = ((await melding.textContent()) ?? '').trim();
+    return WEIGERINGEN[tekst] ?? `onbekende melding: ${tekst}`;
+  }
+
+  async wis(): Promise<void> {
+    const antwoord = this.page.waitForResponse((r) => r.url().includes('/transacties'));
+    await this.formulier().getByRole('button', { name: 'Wissen' }).click();
+    await antwoord;
+  }
+
+  async inhoud(): Promise<Zoekformulier> {
+    const formulier = this.formulier();
+    let gekozen: Zoekformulier['richting'] = 'alle';
+    for (const sleutel of Object.keys(RICHTINGEN) as (keyof typeof RICHTINGEN)[]) {
+      if (await formulier.getByRole('radio', { name: RICHTINGEN[sleutel] }).isChecked()) gekozen = sleutel;
+    }
+    return {
+      tekst: await formulier.getByLabel('Naam of IBAN').inputValue(),
+      van: await formulier.getByLabel('Bedrag van (€)').inputValue(),
+      tm: await formulier.getByLabel('Bedrag t/m (€)').inputValue(),
+      type: await formulier.getByLabel('Transactietype').inputValue(),
+      richting: gekozen,
+    };
+  }
+
+  private formulier() {
+    return this.page.getByRole('form', { name: 'Zoeken in transacties' });
+  }
+}
