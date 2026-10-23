@@ -118,4 +118,9 @@ Een slice of feature is klaar als:
 3. **Groen:** wat lokaal groen is, of de pipeline groen is (met run-id of link), en de mutatiescore met de levende mutanten.
 4. **Niet geverifieerd:** wat je niet hebt kunnen controleren, en waarom.
 5. **ADR's:** nieuw, gewijzigd of voorgesteld.
-6. **Volgende stap:** het volgende voorbeeld uit de backlog, of wat er open staat.
+6. **Uitleg:** vijf tot tien regels voor de developer die hier straks verder bouwt:
+   - **Route:** hoe het scenario door de lagen loopt, met `bestand:regel` per stap;
+   - **Ontwerpkeuze:** waarom de code zo is opgebouwd, met de ADR als die er is;
+   - **Kritische punten:** waar een volgende wijziging het makkelijkst misgaat, en wat de tests níet afdekken.
+   Schrijf alleen op wat je in de code hebt gezien. Voor meer diepgang is er de skill `uitleg`.
+7. **Volgende stap:** het volgende voorbeeld uit de backlog, of wat er open staat.

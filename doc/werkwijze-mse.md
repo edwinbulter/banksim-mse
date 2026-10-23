@@ -1391,11 +1391,32 @@ Handmatig testen verdwijnt niet helemaal. *Continuous Delivery* (hfst. 5) en *Co
 
 - Sabotages herhalen die tijdens het bouwen al zijn gedaan. Die staan in het commitbericht, en PIT herhaalt ze.
 - Tests tellen, of statuscodes en curl-uitvoer nalopen.
-- Productiecode regel voor regel lezen. Lees het scenario, het rapport en de diff van de specs.
+- Productiecode regel voor regel lezen *als controle*. Lees het scenario, het rapport en de diff van de specs. Lezen om te leren is iets anders; zie §10.2.
 - Eerdere slices met de hand regressietesten. Dat doet de acceptance stage bij elke commit.
 - Per slice een controle-document laten schrijven.
 
 **Waar het bewijs staat.** Het commitbericht van een scenario heeft de kopjes "Rood gezien" (melding en reden), "Sabotage" (als die gedaan is) en "Niet geverifieerd". Het bewijs hoort zo bij precies die versie, en kan niet verouderen.
+
+### 10.2 Leren door de mens
+
+§10.1 maakt de controle zo goedkoop mogelijk. Dat heeft een prijs. De mens houdt juist de taken die de meeste kennis vragen: het voorbeeld kiezen, het ontbrekende randgeval zien, een ADR beslissen, merken dat een driver om de beveiliging heen gaat. Daarvoor moet je begrijpen wat er gebouwd is: hoe een verzoek door de lagen loopt, waarom het ontwerp zo is, en waar het kwetsbaar is. Wie alleen nog goedkeurt zonder dat te begrijpen, verliest langzaam het vermogen om goed goed te keuren. Lisanne Bainbridge noemde dit de *ironie van automatisering*: hoe beter de automaat, hoe minder de mens oefent voor de momenten waarop het ertoe doet.
+
+Controle en leren zijn daarom twee aparte doelen. Controle houd je minimaal (§10.1). Voor het leren hoef je de code niet zelf te schrijven of regel voor regel te lezen. Claude heeft hem net gebouwd en kan hem uitleggen, in een vaste vorm en met verwijzingen naar de code, zodat je elke bewering kunt nalopen. "Optimaliseren voor leren" (hoofdstuk 2) geldt zo ook voor de mens, en niet alleen voor het product.
+
+**Claude legt uit.** Dat gebeurt op twee momenten:
+
+| Moment | Wat | Hoe |
+| --- | --- | --- |
+| Na elke iteratie | Een blok **Uitleg** van vijf tot tien regels in het rapport van de skill `atdd` (§5 van de skill): de route van het scenario door de lagen met `bestand:regel`, de ontwerpkeuze met de ADR, en de kritische punten, waaronder wat de tests níet afdekken. Je leest het bij het rapport, dus het kost geen extra stap | Vanzelf |
+| Als je het nodig hebt | De skill `uitleg`, bijvoorbeeld `/uitleg slice 4`, `/uitleg betalen` of `/uitleg bank-bff`. Claude leest de actuele specs, code, unittests, ADR's en commitberichten. Je krijgt de functionaliteit, één verzoek gevolgd door de code, het ontwerp, de kritische punten, en waar een volgende wijziging begint. Gebruik het voordat je aan een slice begint die op eerder werk voortbouwt, bij een onderdeel dat je niet kent, of om iemand in te werken | `/uitleg <onderwerp>` |
+
+Beide halen de uitleg uit de code van dat moment, en schrijven niets weg. Er is dus geen document dat kan verouderen. Elke bewering over de code heeft een `bestand:regel`, zodat je hem kunt nalopen. Een kritisch punt dat Claude vindt, zoals een ontbrekende test, wordt geen reparatie in de uitleg, maar een nieuwe iteratie met eerst een rode test.
+
+**Verhouding tot §10.1.** Code lezen als controle blijft overbodig: of de code werkt, bewijst de pipeline. Lezen om te leren is gericht. Je leest de route en de kritische punten die de uitleg aanwijst, en dat is geen keuring.
+
+**Wat het kost.** Het blok in het rapport kost een paar minuten lezen per iteratie. Een `/uitleg` kost tien tot twintig minuten, als je hem nodig hebt. Het levert iets op wat de pipeline niet kan: een mens die het voorbeeld, de beslissing en de verificatie blijft kunnen beoordelen.
+
+**Bronnen en interpretatie:** Lisanne Bainbridge, "Ironies of Automation", *Automatica* 19(6), 1983. Optimaliseren voor leren: *Modern Software Engineering*, deel II. AI versnelt het makkelijke deel (code schrijven) en maakt specificeren en verifiëren moeilijker: Dave Farley, "Vibe Coding — Is this really the best we can do?", AIDevCon London, 2026. Code die met AI is gebouwd, is voor anderen niet slechter of beter te onderhouden: Markus Borg e.a. (met Dave Farley), "Echoes of AI: Investigating the Downstream Effects of AI Assistants on Software Maintainability", *Empirical Software Engineering*, 2025 ([arXiv 2507.00788](https://arxiv.org/abs/2507.00788)). De toepassing op werken met Claude Code, en de uitleg hierboven, zijn **interpretatie**.
 
 ## 11. Traceerbaarheid naar het origineel
 

@@ -269,6 +269,8 @@ Dit lijkt op *strong-style pairing* van Llewellyn Falco: "een idee gaat de compu
 
 **Solo met Claude is geen pair.** Claude deelt de context en de aannames van wie hem bestuurt, en dus vaak ook de blinde vlekken (zie [Het testperspectief](#5-de-samenwerkingsmomenten)). Solo werken met Claude kan bij klein werk met weinig risico, zoals documentatie of een kleine refactor op groen. Laat dan een tweede mens de diff zien vóór de push.
 
+Solo valt ook de kennisdeling weg: niemand vraagt je uit te leggen wat er staat. Werk je langer solo, gebruik dan de uitleg uit [werkwijze §10.2](werkwijze-mse.md#102-leren-door-de-mens): het blok Uitleg in het rapport, en `/uitleg` voor een deel dat je niet kent.
+
 **Bronnen en interpretatie:** driver en navigator, ping-pong en strong-style pairing staan beschreven in Birgitta Böckeler en Nina Siessegger, "On Pair Programming" (martinfowler.com, 2020). De toepassing op een pair met Claude Code, en de regels hierboven, zijn **interpretatie**.
 
 ## 8. Antipatronen
