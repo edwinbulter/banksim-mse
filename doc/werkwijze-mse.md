@@ -606,6 +606,30 @@ test.describe('Simulatiedatum', { tag: '@simulatiedatum' }, () => {
       ]));
   });
 
+  test('Vooruitzetten maakt transacties weer zichtbaar', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    const beheerder = bank.beheerder();
+    await bank.gegeven('Jan heeft een betaalrekening met saldo € 100,00', () =>
+      jan.heeftBetaalrekening({ saldo: '100.00' }));
+    await bank.en('op 1 oktober 2026 ontving Jan € 50,00 van Werkgever B.V.', () =>
+      jan.heeftOntvangen({ op: '2026-10-01', bedrag: '50.00', van: 'Werkgever B.V.' }));
+    await bank.en('op 10 oktober 2026 ontving Jan € 25,00 van Werkgever B.V.', () =>
+      jan.heeftOntvangen({ op: '2026-10-10', bedrag: '25.00', van: 'Werkgever B.V.' }));
+    await bank.en('de beheerder heeft de simulatiedatum op 5 oktober 2026 gezet', () =>
+      beheerder.zetSimulatiedatum('2026-10-05'));
+    await bank.als('de beheerder de simulatiedatum op 15 oktober 2026 zet', () =>
+      beheerder.zetSimulatiedatum('2026-10-15'));
+    await bank.en('Jan het overzicht opent', () => jan.opentOverzicht());
+    await bank.dan('ziet Jan de betaalrekening met saldo € 175,00', () =>
+      jan.verwachtRekeningInOverzicht('betaal', '175.00'));
+    await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
+    await bank.dan('ziet Jan de transacties van 10 en 1 oktober 2026', () =>
+      jan.verwachtTransactielijst([
+        { datum: '2026-10-10', transacties: [{ tegenpartij: 'Werkgever B.V.', bedrag: '25.00' }] },
+        { datum: '2026-10-01', transacties: [{ tegenpartij: 'Werkgever B.V.', bedrag: '50.00' }] },
+      ]));
+  });
+
   test('Een klant kan de simulatiedatum niet zetten', async ({ bank }) => {
     const jan = bank.klant('Jan');
     await bank.gegeven('Jan heeft een betaalrekening met saldo € 100,00', () =>
@@ -617,7 +641,7 @@ test.describe('Simulatiedatum', { tag: '@simulatiedatum' }, () => {
 });
 ```
 
-Het tweede scenario volgt uit de keuze om de datum via de API te zetten. De simulatiedatum geldt voor iedereen, dus een klant mag hem niet kunnen veranderen. "Vooruitzetten maakt transacties weer zichtbaar" (saldo € 175,00 na 15 oktober) is het volgende scenario.
+Het scenario "Vooruitzetten" was meteen groen: de repository vervangt de datum al met een upsert. Er was dus geen rood om de goede reden. Een sabotage (`ON CONFLICT … DO NOTHING`, zodat een tweede datum de eerste niet vervangt) maakte het rood: saldo € 150,00 in plaats van € 175,00. Het laatste scenario volgt uit de keuze om de datum via de API te zetten. De simulatiedatum geldt voor iedereen, dus een klant mag hem niet kunnen veranderen.
 
 **De beheerder.** De seed maakt een beheerder met de realm-rol `beheerder`. De beheerder heeft in de DSL een eigen verzoekcontext, los van de browser of de context van Jan. Anders zou Jan via de single sign-on van Keycloak stilletjes als beheerder ingelogd raken. Tot S10.2 zet de beheerder de datum via `PUT /api/beheer/simulatiedatum`, ook in de projecten met een browser. Jan probeert het in het tweede scenario met zijn eigen sessie: via de REST driver met zijn request-context, in de UI driver met de cookies van zijn browser.
 

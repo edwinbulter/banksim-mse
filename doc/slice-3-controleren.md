@@ -10,7 +10,7 @@ Met deze instructie controleer je zelf wat er in slice 3 is gebouwd. De volgorde
 
 Reken op anderhalf uur. Deze slice raakt alle lagen: de API, de BFF, de seed, de chart en de acceptatietests. Slice 2a moet al gecontroleerd zijn. De achtergrond staat in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 7 (slice 3), en in de ADR's 0013 tot en met 0017.
 
-> **Stand.** Deze instructie gaat over het eerste deel van slice 3: commit `a89eb9a`, met twee scenario's. Het scenario "Vooruitzetten maakt transacties weer zichtbaar" volgt nog. Daarna wordt deze instructie aangevuld.
+> **Stand.** Deze instructie gaat over heel slice 3, met drie scenario's. Het deel met de code is commit `a89eb9a`. Het scenario "Vooruitzetten maakt transacties weer zichtbaar" kwam daarna, zonder codewijziging (zie 4.4). Het scherm voor de beheerder volgt in slice 10 (S10.2).
 
 ## 1. Wat is er gebouwd
 
@@ -39,7 +39,7 @@ flowchart LR
 
 | Laag | Waar | Wat het doet | Test |
 | --- | --- | --- | --- |
-| Acceptatietest | `e2e/specs/simulatiedatum.spec.ts` | "Transacties na de simulatiedatum zijn onzichtbaar" en "Een klant kan de simulatiedatum niet zetten", met de tag `@simulatiedatum` | Is zelf de buitenste lus |
+| Acceptatietest | `e2e/specs/simulatiedatum.spec.ts` | "Transacties na de simulatiedatum zijn onzichtbaar", "Vooruitzetten maakt transacties weer zichtbaar" en "Een klant kan de simulatiedatum niet zetten", met de tag `@simulatiedatum` | Is zelf de buitenste lus |
 | Playwright-configuratie | `e2e/playwright.config.ts` | De keten `simulatiedatum-rest` → `-chromium` → `-firefox` → `-webkit`, met `workers: 1`, na de gewone projecten. Die sluiten `@simulatiedatum` uit | Via `make e2e` |
 | DSL | `e2e/dsl/beheerder.ts`, `bank.ts`, `klant.ts`, `fixtures.ts` | De beheerder met een eigen verzoekcontext. Jan probeert het met zijn eigen sessie. Na elk `@simulatiedatum`-scenario wist de beheerder de datum, ook als het scenario faalde | Via de scenario's, en `npm --prefix e2e run typecheck` |
 | Drivers | `e2e/drivers/simulatiedatum.ts`, `rest-driver.ts`, `ui-driver.ts`, `shell/bank-seed.ts` | PUT of DELETE met het CSRF-token uit het cookie. De UI-driver gebruikt de cookies van de browser. De shell-driver maakt een beheerder | Via de scenario's |
@@ -253,7 +253,7 @@ Ruim `klant.json` en `beheerder.json` daarna op. Er staat een wachtwoord in.
 make e2e
 ```
 
-**Verwacht:** 37 geslaagd. Dat zijn de 29 van slice 2a, plus de twee scenario's in de keten van vier projecten. In de uitvoer staan de `@simulatiedatum`-scenario's als laatste, met `[simulatiedatum-rest]`, `[simulatiedatum-chromium]`, enzovoort. Na elk scenario zie je de stap "Na afloop wist de beheerder de simulatiedatum" in het rapport (`npx playwright show-report e2e/playwright-report`).
+**Verwacht:** 41 geslaagd. Dat zijn de 29 van slice 2a, plus de drie scenario's in de keten van vier projecten. In de uitvoer staan de `@simulatiedatum`-scenario's als laatste, met `[simulatiedatum-rest]`, `[simulatiedatum-chromium]`, enzovoort. Na elk scenario zie je de stap "Na afloop wist de beheerder de simulatiedatum" in het rapport (`npx playwright show-report e2e/playwright-report`).
 
 Eén `@simulatiedatum`-scenario los draai je met `--no-deps`. Anders draaien eerst alle gewone projecten:
 
@@ -263,9 +263,13 @@ cd e2e && npx playwright test --project=simulatiedatum-rest --no-deps specs/simu
 
 Controleer daarna tabel `instelling` zoals in 4.2 stap 7. Hij is leeg.
 
-### 4.4 Zie de acceptatietest rood
+> **Niet meerdere `simulatiedatum-*`-projecten met `--no-deps`.** `--project='simulatiedatum-*' --no-deps` haalt ook de keten weg: de vier projecten draaien dan tegelijk en wissen elkaars datum. Een scenario faalt dan bijvoorbeeld met saldo € 175,00 waar € 150,00 verwacht wordt. Gebruik één project met `--no-deps`, of `make e2e`.
 
-Dit is de sabotage die de werkwijze als fitness function noemt: zonder rolcontrole wordt het tweede scenario rood.
+### 4.4 Zie de acceptatietests rood
+
+Er zijn twee sabotages. Na elk van beide zet je de code terug en installeer je opnieuw.
+
+**Zonder rolcontrole.** Dit is de sabotage die de werkwijze als fitness function noemt.
 
 1. Verwijder in `backend/bank-api/src/main/java/nl/banksim/api/beveiliging/BeveiligingConfig.java` de regel `.requestMatchers("/api/beheer/**").hasRole("beheerder")`.
 2. Installeer met `make install`. Dat bouwt de images zonder tests, dus de fout komt in het cluster.
@@ -274,16 +278,31 @@ Dit is de sabotage die de werkwijze als fitness function noemt: zonder rolcontro
    cd e2e && npx playwright test --project=simulatiedatum-rest --no-deps specs/simulatiedatum.spec.ts; cd ..
    ```
 
-**Verwacht:** 1 geslaagd en 1 gefaald. "Een klant kan de simulatiedatum niet zetten" faalt bij de stap **Dan** wordt dat geweigerd:
+**Verwacht:** 2 geslaagd en 1 gefaald. "Een klant kan de simulatiedatum niet zetten" faalt bij de stap **Dan** wordt dat geweigerd:
 ```
 Error: uitkomst voor Jan
 Expected: "geweigerd"
 Received: "gelukt"
 ```
 
-Het eerste scenario blijft groen: de beheerder mag de datum nog steeds zetten. Let op: Jan heeft de datum in dit gefaalde scenario wél gezet. De fixture wist hem na afloop toch, ook al faalde het scenario.
+De andere twee scenario's blijven groen: de beheerder mag de datum nog steeds zetten. Let op: Jan heeft de datum in dit gefaalde scenario wél gezet. De fixture wist hem na afloop toch, ook al faalde het scenario.
 
 Tijdens het bouwen was dit scenario eerst om de verkeerde reden groen. De BFF had toen de standaard CSRF-bescherming van Spring, zonder cookie. Elke PUT kreeg 403, ook die van de beheerder, en dus ook die van Jan, nog vóór er een rolcontrole was. Daarom staat CSRF met een cookie in deze slice, en niet later.
+
+Zet de regel terug, en draai opnieuw `make install`.
+
+**Een tweede datum vervangt de eerste niet.** "Vooruitzetten maakt transacties weer zichtbaar" was meteen groen, zonder nieuwe code: de repository vervangt de datum al. Een rode stap om de goede reden was er dus niet. Deze sabotage laat zien dat het scenario toch iets vangt.
+
+1. Verander in `backend/bank-api/src/main/java/nl/banksim/api/simulatie/JdbcSimulatiedatumRepository.java` `ON CONFLICT (id) DO UPDATE SET simulatiedatum = excluded.simulatiedatum` in `ON CONFLICT (id) DO NOTHING`.
+2. Installeer met `make install`, en draai hetzelfde commando als hierboven.
+
+**Verwacht:** 2 geslaagd en 1 gefaald. "Vooruitzetten maakt transacties weer zichtbaar" faalt bij de stap **Dan** ziet Jan de betaalrekening met saldo € 175,00:
+```
+Error: rekeningen van Jan
+Expected value: {"iban": "NL…", "saldo": "175.00", "soort": "betaal"}
+Received array: [{"iban": "NL…", "saldo": "150.00", "soort": "betaal"}]
+```
+De bank staat nog op 5 oktober. In de commit stage vangt `JdbcSimulatiedatumRepositoryTests.eenNieuweDatumVervangtDeVorige` dezelfde fout.
 
 Zet de regel terug, en draai opnieuw `make install` en `make e2e`. Alles is weer groen.
 
@@ -303,8 +322,8 @@ Wat hier níet getest wordt: de upgrade in CI (`upgrade.spec.ts`) installeert tw
 gh run list --limit 5
 ```
 
-**Verwacht:** de laatste run op `main` is groen. Voor slice 3 deel 1 was dat run `39915063676` op `a89eb9a`. In de log van de acceptance stage zie je:
-- `37 passed` voor de acceptatietests;
+**Verwacht:** de laatste run op `main` is groen. In de log van de acceptance stage zie je:
+- `41 passed` voor de acceptatietests (run `39915063676` op `a89eb9a`, vóór "Vooruitzetten", had er 37);
 - `7 passed` voor de installatiescenario's, met de upgrade.
 
 Dit was de eerste installatie van de Job `keycloak-config` op een leeg cluster in kind. Lokaal was dat pad alleen in Docker gecontroleerd, met Keycloak 26.8.0 en de gerenderde realm.
@@ -328,6 +347,6 @@ Dit was de eerste installatie van de Job `keycloak-config` op een leeg cluster i
   - Jan krijgt 403;
   - zonder CSRF-token krijgt ook de beheerder 403;
   - na wissen weer € 175,00, en tabel `instelling` leeg.
-- [ ] `make e2e` geeft 37 geslaagd, en rood gezien zonder rolcontrole.
+- [ ] `make e2e` geeft 41 geslaagd, en rood gezien zonder rolcontrole en met `DO NOTHING`.
 - [ ] `make e2e-infra` geeft 3 geslaagd.
-- [ ] Laatste pipeline-run op `main` groen, met 37 acceptatietests en 7 installatiescenario's.
+- [ ] Laatste pipeline-run op `main` groen, met 41 acceptatietests en 7 installatiescenario's.
