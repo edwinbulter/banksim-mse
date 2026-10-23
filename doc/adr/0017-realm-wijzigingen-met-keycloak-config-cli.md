@@ -12,7 +12,7 @@ Opties:
 3. **Niets doen.** Een upgrade mist dan de rol, en de beheerder kan na een upgrade de datum niet zetten.
 
 ## Beslissing
-- **Tool.** keycloak-config-cli draait als Helm-hook-Job (`post-install`, `post-upgrade`). Het image is vastgepind op digest (ADR 0006).
+- **Tool.** keycloak-config-cli draait als Helm-hook-Job (`post-install`, `post-upgrade`). Het image is vastgepind op digest, net als Keycloak en PostgreSQL (ADR 0007, 0009).
 - **Bron.** De realm-JSON in `deploy/banksim-mse/files/` blijft de enige bron.
 - **Inloggen.** De Job logt in met de bootstrap-admin van Keycloak, uit het Secret `keycloak`.
 - **Eén pad.** `--import-realm` vervalt; ook de eerste installatie loopt via de Job. De placeholders voor geheimen in de JSON krijgen daarom de vorm van keycloak-config-cli (`$(env:…)`) in plaats van die van Keycloak (`${…}`).
