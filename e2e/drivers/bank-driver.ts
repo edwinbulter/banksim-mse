@@ -82,6 +82,10 @@ export interface BankDriver {
   versie(): Promise<string>;
   /** Inloggen via Keycloak en de BFF, zoals een gebruiker dat doet. */
   logIn(gebruikersnaam: string, wachtwoord: string): Promise<void>;
+  /** Alleen in de UI-driver (@ui): inloggen zonder te verwachten dat het lukt (S6.1). */
+  probeerInTeLoggen(gebruikersnaam: string, wachtwoord: string): Promise<void>;
+  /** De melding op het inlogscherm, of undefined als BankSim al geladen is. */
+  inlogfout(): Promise<string | undefined>;
   /** Uitloggen via "Uitloggen" (S6.2). */
   logUit(): Promise<void>;
   /** Of BankSim de rekeningen toont, of in plaats daarvan "Inloggen". */

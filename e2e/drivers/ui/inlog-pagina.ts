@@ -12,9 +12,21 @@ export class InlogPagina {
   }
 
   async logIn(gebruikersnaam: string, wachtwoord: string): Promise<void> {
+    await this.probeer(gebruikersnaam, wachtwoord);
+    await this.page.waitForURL(/^https:\/\/bank-mse\.localtest\.me\//);
+  }
+
+  async probeer(gebruikersnaam: string, wachtwoord: string): Promise<void> {
     await this.page.locator('#username').fill(gebruikersnaam);
     await this.page.locator('#password').fill(wachtwoord);
     await this.page.locator('#kc-login').click();
-    await this.page.waitForURL(/^https:\/\/bank-mse\.localtest\.me\//);
+  }
+
+  /** Wacht tot Keycloak een melding toont of BankSim geladen is; de melding staat in .kc-feedback-text. */
+  async fout(): Promise<string | undefined> {
+    const melding = this.page.locator('.kc-feedback-text').first();
+    await expect(melding.or(this.page.getByRole('heading', { name: /^Welkom/ }))).toBeVisible();
+    if (!(await melding.isVisible())) return undefined;
+    return ((await melding.textContent()) ?? '').trim();
   }
 }

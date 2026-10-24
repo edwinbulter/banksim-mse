@@ -115,6 +115,16 @@ export class Klant {
     this.ingelogd = true;
   }
 
+  /** S6.1: met Jans gebruikersnaam en een ander wachtwoord; Jan is daarna niet ingelogd. */
+  async logtInMetWachtwoord(wachtwoord: string): Promise<void> {
+    await this.driver.probeerInTeLoggen(this.vereisGegevens().gebruikersnaam, wachtwoord);
+  }
+
+  /** Jan staat nog op het inlogscherm, met deze melding. */
+  async verwachtInlogfout(melding: string): Promise<void> {
+    expect(await this.driver.inlogfout(), `inlogfout bij ${this.alias}`).toBe(melding);
+  }
+
   /** S6.2: via "Uitloggen"; daarna is Jan niet meer ingelogd. */
   async logtUit(): Promise<void> {
     await this.driver.logUit();

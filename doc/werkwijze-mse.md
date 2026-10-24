@@ -852,16 +852,18 @@ Nu er straks een tweede klant (de ontvanger van een betaling) en een admin bij k
 
 ```ts
 // e2e/specs/inloggen.spec.ts en toegang.spec.ts
-test('Klant komt na inloggen op het overzicht', async ({ bank }) => {
-  const jan = bank.klant('Jan');
-  await bank.als('Jan inlogt', () => jan.logtIn());
-  await bank.dan('ziet Jan het overzicht met de eigen rekeningen', () => jan.verwachtEigenOverzicht());
-});
+// "Klant komt na inloggen op het overzicht" is vervallen bij S6.1: het overlapt met overzicht.spec.ts (S1.1).
 
+// Zo gebouwd in S6.1 (inloggen.spec.ts): de melding is die van Keycloak, in het Nederlands (defaultLocale nl).
 test('Verkeerd wachtwoord', { tag: '@ui' }, async ({ bank }) => {
   const jan = bank.klant('Jan');
-  await bank.als('Jan inlogt met een verkeerd wachtwoord', () => jan.logtIn({ wachtwoord: 'fout' }));
-  await bank.dan('blijft Jan op het inlogscherm met een foutmelding', () => jan.verwachtInlogFout());
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.842,17', () =>
+    jan.heeftBetaalrekening({ saldo: '1842.17' }),
+  );
+  await bank.als('Jan inlogt met een verkeerd wachtwoord', () => jan.logtInMetWachtwoord('fout'));
+  await bank.dan('blijft Jan op het inlogscherm met "Gebruikersnaam of wachtwoord ongeldig."', () =>
+    jan.verwachtInlogfout('Gebruikersnaam of wachtwoord ongeldig.'),
+  );
 });
 
 // Zo gebouwd in S6.1: Jan heeft een rekening nodig om in te loggen; Sanne heeft er een zonder saldo in het voorbeeld

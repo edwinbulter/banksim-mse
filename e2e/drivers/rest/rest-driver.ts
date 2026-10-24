@@ -53,6 +53,14 @@ export class RestDriver implements BankDriver {
     expect(antwoord.url(), 'na inloggen terug op BankSim').toMatch(/^https:\/\/bank-mse\.localtest\.me\/?$/);
   }
 
+  async probeerInTeLoggen(): Promise<void> {
+    throw new Error('Het inlogscherm bestaat alleen in de browser (@ui)');
+  }
+
+  async inlogfout(): Promise<string | undefined> {
+    throw new Error('Het inlogscherm bestaat alleen in de browser (@ui)');
+  }
+
   /**
    * Zoals Angular: een POST met het CSRF-token uit het cookie XSRF-TOKEN (ADR 0016). De BFF antwoordt 202 met de
    * uitlog-URL van Keycloak in Location; die volgt de app, en dus ook de driver (ADR 0021).
