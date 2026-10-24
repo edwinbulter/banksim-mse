@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { kort, type SeedSessie } from './seed-sessie';
 import type { ShellDriver } from './shell-driver';
 
 const NAMESPACE = 'banksim-mse';
@@ -24,9 +25,14 @@ let teller = 0;
 /**
  * Start bank-seed als pod in namespace banksim-mse (ADR 0003) en leest het resultaat als JSON uit de laatste regel
  * van de uitvoer. De pod krijgt zijn rechten uit het Secret bank-seed; de test zelf kent geen wachtwoorden.
+ * Met een sessie (ADR 0020) gaan de opdrachten naar één pod per worker; zonder (project infra) start elke opdracht
+ * een eigen pod.
  */
 export class BankSeed {
-  constructor(private readonly shell: ShellDriver) {}
+  constructor(
+    private readonly shell: ShellDriver,
+    private readonly sessie?: SeedSessie,
+  ) {}
 
   async klantMetBetaalrekening(alias: string, saldo: string): Promise<GeseedeKlant> {
     return this.voerUit<GeseedeKlant>(['klant', '--alias', uniek(alias), '--naam', alias, '--betaalrekening', saldo]);
@@ -87,6 +93,7 @@ export class BankSeed {
   private async voerUit<T>(args: string[]): Promise<T> {
     const tag = (await this.shell.helmWaarden(NAMESPACE, RELEASE))?.imageTag;
     if (!tag) throw new Error(`BankSim-MSE is niet geïnstalleerd in ${this.shell.context}`);
+    if (this.sessie) return this.sessie.voerUit<T>(`banksim-mse/bank-seed:${tag}`, args);
     const naam = `bank-seed-${RUN}-${++teller}-${randomBytes(2).toString('hex')}`;
     const image = `banksim-mse/bank-seed:${tag}`;
     const overrides = {
@@ -117,9 +124,4 @@ export class BankSeed {
 
 function uniek(alias: string): string {
   return `${alias.toLowerCase()}-${RUN}-${++teller}`;
-}
-
-/** De eerste argumenten, zodat 120 transacties de foutmelding niet onleesbaar maken. */
-function kort(args: string[]): string {
-  return args.length <= 8 ? args.join(' ') : `${args.slice(0, 8).join(' ')} … (${args.length} argumenten)`;
 }

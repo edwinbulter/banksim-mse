@@ -3,6 +3,7 @@ import { Bank } from './bank';
 import { Omgeving } from './omgeving';
 import { RestDriver } from '../drivers/rest/rest-driver';
 import { BankSeed } from '../drivers/shell/bank-seed';
+import { SeedSessie } from '../drivers/shell/seed-sessie';
 import { ShellDriver } from '../drivers/shell/shell-driver';
 import { UiDriver } from '../drivers/ui/ui-driver';
 
@@ -11,11 +12,22 @@ export interface Opties {
   driver: 'rest' | 'ui';
 }
 
-export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving }>({
+export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving }, { seedSessie: SeedSessie | undefined }>({
   driver: ['rest', { option: true }],
-  bank: async ({ driver, page, request, playwright, baseURL }, use, testInfo) => {
+  // ADR 0020: één seed-pod per worker, pas gestart bij de eerste opdracht. Niet in het project infra: daar wisselt een
+  // upgrade de versie midden in de run, en een sessie zou de oude blijven draaien.
+  seedSessie: [
+    async ({}, use, workerInfo) => {
+      if (workerInfo.project.name === 'infra') return use(undefined);
+      const sessie = new SeedSessie(new ShellDriver(context()), 'banksim-mse');
+      await use(sessie);
+      await sessie.sluit();
+    },
+    { scope: 'worker' },
+  ],
+  bank: async ({ driver, page, request, playwright, baseURL, seedSessie }, use, testInfo) => {
     const bankDriver = driver === 'ui' ? new UiDriver(page) : new RestDriver(request);
-    const seed = new BankSeed(new ShellDriver(context()));
+    const seed = new BankSeed(new ShellDriver(context()), seedSessie);
     const eigenSessies: APIRequestContext[] = [];
     const bank = new Bank(bankDriver, seed, (titel, stap) => basis.step(titel, stap), async () => {
       const sessie = await playwright.request.newContext({ baseURL, ignoreHTTPSErrors: true });

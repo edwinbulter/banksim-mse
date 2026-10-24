@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { type ChildProcessWithoutNullStreams, execFile, spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,6 +47,11 @@ export class ShellDriver {
 
   async kubectl(args: string[]): Promise<Resultaat> {
     return voerUit('kubectl', ['--context', this.context, ...args]);
+  }
+
+  /** kubectl als langlopend proces, met stdin open; voor de seed-sessie (ADR 0020). */
+  kubectlProces(args: string[]): ChildProcessWithoutNullStreams {
+    return spawn('kubectl', ['--context', this.context, ...args]);
   }
 
   /** kubectl get … -o json; geeft de items terug. */

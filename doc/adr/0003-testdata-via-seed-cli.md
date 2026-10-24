@@ -1,7 +1,7 @@
 # 0003. Testdata via een seed-CLI als pod in het cluster
 
 Datum: 2026-10-20
-Status: Geaccepteerd
+Status: Geaccepteerd; het starten van een pod per aanroep is vervangen door [0020](0020-seed-als-sessie-per-worker.md)
 
 ## Context
 Het eerste scenario van slice 1 ("Klant ziet de betaalrekening met saldo in het overzicht") heeft per run een eigen klant nodig, met een login in Keycloak en een betaalrekening met een opgegeven saldo in de database. Dat volgt uit de isolatie via aliassen (ADR 0005, werkwijze hoofdstuk 5). Het FO heeft geen scherm om rekeninghouders of rekeningen aan te maken; in het origineel doen de realm-import (vaste gebruikers) en `bank-datagen` dat.

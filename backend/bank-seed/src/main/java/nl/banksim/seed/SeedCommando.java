@@ -39,13 +39,18 @@ class SeedCommando {
     }
 
     void voerUit(String... args) {
+        uit.println(json.writeValueAsString(resultaat(args)));
+    }
+
+    /** Voert de opdracht uit en geeft het resultaat terug, zonder het te schrijven. */
+    Object resultaat(String... args) {
         String commando = args.length == 0 ? "" : args[0];
         // Na het commando komen paren "--optie waarde"; een even aantal argumenten betekent een losse optie aan het eind.
         if (args.length > 0 && args.length % 2 == 0) {
             throw new IllegalArgumentException("Optie " + args[args.length - 1] + " heeft geen waarde");
         }
         Map<String, String> opties = opties(args);
-        Object resultaat = switch (commando) {
+        return switch (commando) {
             case "klant" -> klant(opties);
             case "transactie" -> transactie(opties);
             case "transacties" -> transacties(args);
@@ -53,7 +58,6 @@ class SeedCommando {
             default -> throw new IllegalArgumentException("Onbekend commando: " + String.join(" ", args)
                     + " (verwacht: klant, transactie, transacties of beheerder)");
         };
-        uit.println(json.writeValueAsString(resultaat));
     }
 
     private GeseedeKlant klant(Map<String, String> opties) {

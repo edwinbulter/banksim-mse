@@ -1,5 +1,8 @@
 package nl.banksim.seed;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 
@@ -13,7 +16,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
-/** CLI die testdata aanmaakt (ADR 0003). De shell-driver start hem als pod met {@code kubectl run}. */
+/**
+ * CLI die testdata aanmaakt (ADR 0003). De shell-driver start hem als pod met {@code kubectl run}: per opdracht, of met
+ * het commando {@code sessie} één keer per Playwright-worker, met de opdrachten op stdin (ADR 0020).
+ */
 @SpringBootApplication
 @EnableConfigurationProperties(SeedProperties.class)
 public class BankSeedApplication {
@@ -44,7 +50,15 @@ public class BankSeedApplication {
             JsonMapper json) {
         var aanmaker = new SeedKlantAanmaker(logins, rekeninghouders,
                 () -> Iban.simBank(RANDOM.nextLong(10_000_000_000L)));
-        return args -> new SeedCommando(aanmaker, transacties, logins, json, System.out).voerUit(args);
+        return args -> {
+            var commando = new SeedCommando(aanmaker, transacties, logins, json, System.out);
+            if (args.length == 1 && args[0].equals("sessie")) {
+                var stdin = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+                new SeedSessie(commando, json, stdin, System.out).voerUit();
+            } else {
+                commando.voerUit(args);
+            }
+        };
     }
 
     private static byte[] bytes(int aantal) {
