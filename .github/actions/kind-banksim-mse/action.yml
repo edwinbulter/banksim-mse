@@ -1,0 +1,45 @@
+# Een tijdelijk kind-cluster dat single-node nabootst, met BankSim-MSE geïnstalleerd uit de images van de commit
+# stage (doc/werkwijze-mse.md, hoofdstuk 3; ADR 0002). Gedeeld door de jobs van de acceptance stage, die elk een
+# eigen runner en dus een eigen cluster hebben. Verwacht CONTEXT in de omgeving van de job.
+name: kind-cluster met BankSim-MSE
+description: Laadt de images, start kind en ingress-nginx, en installeert BankSim-MSE met de rooktests.
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: images
+    - name: Images uit de commit stage laden
+      shell: bash
+      run: docker load -i images.tar
+    - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      with:
+        version: v4.2.0
+    - name: kind-cluster banksim-mse-ci
+      uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
+      with:
+        version: v0.31.0
+        cluster_name: banksim-mse-ci
+        config: .github/kind-ci.yaml
+    - name: ingress-nginx (dezelfde versie als in single-node)
+      shell: bash
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.3/deploy/static/provider/kind/deploy.yaml
+        kubectl -n ingress-nginx wait --for=condition=available deployment/ingress-nginx-controller --timeout=180s
+        kubectl -n ingress-nginx wait --for=condition=complete job --all --timeout=180s
+    - name: ingress-nginx admission-webhook bereikbaar
+      # "available" is niet genoeg: de webhook weigert daarna nog even verbindingen ("connection refused").
+      shell: bash
+      run: |
+        for _ in $(seq 30); do
+          if kubectl create ingress webhook-probe -n default --class=nginx --rule='probe.local/=probe:80' \
+               --dry-run=server -o name >/dev/null 2>&1; then
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "De admission-webhook van ingress-nginx reageert niet" >&2
+        exit 1
+    - name: BankSim-MSE installeren met de images uit de commit stage (met rooktests)
+      shell: bash
+      run: deploy/scripts/install.sh --context "$CONTEXT" --image-tag "${GITHUB_SHA::7}"

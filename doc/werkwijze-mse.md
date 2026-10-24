@@ -126,7 +126,7 @@ flowchart LR
 ```
 
 - **Commit stage** (GitHub Actions, elke push): `mvnw verify` (unit, slice, ArchUnit), `ng lint`, Vitest, en de chart- en scripttests uit hoofdstuk 9. Doel: binnen 5 minuten weten of de commit deugt. Bouwt de images één keer met Jib; latere stages hergebruiken exact die artefacten.
-- **Acceptance stage**: maakt het tijdelijke kind-cluster `banksim-mse-ci`, installeert met hetzelfde `install.sh` in namespace `banksim-mse` en draait de Playwright-acceptatietests tegen die installatie.
+- **Acceptance stage**: maakt het tijdelijke kind-cluster `banksim-mse-ci`, installeert met hetzelfde `install.sh` in namespace `banksim-mse` en draait de Playwright-acceptatietests tegen die installatie. De installatiescenario's (9.2) draaien in een tweede job, parallel, met een eigen runner en een eigen cluster; ze installeren en verwijderen zelf. De opzet van het cluster delen de twee jobs via de composite action `.github/actions/kind-banksim-mse`.
 - **Deploy**: lokaal `install.sh` op het bestaande cluster `kind-single-node`, in namespace `banksim-mse`; dezelfde scripts, dezelfde chart. Je kunt de acceptatietests ook lokaal tegen deze installatie draaien. Ze maken hun eigen data via aliassen (hoofdstuk 5), dus de bestaande data blijft heel.
 - Regel: een rode pipeline heeft voorrang op alles. Niemand bouwt verder op rood.
 
