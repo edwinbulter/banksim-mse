@@ -45,6 +45,19 @@ export class UiDriver implements BankDriver {
     await this.inlog.logIn(gebruikersnaam, wachtwoord);
   }
 
+  async logUit(): Promise<void> {
+    await this.start.kiesUitloggen();
+  }
+
+  async ingelogd(): Promise<boolean> {
+    return this.start.ingelogd();
+  }
+
+  async inloggenVraagtWachtwoord(): Promise<boolean> {
+    await this.start.kiesInloggen();
+    return this.inlog.vraagtWachtwoord();
+  }
+
   async openOverzicht(): Promise<void> {
     await this.overzicht.wachtTotGeladen();
   }

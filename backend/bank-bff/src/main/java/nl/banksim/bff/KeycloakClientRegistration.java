@@ -35,7 +35,9 @@ class KeycloakClientRegistration {
                 .jwkSetUri(keycloak.internEndpoint("certs"))
                 .issuerUri(keycloak.issuer())
                 .userNameAttributeName(IdTokenClaimNames.SUB)
-                .providerConfigurationMetadata(Map.of("issuer", keycloak.issuer()))
+                .providerConfigurationMetadata(Map.of("issuer", keycloak.issuer(),
+                        // ADR 0021: hier stuurt de app de browser heen bij het uitloggen.
+                        "end_session_endpoint", keycloak.publiekEndpoint("logout")))
                 .clientName("Keycloak")
                 .build());
     }

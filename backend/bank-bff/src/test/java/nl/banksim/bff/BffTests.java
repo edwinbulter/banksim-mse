@@ -2,9 +2,12 @@ package nl.banksim.bff;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.IOException;
@@ -21,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -163,6 +167,40 @@ class BffTests {
                 .andExpect(status().isOk())
                 .andExpect(content().string("{\"pad\":\"/api/beheer/simulatiedatum\"}"));
         assertThat(AUTHORIZATION).containsExactly("Bearer access-token");
+    }
+
+    /**
+     * ADR 0021: uitloggen beëindigt de sessie van de BFF en geeft de app de uitlog-URL van Keycloak, met id_token_hint
+     * (geen bevestigingsscherm) en de terugweg naar BankSim. Een 202 in plaats van een redirect: de app roept /logout
+     * aan met XHR, en volgt de URL zelf.
+     */
+    @Test
+    void uitloggenGeeft202MetDeUitlogUrlVanKeycloakEnBeeindigtDeSessie() throws Exception {
+        Cookie token = mvc.perform(get("/api/versie")).andReturn().getResponse().getCookie("XSRF-TOKEN");
+        var sessie = new MockHttpSession();
+
+        mvc.perform(post("/logout")
+                        .session(sessie)
+                        .cookie(token)
+                        .header("X-XSRF-TOKEN", token.getValue())
+                        // Het test-ID-token van oidcLogin() heeft de waarde "id-token".
+                        .with(oidcLogin().clientRegistration(registraties.findByRegistrationId("keycloak"))))
+                .andExpect(status().isAccepted())
+                .andExpect(header().string("Location", "https://auth-mse.localtest.me/realms/banksim-mse"
+                        + "/protocol/openid-connect/logout?id_token_hint=id-token"
+                        + "&post_logout_redirect_uri=https://bank-mse.localtest.me/"));
+        assertThat(sessie.isInvalid()).isTrue();
+    }
+
+    /** ADR 0016 en 0021: zonder token kan een andere site Jan niet uitloggen. */
+    @Test
+    void uitloggenZonderCsrfTokenGeeft403() throws Exception {
+        var sessie = new MockHttpSession();
+        mvc.perform(post("/logout")
+                        .session(sessie)
+                        .with(oidcLogin().clientRegistration(registraties.findByRegistrationId("keycloak"))))
+                .andExpect(status().isForbidden());
+        assertThat(sessie.isInvalid()).isFalse();
     }
 
     /** Geeft het pad terug en onthoudt welke Authorization-, Cookie-, Upgrade- en Transfer-Encoding-header binnenkwamen. */

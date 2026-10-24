@@ -115,6 +115,21 @@ export class Klant {
     this.ingelogd = true;
   }
 
+  /** S6.2: via "Uitloggen"; daarna is Jan niet meer ingelogd. */
+  async logtUit(): Promise<void> {
+    await this.driver.logUit();
+    this.ingelogd = false;
+  }
+
+  async verwachtNietIngelogd(): Promise<void> {
+    expect(await this.driver.ingelogd(), `${this.alias} nog ingelogd`).toBe(false);
+  }
+
+  /** Inloggen eindigt niet stilletjes in de oude sessie: Keycloak toont het formulier voor gebruikersnaam en wachtwoord. */
+  async verwachtInlogscherm(): Promise<void> {
+    expect(await this.driver.inloggenVraagtWachtwoord(), `inlogscherm voor ${this.alias}`).toBe(true);
+  }
+
   async verwachtRekeningInOverzicht(soort: Soort, saldo: string): Promise<void> {
     const { iban } = this.vereisGegevens();
     expect(await this.driver.rekeningenInOverzicht(), `rekeningen van ${this.alias}`).toContainEqual({

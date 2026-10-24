@@ -53,6 +53,43 @@ export class RestDriver implements BankDriver {
     expect(antwoord.url(), 'na inloggen terug op BankSim').toMatch(/^https:\/\/bank-mse\.localtest\.me\/?$/);
   }
 
+  /**
+   * Zoals Angular: een POST met het CSRF-token uit het cookie XSRF-TOKEN (ADR 0016). De BFF antwoordt 202 met de
+   * uitlog-URL van Keycloak in Location; die volgt de app, en dus ook de driver (ADR 0021).
+   */
+  async logUit(): Promise<void> {
+    let token = await this.csrfToken();
+    if (!token) {
+      await this.request.get('/api/versie');
+      token = await this.csrfToken();
+    }
+    const antwoord = await this.request.post('/logout', {
+      headers: token ? { 'X-XSRF-TOKEN': token } : undefined,
+      maxRedirects: 0,
+    });
+    expect(antwoord.status(), 'POST /logout').toBe(202);
+    const keycloak = antwoord.headers()['location'];
+    expect(keycloak, 'Location na POST /logout').toBeTruthy();
+    const terug = await this.request.get(keycloak!);
+    expect(terug.url(), 'na uitloggen terug op BankSim').toMatch(/^https:\/\/bank-mse\.localtest\.me\/?$/);
+  }
+
+  async ingelogd(): Promise<boolean> {
+    const status = (await this.request.get('/api/rekeningen')).status();
+    expect([200, 401], 'GET /api/rekeningen').toContain(status);
+    return status === 200;
+  }
+
+  /** Na de redirects staat er een formulier kc-form-login, of de keten eindigt al op BankSim. */
+  async inloggenVraagtWachtwoord(): Promise<boolean> {
+    const antwoord = await this.request.get('/oauth2/authorization/keycloak');
+    return /<form[^>]*id="kc-form-login"/.test(await antwoord.text());
+  }
+
+  private async csrfToken(): Promise<string | undefined> {
+    return (await this.request.storageState()).cookies.find((cookie) => cookie.name === 'XSRF-TOKEN')?.value;
+  }
+
   async openOverzicht(): Promise<void> {
     // Het overzicht is één API-aanroep; die doet rekeningenInOverzicht.
   }

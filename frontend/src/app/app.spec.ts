@@ -4,16 +4,24 @@ import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { App } from './app';
 import { appConfig } from './app.config';
+import { Browser } from './browser';
 
 /** De app met de echte configuratie en routes (ADR 0012); alleen de HTTP-laag is vervangen. */
 describe('App', () => {
   let http: HttpTestingController;
   let fixture: ComponentFixture<App>;
+  /** De URL's waar de app de browser heen stuurde, buiten de app (ADR 0021). */
+  let genavigeerd: string[];
 
   beforeEach(async () => {
+    genavigeerd = [];
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [...appConfig.providers, provideHttpClientTesting()],
+      providers: [
+        ...appConfig.providers,
+        provideHttpClientTesting(),
+        { provide: Browser, useValue: { naar: (url: string) => genavigeerd.push(url) } },
+      ],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
   });
@@ -282,5 +290,25 @@ describe('App', () => {
 
     expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Rekening is niet gevonden.');
     expect(knop(pagina, 'Zoeken in transacties')).toBeUndefined();
+  });
+
+  it('toont zonder login geen knop "Uitloggen" (S6.2)', async () => {
+    const pagina = await start('/');
+    await rekeningen({ status: 401 });
+    expect(knop(pagina, 'Uitloggen')).toBeUndefined();
+  });
+
+  it('"Uitloggen" stuurt een POST naar /logout en gaat naar de uitlog-URL van Keycloak (S6.2, ADR 0021)', async () => {
+    const pagina = await start('/');
+    await rekeningen({ status: 200, body: JAN });
+    const keycloak = 'https://auth-mse.localtest.me/realms/banksim-mse/protocol/openid-connect/logout?id_token_hint=x';
+
+    knop(pagina, 'Uitloggen')?.click();
+    http
+      .expectOne({ method: 'POST', url: '/logout' })
+      .flush(null, { status: 202, statusText: 'Accepted', headers: { Location: keycloak } });
+    await ververs();
+
+    expect(genavigeerd).toEqual([keycloak]);
   });
 });

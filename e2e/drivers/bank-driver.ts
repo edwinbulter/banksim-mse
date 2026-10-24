@@ -82,6 +82,12 @@ export interface BankDriver {
   versie(): Promise<string>;
   /** Inloggen via Keycloak en de BFF, zoals een gebruiker dat doet. */
   logIn(gebruikersnaam: string, wachtwoord: string): Promise<void>;
+  /** Uitloggen via "Uitloggen" (S6.2). */
+  logUit(): Promise<void>;
+  /** Of BankSim de rekeningen toont, of in plaats daarvan "Inloggen". */
+  ingelogd(): Promise<boolean>;
+  /** "Inloggen" kiezen: of Keycloak dan om gebruikersnaam en wachtwoord vraagt, in plaats van meteen terug te sturen. */
+  inloggenVraagtWachtwoord(): Promise<boolean>;
   openOverzicht(): Promise<void>;
   rekeningenInOverzicht(): Promise<RekeningInOverzicht[]>;
   /** Vanuit het overzicht de rekening met dit IBAN openen. */

@@ -28,7 +28,8 @@ class BeveiligingConfig {
     }
 
     @Bean
-    SecurityFilterChain bff(HttpSecurity http, ClientRegistrationRepository registraties) throws Exception {
+    SecurityFilterChain bff(HttpSecurity http, ClientRegistrationRepository registraties, BffProperties properties)
+            throws Exception {
         var pkce = new DefaultOAuth2AuthorizationRequestResolver(registraties, "/oauth2/authorization");
         pkce.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
         return http
@@ -39,6 +40,9 @@ class BeveiligingConfig {
                 .oauth2Login(login -> login
                         .loginPage(LOGIN)
                         .authorizationEndpoint(endpoint -> endpoint.authorizationRequestResolver(pkce)))
+                // ADR 0021: POST /logout geeft 202 met de uitlog-URL van Keycloak; de app navigeert erheen.
+                .logout(logout -> logout.logoutSuccessHandler(
+                        new UitlogUrlAntwoord(registraties, properties.publicUrl() + "/")))
                 // ADR 0016: het token in het leesbare cookie XSRF-TOKEN; Angular stuurt het terug als X-XSRF-TOKEN.
                 .csrf(csrf -> csrf.spa())
                 // De Angular-app krijgt een 401 en toont dan de link "Inloggen".

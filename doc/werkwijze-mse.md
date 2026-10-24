@@ -877,11 +877,16 @@ test('Andermans rekening bestaat niet', async ({ bank }) => {
   await bank.dan('ziet Jan "Rekening is niet gevonden."', () => jan.verwachtNietGevonden());
 });
 
-test('Uitloggen', async ({ bank }) => {
+// Zo gebouwd in S6.2 (inloggen.spec.ts, @rook): de tweede Dan-stap dwingt af dat ook de Keycloak-sessie eindigt (ADR 0021).
+test('Uitloggen', { tag: '@rook' }, async ({ bank }) => {
   const jan = bank.klant('Jan');
-  await bank.gegeven('Jan is ingelogd', () => jan.logtIn());
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.842,17', () =>
+    jan.heeftBetaalrekening({ saldo: '1842.17' }),
+  );
+  await bank.en('Jan is ingelogd en ziet het overzicht', () => jan.opentOverzicht());
   await bank.als('Jan uitlogt', () => jan.logtUit());
-  await bank.dan('moet Jan opnieuw inloggen om het overzicht te zien', () => jan.verwachtNietIngelogd());
+  await bank.dan('ziet Jan zijn rekeningen niet meer, maar "Inloggen"', () => jan.verwachtNietIngelogd());
+  await bank.en('vraagt "Inloggen" opnieuw om gebruikersnaam en wachtwoord', () => jan.verwachtInlogscherm());
 });
 ```
 
