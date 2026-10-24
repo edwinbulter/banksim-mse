@@ -357,4 +357,37 @@ describe('App', () => {
     await transacties('/api/rekeningen/NL94SIMB0000000001/transacties', TWEE_DAGEN);
     expect(pagina.querySelector('h2')?.textContent).toBe('Betaalrekening');
   });
+  /** S7.1: een weigering van de API (RFC 9457) toont de melding op het controlescherm; de klant blijft daar. */
+  it('toont de melding van de API als de betaling geweigerd wordt (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+    vulIn(pagina, 'Bedrag (€)', '25,00');
+    vulIn(pagina, 'Naam ontvanger', 'Piet');
+    vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL40SIMB0000000003');
+    knop(pagina, 'Volgende')?.click();
+    await ververs();
+    knop(pagina, 'Bevestigen')?.click();
+    await ververs();
+
+    http.expectOne('/api/betalingen').flush(
+      { type: 'urn:banksim:probleem:onbekend-contact', detail: 'Naar dit rekeningnummer kan niet worden betaald.' },
+      { status: 422, statusText: 'Unprocessable Content' },
+    );
+    await ververs();
+
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe(
+      'Naar dit rekeningnummer kan niet worden betaald.',
+    );
+    expect(TestBed.inject(Location).path()).toBe('/rekeningen/NL94SIMB0000000001/betalen');
+    expect(pagina.querySelector('h2')?.textContent).toBe('Controleer je betaling');
+  });
+  /** FO "Betalen scherm": "< Betaalrekening" gaat terug naar de rekening, ook na een weigering. */
+  it('gaat vanaf het betaalscherm met de link "Betaalrekening" terug naar de rekening (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+
+    link(pagina, 'Betaalrekening')?.click();
+    await ververs();
+
+    expect(TestBed.inject(Location).path()).toBe('/rekeningen/NL94SIMB0000000001');
+    await transacties('/api/rekeningen/NL94SIMB0000000001/transacties', TWEE_DAGEN);
+  });
 });

@@ -11,11 +11,17 @@ export class OverzichtPagina {
     await expect(this.welkom()).toBeVisible();
   }
 
-  /** Na het inloggen staat het overzicht er al; vanaf een ander scherm via de link "Overzicht", zoals een gebruiker. */
+  /**
+   * Na het inloggen staat het overzicht er al. Vanaf een ander scherm via de links, zoals een gebruiker: vanaf het
+   * betaalscherm eerst "Betaalrekening", dan "Overzicht".
+   */
   async open(): Promise<void> {
-    const link = this.page.getByRole('link', { name: 'Overzicht' });
-    await expect(this.welkom().or(link).first()).toBeVisible();
-    if (!(await this.welkom().isVisible())) await link.click();
+    const overzicht = this.page.getByRole('link', { name: 'Overzicht' });
+    const betaalrekening = this.page.getByRole('link', { name: 'Betaalrekening' });
+    await expect(this.welkom().or(overzicht).or(betaalrekening).first()).toBeVisible();
+    if (await this.welkom().isVisible()) return;
+    if (!(await overzicht.isVisible())) await betaalrekening.click();
+    await overzicht.click();
     await this.wachtTotGeladen();
   }
 

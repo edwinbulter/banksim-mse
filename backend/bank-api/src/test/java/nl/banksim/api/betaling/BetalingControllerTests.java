@@ -3,6 +3,7 @@ package nl.banksim.api.betaling;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Clock;
@@ -50,6 +51,9 @@ class BetalingControllerTests {
     @Autowired
     GeheugenGrootboek grootboek;
 
+    @Autowired
+    GeheugenContacten contacten;
+
     @MockitoBean
     JwtDecoder jwtDecoder;
 
@@ -57,6 +61,8 @@ class BetalingControllerTests {
     void janHeeftEenRekening() {
         grootboek.leeg();
         grootboek.rekening("jan-a1-1", VAN_JAN, "Jan");
+        contacten.leeg();
+        contacten.voegToe(VAN_SANNE);
     }
 
     /** FO: op de simulatiedatum (5 oktober) met de huidige tijd (14:00 in Europe/Amsterdam), type Online bankieren. */
@@ -82,6 +88,19 @@ class BetalingControllerTests {
         assertThat(grootboek.geschreven()).isEmpty();
     }
 
+    /** S7.1: alleen naar een IBAN uit de contactenlijst van de bank; RFC 9457 met het probleemtype. */
+    @Test
+    void naarEenIbanDatGeenContactIsGeeft422EnBoektNiets() throws Exception {
+        contacten.leeg();
+
+        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON).content(betaling(VAN_JAN)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:onbekend-contact"))
+                .andExpect(jsonPath("$.detail").value("Naar dit rekeningnummer kan niet worden betaald."));
+
+        assertThat(grootboek.geschreven()).isEmpty();
+    }
+
     private static String betaling(Iban van) {
         return """
                 {"van": "%s", "naar": "%s", "naam": "Sanne", "bedrag": "25.00"}""".formatted(van, VAN_SANNE);
@@ -97,6 +116,11 @@ class BetalingControllerTests {
         @Bean
         GeheugenGrootboek grootboek() {
             return new GeheugenGrootboek();
+        }
+
+        @Bean
+        GeheugenContacten contacten() {
+            return new GeheugenContacten();
         }
 
         @Bean

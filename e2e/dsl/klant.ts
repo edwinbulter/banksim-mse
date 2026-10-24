@@ -223,6 +223,18 @@ export class Klant {
     await (await this.sessie()).betaal({ bedrag, naam: aan.naam(), iban: aan.iban() });
   }
 
+  /** Zoals betaalt, maar de bank mag weigeren; de weigering volgt uit verwachtWeigering. */
+  async probeertTeBetalen({ bedrag, aan }: { bedrag: string; aan: Klant }): Promise<void> {
+    await this.opentBetaalrekening();
+    await (await this.sessie()).probeerTeBetalen({ bedrag, naam: aan.naam(), iban: aan.iban() });
+  }
+
+  /** De eigen betaalrekening heeft geen enkele af- of bijschrijving. */
+  async verwachtGeenTransacties(): Promise<void> {
+    await this.opentBetaalrekening();
+    expect(await (await this.sessie()).transacties(), `transacties van ${this.alias}`).toEqual([]);
+  }
+
   /** De nieuwste transactie op de eigen betaalrekening, na die opnieuw te openen. */
   async verwachtBovensteTransactie(tegenpartij: string, bedrag: string): Promise<void> {
     await this.opentBetaalrekening();

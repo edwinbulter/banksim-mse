@@ -25,6 +25,7 @@ export class UiDriver implements BankDriver {
   private readonly betaalrekening: BetaalrekeningPagina;
   private readonly zoeken: ZoekenPagina;
   private readonly betalen: BetalenPagina;
+  private laatsteFormulier: 'zoeken' | 'betalen' = 'zoeken';
 
   constructor(private readonly page: Page) {
     this.start = new StartPagina(page);
@@ -109,11 +110,13 @@ export class UiDriver implements BankDriver {
   }
 
   async zoek(opdracht: Zoekopdracht): Promise<void> {
+    this.laatsteFormulier = 'zoeken';
     await this.zoeken.zoek(opdracht);
   }
 
+  /** De melding van het formulier dat het laatst is verstuurd. */
   async weigering(): Promise<string | undefined> {
-    return this.zoeken.weigering();
+    return this.laatsteFormulier === 'betalen' ? this.betalen.weigering() : this.zoeken.weigering();
   }
 
   async openZoeken(): Promise<void> {
@@ -138,6 +141,11 @@ export class UiDriver implements BankDriver {
 
   async betaal(opdracht: Betaalopdracht): Promise<void> {
     await this.betalen.betaal(opdracht);
+  }
+
+  async probeerTeBetalen(opdracht: Betaalopdracht): Promise<void> {
+    this.laatsteFormulier = 'betalen';
+    await this.betalen.probeer(opdracht);
   }
 
   async naarOverzicht(): Promise<void> {

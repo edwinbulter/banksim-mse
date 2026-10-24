@@ -1,9 +1,12 @@
 package nl.banksim.api.betaling;
 
+import java.net.URI;
+
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,6 +32,14 @@ class BetalingController {
     void betaal(@RequestBody BetalingJson json) {
         betalen.betaal(gebruiker.gebruikersnaam(), Iban.van(json.van()), Iban.van(json.naar()), json.naam(),
                 Bedrag.van(json.bedrag()));
+    }
+
+    /** RFC 9457: het probleemtype voor de software, de melding voor de klant. */
+    @ExceptionHandler(BetalingGeweigerd.class)
+    ProblemDetail betalingGeweigerd(BetalingGeweigerd fout) {
+        ProblemDetail probleem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, fout.getMessage());
+        probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem()));
+        return probleem;
     }
 
     @ExceptionHandler(RekeningNietGevonden.class)

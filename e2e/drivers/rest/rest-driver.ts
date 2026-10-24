@@ -231,6 +231,24 @@ export class RestDriver implements BankDriver {
     await this.openRekening(van!);
   }
 
+  /** Een weigering is een 422 met een probleemtype (RFC 9457); een gelukte betaling laadt de rekening opnieuw. */
+  async probeerTeBetalen({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
+    const van = this.geopend;
+    expect(van, 'een geopende rekening om van te betalen').toBeTruthy();
+    this.probleem = undefined;
+    const antwoord = await this.request.post('/api/betalingen', {
+      headers: await this.csrfHeader(),
+      data: { van, naar: iban, naam, bedrag },
+    });
+    if (antwoord.status() === 422) {
+      const { type } = (await antwoord.json()) as { type?: string };
+      this.probleem = type?.split(':').at(-1);
+      return;
+    }
+    expect(antwoord.status(), `POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+    await this.openRekening(van!);
+  }
+
   /** Het CSRF-token uit het cookie XSRF-TOKEN (ADR 0016); zonder cookie haalt een GET via de BFF het eerst op. */
   private async csrfHeader(): Promise<Record<string, string> | undefined> {
     let token = await this.csrfToken();

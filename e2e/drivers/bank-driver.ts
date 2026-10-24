@@ -119,7 +119,10 @@ export interface BankDriver {
   details(): Promise<TransactieDetails>;
   /** Zoeken in de transacties van de geopende rekening; de lijst toont daarna wat gevonden is (S5.1). */
   zoek(opdracht: Zoekopdracht): Promise<void>;
-  /** Het probleemtype ("ongeldig-bedragbereik") als de laatste zoekopdracht geweigerd werd, anders undefined. */
+  /**
+   * Het probleemtype ("ongeldig-bedragbereik", "onbekend-contact") als de laatste zoekopdracht of betaling geweigerd
+   * werd, anders undefined.
+   */
   weigering(): Promise<string | undefined>;
   /** Alleen in de UI-driver (@ui): het zoekformulier openen, de tekst van de knop, wissen en de inhoud lezen. */
   openZoeken(): Promise<void>;
@@ -136,6 +139,8 @@ export interface BankDriver {
   herlaad(): Promise<void>;
   /** Vanaf de geopende rekening betalen en op het controlescherm bevestigen (S7.1); daarna staat de rekening weer open. */
   betaal(opdracht: Betaalopdracht): Promise<void>;
+  /** Hetzelfde, zonder te verwachten dat het lukt; daarna geeft weigering() het probleemtype ("onbekend-contact"). */
+  probeerTeBetalen(opdracht: Betaalopdracht): Promise<void>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */
   zetSimulatiedatum(datum: string): Promise<Uitkomst>;
   /** De simulatiedatum wissen: de bank draait weer op vandaag. */

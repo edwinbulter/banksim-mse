@@ -1,16 +1,19 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, input, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
 
 /**
  * Route `/rekeningen/:iban/betalen` (S7.1, FO "Betalen scherm"): bedrag, naam en IBAN van de ontvanger; "Volgende"
  * toont het controlescherm, "Bevestigen" boekt de betaling en keert terug naar de betaalrekening. De controle of de
- * ontvanger een contact is en of het saldo toereikend is, doet de API.
+ * ontvanger een contact is en of het saldo toereikend is, doet de API; een weigering (422) toont haar melding.
+ * De link "Betaalrekening" is "< Betaalrekening" uit het FO.
  */
 @Component({
   selector: 'app-betalen-scherm',
+  imports: [RouterLink],
   template: `
+    <a [routerLink]="['/rekeningen', iban()]">Betaalrekening</a>
     @if (controle()) {
       <h2>Controleer je betaling</h2>
       <dl>
@@ -21,6 +24,9 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
         <dt>Rekeningnummer (IBAN)</dt>
         <dd>{{ ontvanger() }}</dd>
       </dl>
+      @if (melding(); as melding) {
+        <p role="alert">{{ melding }}</p>
+      }
       <button type="button" (click)="bevestig()">Bevestigen</button>
     } @else {
       <h2>Betalen</h2>
@@ -47,10 +53,16 @@ export class BetalenScherm {
   protected readonly naam = signal('');
   protected readonly ontvanger = signal('');
   protected readonly controle = signal(false);
+  /** De melding van de API bij een geweigerde betaling (RFC 9457), zoals "Naar dit rekeningnummer kan niet worden betaald.". */
+  protected readonly melding = signal<string | undefined>(undefined);
 
   protected bevestig(): void {
     const betaling = { van: this.iban(), naar: this.ontvanger(), naam: this.naam(), bedrag: bedragUitInvoer(this.bedrag()) };
-    this.http.post('/api/betalingen', betaling).subscribe(() => void this.router.navigate(['/rekeningen', this.iban()]));
+    this.http.post('/api/betalingen', betaling).subscribe({
+      next: () => void this.router.navigate(['/rekeningen', this.iban()]),
+      // Een 422 is een geweigerde betaling met een melding; een 401 meldt de interceptor aan App.
+      error: (fout: HttpErrorResponse) => this.melding.set((fout.error as { detail?: string } | null)?.detail),
+    });
   }
 
   protected weergave(invoer: string): string {
