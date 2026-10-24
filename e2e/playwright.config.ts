@@ -3,10 +3,11 @@ import type { Opties } from './dsl/fixtures';
 
 /**
  * Acceptatietests tegen de installatie in namespace banksim-mse (doc/werkwijze-mse.md, hoofdstuk 5).
- * Hetzelfde scenario draait via de API (project rest) en via de browser (chromium, firefox, webkit).
+ * Hetzelfde scenario draait via de API (project rest) en via de browser (chromium). Firefox en webkit draaien alleen
+ * de scenario's met @ui of @rook (ADR 0019).
  * @wip-scenario's tellen niet mee; @ui-scenario's draaien alleen in de browser.
  * @simulatiedatum-scenario's veranderen de datum van de hele bank (ADR 0014). Ze draaien daarom pas na alle andere,
- * in een keten van projecten (rest, dan chromium, firefox, webkit), met één worker.
+ * in een keten van projecten (rest, dan chromium), met één worker.
  * Het project infra draait de installatiescenario's (hoofdstuk 9.2) met een shell-driver; @destructief alleen
  * met BANKSIM_DESTRUCTIEF=1, in het CI-cluster.
  */
@@ -36,8 +37,9 @@ export default defineConfig<Opties>({
   projects: [
     { name: 'rest', ...app, grepInvert: /@wip|@ui|@simulatiedatum/, use: { driver: 'rest' } },
     { name: 'chromium', ...app, grepInvert: /@wip|@simulatiedatum/, use: { ...devices['Desktop Chrome'], driver: 'ui' } },
-    { name: 'firefox', ...app, grepInvert: /@wip|@simulatiedatum/, use: { ...devices['Desktop Firefox'], driver: 'ui' } },
-    { name: 'webkit', ...app, grepInvert: /@wip|@simulatiedatum/, use: { ...devices['Desktop Safari'], driver: 'ui' } },
+    // ADR 0019: alleen het scherm zelf (@ui) en het hele pad met inloggen (@rook).
+    { name: 'firefox', ...app, grep: /@ui|@rook/, grepInvert: /@wip|@simulatiedatum/, use: { ...devices['Desktop Firefox'], driver: 'ui' } },
+    { name: 'webkit', ...app, grep: /@ui|@rook/, grepInvert: /@wip|@simulatiedatum/, use: { ...devices['Desktop Safari'], driver: 'ui' } },
     {
       name: 'simulatiedatum-rest',
       ...simulatiedatum,
@@ -51,20 +53,6 @@ export default defineConfig<Opties>({
       grepInvert: /@wip/,
       dependencies: ['simulatiedatum-rest'],
       use: { ...devices['Desktop Chrome'], driver: 'ui' },
-    },
-    {
-      name: 'simulatiedatum-firefox',
-      ...simulatiedatum,
-      grepInvert: /@wip/,
-      dependencies: ['simulatiedatum-chromium'],
-      use: { ...devices['Desktop Firefox'], driver: 'ui' },
-    },
-    {
-      name: 'simulatiedatum-webkit',
-      ...simulatiedatum,
-      grepInvert: /@wip/,
-      dependencies: ['simulatiedatum-firefox'],
-      use: { ...devices['Desktop Safari'], driver: 'ui' },
     },
     {
       name: 'infra',

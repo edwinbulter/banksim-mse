@@ -263,7 +263,7 @@ async gegeven(tekst: string, stap: () => Promise<unknown>) {
 **Keuzes**
 
 - **Spec-taal:** Playwright Test in TypeScript met een interne DSL, binnen de stack van het origineel (ADR 0005). Er is geen Gherkin: de specs zelf zijn het leesbare voorbeeld. Wil je later toch `.feature`-bestanden, dan kan dat met één extra dev-dependency (`playwright-bdd`) op dezelfde DSL; dat is dan een nieuwe ADR.
-- **Twee drivers, één scenario:** `playwright.config.ts` heeft een project `rest` (optie `driver: 'rest'`, snel, geen browser) en de projecten `chromium`, `firefox` en `webkit` (optie `driver: 'ui'`). Hetzelfde scenario draait dus via de API en via de browser. Scenario's die alleen over de UI gaan ("De knop heet nu Verberg zoeken") krijgen de tag `@ui`; het project `rest` sluit die uit met `grepInvert: /@ui/`.
+- **Twee drivers, één scenario:** `playwright.config.ts` heeft een project `rest` (optie `driver: 'rest'`, snel, geen browser) en de projecten `chromium`, `firefox` en `webkit` (optie `driver: 'ui'`). Hetzelfde scenario draait dus via de API en via de browser. Scenario's die alleen over de UI gaan ("De knop heet nu Verberg zoeken") krijgen de tag `@ui`; het project `rest` sluit die uit met `grepInvert: /@ui/`. `firefox` en `webkit` draaien alleen de scenario's met `@ui` of `@rook` (ADR 0019): het domeingedrag bewijzen `rest` en `chromium` al. Voegt een scenario iets aan het scherm toe, dan hoort er een `@ui`-scenario bij.
 - **Waar de REST driver op aanspreekt:** altijd via de ingress en de publieke API-paden, net als de browser. Zodra er in slice 6 een BFF en Keycloak zijn, logt een setup-project één keer per gebruiker in via het echte Keycloak-scherm en bewaart de sessie als `storageState`, zoals het origineel in `e2e/tests/auth.setup.ts` doet. De REST driver gebruikt die sessiecookie en het CSRF-token van de BFF. De driver roept `bank-api` nooit rechtstreeks aan; na de CFR-slices voor mTLS en NetworkPolicies zou dat ook niet meer kunnen.
 - **Isolatie:** elk scenario maakt zijn eigen rekeninghouders en rekeningen via de DSL. De DSL vertaalt een alias ("Jan") naar een unieke naam en IBAN per testrun. Zo zitten scenario's elkaars data niet in de weg en is de gedeelde datagen-seed niet nodig.
 - **Testdata opzetten:** het FO heeft geen scherm om rekeninghouders, rekeningen of willekeurige historische boekingen (incasso, betaalautomaat) aan te maken; dat doet in het origineel alleen de datagenerator. Kies daarom in stap 0 of slice 1 één expliciet mechanisme en leg het vast in een ADR (`0003-testdata-via-seed-cli.md`). Voorstel: een kleine **seed-CLI** in Java, in een eigen Maven-module, die met de regels van `bank-domain` rekeninghouders, rekeningen en overboekingen in de database zet (en later ook Keycloak-gebruikers). De DSL start die als pod in `banksim-mse` via een kleine shell-driver (`kubectl run` vanuit Node; ADR 0003). Er komt dus geen test-only endpoint in de applicatie zelf. In slice 11 groeit deze seed-CLI uit tot `bank-datagen`: dezelfde code, nu aangestuurd door profielen in plaats van door scenario's.
@@ -357,6 +357,7 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | Supply chain: vaste versies, SBOM, Trivy, Renovate | TO §16 | CFR Supply chain |
 | Mutation testing met PIT in de commit stage | — (ontbrak in het origineel) | Afschaffen van de handmatige controle per slice (ADR 0018) |
 | Mutation testing van de frontend met Stryker | — | Zodra de frontend meer logica krijgt (betalen, slice 7) |
+| Firefox en webkit alleen voor `@ui` en `@rook` | — (het origineel draaide alles in drie browsers) | Snellere acceptance stage, bij S6.1 (ADR 0019) |
 
 ## 7. Stap voor stap: de slices
 
@@ -1218,7 +1219,7 @@ void weigertBetalingNaarIbanDatGeenContactIs() {
 
 **5. Refactor** – bijvoorbeeld de opzoeking van het contact verplaatsen naar een methode `Contacten.vereis(Iban)`, zodat de service leesbaar blijft. De controle of de naam bij het contact past komt later, met een eigen scenario, op dezelfde plek terecht. Alle tests blijven groen.
 
-**6. Buitenste lus groen** – het scenario slaagt in het project `rest`. Draai het daarna in `chromium`, `firefox` en `webkit`: faalt het daar, dan ontbreekt de foutmelding in `BetalenComponent`. Nog een rondje binnenste lus in de frontend, met een Vitest-test voor het component.
+**6. Buitenste lus groen** – het scenario slaagt in het project `rest`. Draai het daarna in `chromium` (en, als het een `@ui`-scenario is, in `firefox` en `webkit`): faalt het daar, dan ontbreekt de foutmelding in `BetalenComponent`. Nog een rondje binnenste lus in de frontend, met een Vitest-test voor het component.
 
 **7. Commit en pipeline** – één commit met scenario, test en code. Geen nieuwe ADR nodig: de regel volgt uit het FO en raakt geen architectuurkeuze. Was dit het moment geweest waarop je besloot dat de server de contactcontrole doet en niet alleen de UI, dan had die keuze een ADR gekregen.
 
@@ -1527,7 +1528,7 @@ Het verschil met het origineel: daar staan selectors en page objects direct in d
 
 Een slice is pas klaar als:
 
-- [ ] De scenario's van de slice groen zijn in de acceptance stage: in het project `rest` en (waar relevant) in `chromium`, `firefox` en `webkit`.
+- [ ] De scenario's van de slice groen zijn in de acceptance stage: in het project `rest` en (waar relevant) in `chromium`; `@ui`- en `@rook`-scenario's ook in `firefox` en `webkit` (ADR 0019).
 - [ ] Alle code test-first is ontstaan; unittests (JUnit, Vitest) en slicetests zijn groen.
 - [ ] Elke wijziging aan chart, scripts of CI heeft een template- of scripttest. Verandert er gedrag in het cluster, dan heeft hij ook een installatiescenario (hoofdstuk 9).
 - [ ] Nieuwe fitness functions (ArchUnit, property-based, concurrency, contract) zijn toegevoegd en groen.
