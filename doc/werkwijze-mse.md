@@ -863,12 +863,16 @@ test('Verkeerd wachtwoord', { tag: '@ui' }, async ({ bank }) => {
   await bank.dan('blijft Jan op het inlogscherm met een foutmelding', () => jan.verwachtInlogFout());
 });
 
+// Zo gebouwd in S6.1: Jan heeft een rekening nodig om in te loggen; Sanne heeft er een zonder saldo in het voorbeeld
+// (de DSL zet 0,00). Jan opent hem via het adres /rekeningen/<iban>: in zijn overzicht staat hij niet.
 test('Andermans rekening bestaat niet', async ({ bank }) => {
   const jan = bank.klant('Jan');
   const sanne = bank.klant('Sanne');
-  await bank.gegeven('Sanne heeft een betaalrekening', () => sanne.heeftBetaalrekening());
-  await bank.als('Jan de betaalrekening van Sanne probeert te openen',
-    () => jan.opentRekening(bank.betaalrekeningVan('Sanne')));
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.842,17', () =>
+    jan.heeftBetaalrekening({ saldo: '1842.17' }),
+  );
+  await bank.en('Sanne heeft een betaalrekening', () => sanne.heeftBetaalrekening());
+  await bank.als('Jan de betaalrekening van Sanne probeert te openen', () => jan.opentRekening(sanne.iban()));
   await bank.dan('ziet Jan "Rekening is niet gevonden."', () => jan.verwachtNietGevonden());
 });
 

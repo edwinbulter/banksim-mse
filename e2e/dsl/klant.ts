@@ -51,8 +51,11 @@ export class Klant {
     private readonly seed: BankSeed,
   ) {}
 
-  /** De alias is ook de naam van de rekeninghouder, zoals Van en Naar hem tonen. */
-  async heeftBetaalrekening({ saldo }: { saldo: string }): Promise<void> {
+  /**
+   * De alias is ook de naam van de rekeninghouder, zoals Van en Naar hem tonen. Zonder saldo is het 0,00: het scenario
+   * zegt dan niets over het saldo, maar de seed heeft er een nodig.
+   */
+  async heeftBetaalrekening({ saldo }: { saldo: string } = { saldo: '0.00' }): Promise<void> {
     this.gegevens = await this.seed.klantMetBetaalrekening(this.alias, saldo);
   }
 
@@ -124,6 +127,17 @@ export class Klant {
   async opentBetaalrekening(): Promise<void> {
     await this.opentOverzicht();
     await this.driver.openRekening(this.vereisGegevens().iban);
+  }
+
+  /** Met het IBAN in het adres, zoals een bladwijzer of een gedeelde link: andermans rekening staat niet in het overzicht. */
+  async opentRekening(iban: string): Promise<void> {
+    await this.logtIn();
+    await this.driver.openRekeningViaAdres(iban);
+  }
+
+  /** S6.1: de rekening bestaat voor deze klant niet, ook als hij van een ander is. */
+  async verwachtNietGevonden(): Promise<void> {
+    expect(await this.driver.rekeningNietGevonden(), `rekening niet gevonden bij ${this.alias}`).toBe(true);
   }
 
   /** Via de link "Overzicht" op de betaalrekening. */

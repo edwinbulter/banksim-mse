@@ -17,6 +17,9 @@ const TYPEN: Record<string, TransactieType> = {
   Verzamelbetaling: 'VERZAMELBETALING',
 };
 
+/** Zonder transacties, of zonder zoekresultaat (S5.1): allebei een lege lijst. */
+const LEEG = /^(Nog geen af- of bijschrijvingen\.|Geen transacties gevonden\.)$/;
+
 /**
  * De betaalrekening: per datum een kop ("Vrijdag 2 oktober 2026") met de transacties van die dag.
  * Zonder transacties staat er "Nog geen af- of bijschrijvingen."; dat is een lege lijst.
@@ -31,10 +34,22 @@ export class BetaalrekeningPagina {
     await expect(this.page.getByRole('heading', { name: 'Betaalrekening' })).toBeVisible();
   }
 
+  /** Het adres `/rekeningen/<iban>`, zoals een bladwijzer; de rekening hoeft niet in het overzicht te staan. */
+  async openViaAdres(iban: string): Promise<void> {
+    await this.page.goto(`/rekeningen/${iban}`);
+  }
+
+  /** Wacht tot het scherm de rekening of de melding toont; zonder transacties is er ook een lijst of een tekst. */
+  async nietGevonden(): Promise<boolean> {
+    const melding = this.page.getByText('Rekening is niet gevonden.', { exact: true });
+    const rekening = this.page.getByRole('list', { name: 'Transacties' }).or(this.page.getByText(LEEG));
+    await expect(melding.or(rekening)).toBeVisible();
+    return melding.isVisible();
+  }
+
   async transacties(): Promise<TransactiesOpDatum[]> {
     const lijst = this.page.getByRole('list', { name: 'Transacties' });
-    // Zonder transacties, of zonder zoekresultaat (S5.1): allebei een lege lijst.
-    const leeg = this.page.getByText(/^(Nog geen af- of bijschrijvingen\.|Geen transacties gevonden\.)$/);
+    const leeg = this.page.getByText(LEEG);
     await expect(lijst.or(leeg)).toBeVisible();
     if (await leeg.isVisible()) return [];
     const perDatum: TransactiesOpDatum[] = [];

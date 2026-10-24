@@ -272,4 +272,15 @@ describe('App', () => {
 
     expect(datumkoppen(pagina)).toEqual(['Vrijdag 2 oktober 2026', 'Donderdag 1 oktober 2026']);
   });
+
+  it('meldt "Rekening is niet gevonden." bij een 404, zonder zoekformulier (S6.1)', async () => {
+    const pagina = await start('/rekeningen/NL20SIMB0000000002');
+    http
+      .expectOne('/api/rekeningen/NL20SIMB0000000002/transacties')
+      .flush(null, { status: 404, statusText: 'Not Found' });
+    await ververs();
+
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Rekening is niet gevonden.');
+    expect(knop(pagina, 'Zoeken in transacties')).toBeUndefined();
+  });
 });

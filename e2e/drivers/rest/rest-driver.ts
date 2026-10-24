@@ -24,6 +24,7 @@ export class RestDriver implements BankDriver {
   /** De zoekvelden van de laatste zoekopdracht; leeg na het openen van de rekening. */
   private filter = new URLSearchParams();
   private probleem?: string;
+  private nietGevonden = false;
 
   constructor(private readonly request: APIRequestContext) {}
 
@@ -68,6 +69,21 @@ export class RestDriver implements BankDriver {
     this.geladen = [];
     this.filter = new URLSearchParams();
     await this.laadPagina(`/api/rekeningen/${iban}/transacties`);
+  }
+
+  /** Hetzelfde verzoek als openRekening; een 404 is hier een uitkomst, geen fout (S6.1). */
+  async openRekeningViaAdres(iban: string): Promise<void> {
+    this.geopend = iban;
+    this.geladen = [];
+    this.filter = new URLSearchParams();
+    const pad = `/api/rekeningen/${iban}/transacties`;
+    const antwoord = await this.request.get(pad);
+    this.nietGevonden = antwoord.status() === 404;
+    if (!this.nietGevonden) await this.verwerkPagina(pad, antwoord);
+  }
+
+  async rekeningNietGevonden(): Promise<boolean> {
+    return this.nietGevonden;
   }
 
   /** De geladen pagina's achter elkaar; de groepering per datum volgt de volgorde van de API, zonder te sorteren. */

@@ -86,6 +86,10 @@ export interface BankDriver {
   rekeningenInOverzicht(): Promise<RekeningInOverzicht[]>;
   /** Vanuit het overzicht de rekening met dit IBAN openen. */
   openRekening(iban: string): Promise<void>;
+  /** De rekening met dit IBAN openen via het adres, zonder het overzicht (S6.1). */
+  openRekeningViaAdres(iban: string): Promise<void>;
+  /** Of het systeem meldt dat de laatst geopende rekening niet bestaat (S6.1). */
+  rekeningNietGevonden(): Promise<boolean>;
   /** De transacties van de geopende rekening die tot nu toe geladen zijn, per datum, in de volgorde van het systeem. */
   transacties(): Promise<TransactiesOpDatum[]>;
   /** Of er nog oudere transacties te laden zijn ("Toon meer"). */

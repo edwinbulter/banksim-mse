@@ -57,6 +57,14 @@ export class UiDriver implements BankDriver {
     await this.betaalrekening.open(iban);
   }
 
+  async openRekeningViaAdres(iban: string): Promise<void> {
+    await this.betaalrekening.openViaAdres(iban);
+  }
+
+  async rekeningNietGevonden(): Promise<boolean> {
+    return this.betaalrekening.nietGevonden();
+  }
+
   async transacties(): Promise<TransactiesOpDatum[]> {
     return this.betaalrekening.transacties();
   }

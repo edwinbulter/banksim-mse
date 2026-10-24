@@ -10,20 +10,25 @@ import { ZoekFormulier, type Zoekopdracht } from './zoek-formulier';
  * (S2.2, ADR 0011). De link "Overzicht" is "< Overzicht" uit het origineel.
  * Zoeken (S5.1) vervangt de lijst door wat gevonden is; "Toon meer" stuurt de zoekvelden opnieuw mee, "Wissen" laadt
  * weer alles. Een geweigerde zoekopdracht (400) toont de melding van de API in het formulier.
+ * Een rekening die niet bestaat of van een ander is (404, S6.1), is voor de klant hetzelfde: "Rekening is niet gevonden.".
  */
 @Component({
   selector: 'app-betaalrekening-scherm',
   imports: [Betaalrekening, RouterLink, ZoekFormulier],
   template: `
     <a routerLink="/">Overzicht</a>
-    <app-zoek-formulier [melding]="melding()" (zoek)="zoek($event)" (wis)="zoek({})" />
-    @if (geladen(); as geladen) {
-      <app-betaalrekening
-        [transacties]="geladen.transacties"
-        [meer]="geladen.volgende !== null"
-        [gezocht]="gezocht()"
-        (toonMeer)="toonMeer()"
-      />
+    @if (nietGevonden()) {
+      <p role="alert">Rekening is niet gevonden.</p>
+    } @else {
+      <app-zoek-formulier [melding]="melding()" (zoek)="zoek($event)" (wis)="zoek({})" />
+      @if (geladen(); as geladen) {
+        <app-betaalrekening
+          [transacties]="geladen.transacties"
+          [meer]="geladen.volgende !== null"
+          [gezocht]="gezocht()"
+          (toonMeer)="toonMeer()"
+        />
+      }
     }
   `,
 })
@@ -40,6 +45,7 @@ export class BetaalrekeningScherm {
   private filter: Zoekopdracht = {};
   protected readonly gezocht = signal(false);
   protected readonly melding = signal<string | undefined>(undefined);
+  protected readonly nietGevonden = signal(false);
 
   constructor() {
     effect(() => {
@@ -73,6 +79,7 @@ export class BetaalrekeningScherm {
       // Een 400 is een geweigerde zoekopdracht (RFC 9457); een 401 meldt de interceptor aan App.
       error: (fout: HttpErrorResponse) => {
         if (fout.status === 400) this.melding.set((fout.error as { detail?: string } | null)?.detail);
+        if (fout.status === 404) this.nietGevonden.set(true);
       },
     });
   }
