@@ -4,6 +4,7 @@ import java.util.List;
 
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
 import nl.banksim.api.simulatie.SimulationClock;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,6 +23,7 @@ class RekeningController {
     }
 
     @GetMapping("/api/rekeningen")
+    @PreAuthorize("isAuthenticated()")
     List<RekeningJson> rekeningen() {
         return rekeningen.vanGebruiker(gebruiker.gebruikersnaam(), klok.vandaag()).stream().map(RekeningJson::van).toList();
     }

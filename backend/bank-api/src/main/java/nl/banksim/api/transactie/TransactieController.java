@@ -10,6 +10,7 @@ import nl.banksim.api.simulatie.SimulationClock;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,6 +44,7 @@ class TransactieController {
 
     /** S5.1: de zoekvelden zijn optioneel; "Toon meer" stuurt ze opnieuw mee, naast {@code na}. */
     @GetMapping("/api/rekeningen/{iban}/transacties")
+    @PreAuthorize("isAuthenticated()")
     PaginaJson transacties(@PathVariable String iban, @RequestParam Optional<String> na,
             @RequestParam Optional<String> tekst, @RequestParam Optional<String> van, @RequestParam Optional<String> tm,
             @RequestParam Optional<String> type, @RequestParam Optional<String> richting) {

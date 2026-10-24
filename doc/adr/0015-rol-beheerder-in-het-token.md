@@ -1,7 +1,7 @@
 # 0015. De rol `beheerder` is een realm-rol in het access token
 
 Datum: 2026-10-22
-Status: Geaccepteerd
+Status: Geaccepteerd; de regel `/api/beheer/**` in `BeveiligingConfig` is vervangen door `@PreAuthorize` per endpoint ([0022](0022-toegang-per-endpoint-met-preauthorize.md))
 
 ## Context
 Slice 3. Alleen de beheerder mag de simulatiedatum zetten. Het scenario "Een klant kan de simulatiedatum niet zetten" eist dat een klant 403 krijgt. Tot nu toe kende de realm geen rollen. De BFF krijgt alleen de scopes `basic`, `profile` en `acr`, dus het access token bevat geen rollen. `bank-api` leest alleen `scope` als rechten.

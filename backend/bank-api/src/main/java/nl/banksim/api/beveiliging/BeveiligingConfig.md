@@ -65,6 +65,8 @@ Deze keten heeft geen `securityMatcher`, dus hij vangt alle requests die keten 1
 
 De regels worden van boven naar beneden gelezen; de eerste die past, telt.
 
+Deze regels zijn alleen een vangnet. Het eigenlijke recht van een endpoint staat sinds ADR 0022 boven de controller-methode, bijvoorbeeld `@PreAuthorize("hasRole('beheerder')")` op de simulatiedatum. `@EnableMethodSecurity` op `BeveiligingConfig` zet dat aan. Doordat elke slicetest `BeveiligingConfig` importeert, doen de annotaties daar ook mee. `ToegangPerEndpointTests` (ArchUnit) eist de annotatie op elk endpoint, en `AlleEndpointsTests` controleert 401 en 403 voor alle endpoints van de echte applicatie.
+
 ### `oauth2ResourceServer(... jwt ...)`: hoe "geauthenticeerd" wordt vastgesteld
 
 Hier zit de kern. `bank-api` is een **resource server** (ADR 0008). Hij logt zelf niemand in, maar accepteert een **access token** dat Keycloak heeft uitgegeven. Deze regel voegt een filter toe (`BearerTokenAuthenticationFilter`) dat bij elk request het volgende doet:

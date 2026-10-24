@@ -1,6 +1,7 @@
 package nl.banksim.api.versie;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -14,7 +15,9 @@ class VersieController {
         this.versie = versie;
     }
 
+    /** Ook zonder login: de voettekst en de rooktest (ADR 0008). */
     @GetMapping("/api/versie")
+    @PreAuthorize("permitAll()")
     Versie versie() {
         return new Versie(versie);
     }

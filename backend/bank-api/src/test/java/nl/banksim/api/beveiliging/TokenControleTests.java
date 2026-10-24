@@ -148,16 +148,18 @@ class TokenControleTests {
         }
     }
 
-    /** Een beveiligd endpoint, los van de rekeningen; alleen om de tokencontrole te testen. */
+    /** Een beveiligd endpoint, los van de rekeningen; alleen om de tokencontrole te testen. Rechten zoals ADR 0022. */
     @org.springframework.web.bind.annotation.RestController
     static class Beveiligd {
 
         @org.springframework.web.bind.annotation.GetMapping("/api/beveiligd")
+        @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
         String beveiligd() {
             return "ok";
         }
 
         @org.springframework.web.bind.annotation.GetMapping("/api/beheer/beveiligd")
+        @org.springframework.security.access.prepost.PreAuthorize("hasRole('beheerder')")
         String beheer() {
             return "ok";
         }

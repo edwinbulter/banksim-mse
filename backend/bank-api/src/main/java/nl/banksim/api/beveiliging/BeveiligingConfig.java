@@ -8,6 +8,7 @@ import org.springframework.boot.security.autoconfigure.actuate.web.servlet.Endpo
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
@@ -17,10 +18,11 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * bank-api is resource server (ADR 0008): alleen de BFF roept hem aan, met het access token van de gebruiker.
- * Zonder token alleen de versie, voor de voettekst en de rooktest; {@code /api/beheer/**} alleen met de realm-rol
- * beheerder (ADR 0015).
+ * Zonder token alleen de versie, voor de voettekst en de rooktest. Het recht per endpoint, zoals de realm-rol
+ * beheerder (ADR 0015), staat in {@code @PreAuthorize} boven de controller-methode (ADR 0022).
  */
 @Configuration
+@EnableMethodSecurity
 public class BeveiligingConfig {
 
     /** Alleen health, op de aparte management-poort voor de kubelet-probes. */
@@ -54,8 +56,7 @@ public class BeveiligingConfig {
         return http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/versie").permitAll()
-                        // ADR 0015: alleen de beheerder, bijvoorbeeld de simulatiedatum (ADR 0013).
-                        .requestMatchers("/api/beheer/**").hasRole("beheerder")
+                        // Vangnet; het eigenlijke recht staat in @PreAuthorize (ADR 0022).
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt
                         .jwtAuthenticationConverter(realmRollen())))

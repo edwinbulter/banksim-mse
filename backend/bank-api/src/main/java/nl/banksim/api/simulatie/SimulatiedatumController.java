@@ -3,6 +3,7 @@ package nl.banksim.api.simulatie;
 import java.time.LocalDate;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,6 +22,7 @@ class SimulatiedatumController {
     }
 
     @PutMapping("/api/beheer/simulatiedatum")
+    @PreAuthorize("hasRole('beheerder')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void zet(@RequestBody SimulatiedatumJson json) {
         if (json.datum() == null) {
@@ -30,6 +32,7 @@ class SimulatiedatumController {
     }
 
     @DeleteMapping("/api/beheer/simulatiedatum")
+    @PreAuthorize("hasRole('beheerder')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void wis() {
         simulatiedatum.wis();
