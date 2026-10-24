@@ -61,7 +61,7 @@ class BetalingControllerTests {
     @BeforeEach
     void janHeeftEenRekening() {
         grootboek.leeg();
-        grootboek.rekening("jan-a1-1", VAN_JAN, "Jan");
+        grootboek.rekening("jan-a1-1", VAN_JAN, "Jan", Bedrag.van("500.00"));
         contacten.leeg();
         contacten.voegToe(new Contact(VAN_SANNE, "Sanne"));
     }
@@ -80,7 +80,7 @@ class BetalingControllerTests {
     /** ADR 0023: van andermans rekening bestaat voor de klant niet. */
     @Test
     void vanEenRekeningVanEenAnderGeeft404EnBoektNiets() throws Exception {
-        grootboek.rekening("piet-a1-2", Iban.simBank(3L), "Piet");
+        grootboek.rekening("piet-a1-2", Iban.simBank(3L), "Piet", Bedrag.van("500.00"));
 
         mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
                         .content(betaling(Iban.simBank(3L))))
@@ -124,13 +124,40 @@ class BetalingControllerTests {
         assertThat(grootboek.geschreven()).extracting(overboeking -> overboeking.naar().naam()).containsExactly("Sanne");
     }
 
+    /** Nooit rood: het saldo op de uitvoerdatum (5 oktober, de simulatiedatum) moet de betaling dekken. */
+    @Test
+    void meerDanHetSaldoGeeft422EnBoektNiets() throws Exception {
+        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+                        .content(betaling(VAN_JAN, "Sanne", "500.01")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:saldo-ontoereikend"))
+                .andExpect(jsonPath("$.detail").value("Saldo ontoereikend: deze betaling zou het saldo onder € 0,00 brengen."));
+
+        assertThat(grootboek.geschreven()).isEmpty();
+        assertThat(grootboek.saldoGevraagd()).containsExactly(VAN_JAN + " 2026-10-05");
+    }
+
+    /** Precies het saldo mag: daarna is het saldo € 0,00, niet onder nul. */
+    @Test
+    void preciesHetSaldoMag() throws Exception {
+        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+                        .content(betaling(VAN_JAN, "Sanne", "500.00")))
+                .andExpect(status().isCreated());
+
+        assertThat(grootboek.geschreven()).hasSize(1);
+    }
+
     private static String betaling(Iban van) {
         return betaling(van, "Sanne");
     }
 
     private static String betaling(Iban van, String naam) {
+        return betaling(van, naam, "25.00");
+    }
+
+    private static String betaling(Iban van, String naam, String bedrag) {
         return """
-                {"van": "%s", "naar": "%s", "naam": "%s", "bedrag": "25.00"}""".formatted(van, VAN_SANNE, naam);
+                {"van": "%s", "naar": "%s", "naam": "%s", "bedrag": "%s"}""".formatted(van, VAN_SANNE, naam, bedrag);
     }
 
     private static RequestPostProcessor jan() {

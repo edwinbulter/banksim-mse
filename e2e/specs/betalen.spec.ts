@@ -52,3 +52,15 @@ test('Betaling met een naam die niet bij het rekeningnummer past wordt geweigerd
   await bank.en('is het saldo van Jan € 500,00', () => jan.verwachtSaldo('500.00'));
   await bank.en('heeft Sanne geen bijschrijving ontvangen', () => sanne.verwachtGeenTransacties());
 });
+
+test('Rood staan is niet toegestaan', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await bank.en('Sanne is een contact met een betaalrekening', () =>
+    sanne.heeftBetaalrekening({ contact: true }),
+  );
+  await bank.als('Jan € 500,01 probeert te betalen aan Sanne', () =>
+    jan.probeertTeBetalen({ bedrag: '500.01', aan: sanne }),
+  );
+  await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
+});

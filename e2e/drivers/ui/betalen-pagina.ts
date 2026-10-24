@@ -5,6 +5,7 @@ import type { Betaalopdracht } from '../bank-driver';
 const WEIGERINGEN: Record<string, string> = {
   'Naar dit rekeningnummer kan niet worden betaald.': 'onbekend-contact',
   'De naam van de ontvanger hoort niet bij dit rekeningnummer.': 'naam-past-niet',
+  'Saldo ontoereikend: deze betaling zou het saldo onder € 0,00 brengen.': 'saldo-ontoereikend',
 };
 
 /** Het scherm Betalen (FO "Betalen scherm"): het formulier, het controlescherm en terug naar de betaalrekening. */

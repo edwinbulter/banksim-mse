@@ -40,6 +40,7 @@ class JdbcGrootboekTests {
     static final Iban JAN = Iban.van("NL94SIMB0000000001");
     static final Iban SANNE = Iban.van("NL67SIMB0000000002");
     static final Iban PIET = Iban.van("NL40SIMB0000000003");
+    static final Iban KEES = Iban.van("NL13SIMB0000000004");
 
     static JdbcClient jdbc;
     static TransactionTemplate transactie;
@@ -60,6 +61,18 @@ class JdbcGrootboekTests {
                 UNION ALL
                 SELECT 'NL40SIMB0000000003', id, 'betaal', 0.00 FROM rekeninghouder WHERE gebruikersnaam = 'piet'
                 """).update();
+        // Alleen voor het saldo: een eigen rekening, zodat de andere tests het niet beïnvloeden.
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('kees', 'Kees')").update();
+        jdbc.sql("""
+                INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
+                SELECT 'NL13SIMB0000000004', id, 'betaal', 500.00 FROM rekeninghouder WHERE gebruikersnaam = 'kees'
+                """).update();
+        jdbc.sql("""
+                INSERT INTO transactie (iban, datum, bedrag, tegenpartij, type, tijdstip) VALUES
+                ('NL13SIMB0000000004', '2026-10-01', -100.00, 'Woningstichting', 'INCASSO', '2026-10-01T06:00+02:00'),
+                ('NL13SIMB0000000004', '2026-10-05', -20.00, 'Bakker', 'BETAALAUTOMAAT', '2026-10-05T09:00+02:00'),
+                ('NL13SIMB0000000004', '2026-10-10', 50.00, 'Werkgever', 'OVERSCHRIJVING', '2026-10-10T09:00+02:00')
+                """).update();
     }
 
     private final JdbcGrootboek grootboek = new JdbcGrootboek(jdbc);
@@ -69,6 +82,14 @@ class JdbcGrootboekTests {
         assertThat(grootboek.naamBijEigenRekening("jan", JAN)).contains("Jan");
         assertThat(grootboek.naamBijEigenRekening("jan", SANNE)).isEmpty();
         assertThat(grootboek.naamBijEigenRekening("jan", Iban.simBank(99L))).isEmpty();
+    }
+
+    /** Openingssaldo plus de transacties tot en met de datum; een latere telt niet mee (ADR 0013). */
+    @Test
+    void hetSaldoIsHetOpeningssaldoPlusDeTransactiesTotEnMetDeDatum() {
+        assertThat(grootboek.saldo(KEES, LocalDate.of(2026, 9, 30))).isEqualTo(Bedrag.van("500.00"));
+        assertThat(grootboek.saldo(KEES, LocalDate.of(2026, 10, 5))).isEqualTo(Bedrag.van("380.00"));
+        assertThat(grootboek.saldo(KEES, LocalDate.of(2026, 10, 10))).isEqualTo(Bedrag.van("430.00"));
     }
 
     /** Beide kanten, met type, tijdstip in Europe/Amsterdam, uitvoerdatum en de andere kant als tegenpartij (S4.1). */

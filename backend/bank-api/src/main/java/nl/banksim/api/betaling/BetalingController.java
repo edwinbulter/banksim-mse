@@ -3,6 +3,7 @@ package nl.banksim.api.betaling;
 import java.net.URI;
 
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
+import nl.banksim.api.grootboek.SaldoOntoereikend;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.http.HttpStatus;
@@ -40,6 +41,11 @@ class BetalingController {
         ProblemDetail probleem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, fout.getMessage());
         probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem()));
         return probleem;
+    }
+
+    @ExceptionHandler(SaldoOntoereikend.class)
+    ProblemDetail saldoOntoereikend(SaldoOntoereikend fout) {
+        return betalingGeweigerd(new BetalingGeweigerd("saldo-ontoereikend", fout.getMessage()));
     }
 
     @ExceptionHandler(RekeningNietGevonden.class)

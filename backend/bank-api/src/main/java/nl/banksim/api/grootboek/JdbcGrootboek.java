@@ -1,9 +1,12 @@
 package nl.banksim.api.grootboek;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import nl.banksim.api.simulatie.SimulationClock;
+import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.Boeking;
 import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.rekening.Iban;
@@ -29,6 +32,18 @@ class JdbcGrootboek implements Grootboek {
                 .param("gebruikersnaam", gebruikersnaam)
                 .query(String.class)
                 .optional();
+    }
+
+    @Override
+    public Bedrag saldo(Iban iban, LocalDate datum) {
+        return new Bedrag(jdbc.sql("""
+                        SELECT r.openingssaldo + coalesce((SELECT sum(t.bedrag) FROM transactie t
+                                                           WHERE t.iban = r.iban AND t.datum <= :datum), 0)
+                        FROM rekening r WHERE r.iban = :iban""")
+                .param("iban", iban.toString())
+                .param("datum", datum)
+                .query(BigDecimal.class)
+                .single());
     }
 
     /** Vraagt een lopende databasetransactie: de trigger controleert de twee kanten pas bij commit (ADR 0024). */

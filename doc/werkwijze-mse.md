@@ -914,6 +914,8 @@ test('Uitloggen', { tag: '@rook' }, async ({ bank }) => {
 // De weigering is een 422 met probleemtype `onbekend-contact`; de UI toont "Naar dit rekeningnummer kan niet worden betaald.".
 // Extra scenario uit het FO: "Betaling met een naam die niet bij het rekeningnummer past wordt geweigerd" (`naam-past-niet`);
 // hoofdletters en extra spaties tellen niet mee (unittest), en de tegenpartij is de naam van het contact.
+// "Rood staan is niet toegestaan": Sanne staat in de test zelf; de eerste regel kijkt alleen naar het saldo op de
+// uitvoerdatum (LedgerService), melding "Saldo ontoereikend: deze betaling zou het saldo onder € 0,00 brengen.".
 test.beforeEach(async ({ bank }) => {
   await bank.gegeven('Jan heeft een betaalrekening met saldo € 500,00',
     () => bank.klant('Jan').heeftBetaalrekening({ saldo: '500.00' }));
