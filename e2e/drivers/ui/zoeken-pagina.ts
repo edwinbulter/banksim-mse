@@ -27,7 +27,7 @@ export class ZoekenPagina {
   /**
    * Vult de velden in zoals de klant (bedragen letterlijk, ook met komma) en wacht op het antwoord van de API op
    * déze zoekopdracht. Niet op elk antwoord van /transacties: het laden van de rekening kan nog onderweg zijn, en
-   * dan zou de lijst na het lezen alsnog door de zoekresultaten vervangen worden.
+   * dan zou de lijst na het lezen alsnog door de zoekresultaten vervangen worden. Bij een weigering ook op de melding.
    */
   async zoek(opdracht: Zoekopdracht): Promise<void> {
     await this.open();
@@ -43,7 +43,8 @@ export class ZoekenPagina {
       return url.pathname.endsWith('/transacties') && [...url.searchParams.keys()].sort().join() === velden.join();
     });
     await formulier.getByRole('button', { name: 'Zoeken', exact: true }).click();
-    await antwoord;
+    // Bij een weigering (400) staat de melding er pas als Angular het antwoord verwerkt heeft; weigering() wacht niet.
+    if ((await antwoord).status() === 400) await expect(formulier.getByRole('alert')).toBeVisible();
   }
 
   /** De melding onder het formulier, als probleemtype; undefined zonder melding. */
