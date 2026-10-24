@@ -19,6 +19,7 @@ import nl.banksim.api.grootboek.LedgerService;
 import nl.banksim.api.simulatie.GeheugenSimulatiedatum;
 import nl.banksim.api.simulatie.SimulationClock;
 import nl.banksim.domain.geld.Bedrag;
+import nl.banksim.domain.grootboek.Contact;
 import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.grootboek.Partij;
 import nl.banksim.domain.rekening.Iban;
@@ -62,7 +63,7 @@ class BetalingControllerTests {
         grootboek.leeg();
         grootboek.rekening("jan-a1-1", VAN_JAN, "Jan");
         contacten.leeg();
-        contacten.voegToe(VAN_SANNE);
+        contacten.voegToe(new Contact(VAN_SANNE, "Sanne"));
     }
 
     /** FO: op de simulatiedatum (5 oktober) met de huidige tijd (14:00 in Europe/Amsterdam), type Online bankieren. */
@@ -101,9 +102,35 @@ class BetalingControllerTests {
         assertThat(grootboek.geschreven()).isEmpty();
     }
 
+    /** FO: de naam moet bij het contact passen; RFC 9457 met het probleemtype. */
+    @Test
+    void eenNaamDieNietBijHetContactPastGeeft422EnBoektNiets() throws Exception {
+        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+                        .content(betaling(VAN_JAN, "Piet")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:naam-past-niet"))
+                .andExpect(jsonPath("$.detail").value("De naam van de ontvanger hoort niet bij dit rekeningnummer."));
+
+        assertThat(grootboek.geschreven()).isEmpty();
+    }
+
+    /** Jan ziet de naam van het contact als tegenpartij, niet wat hij typte. */
+    @Test
+    void boektMetDeNaamVanHetContactOokAlsDeKlantHemAndersSchreef() throws Exception {
+        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+                        .content(betaling(VAN_JAN, "  sanne ")))
+                .andExpect(status().isCreated());
+
+        assertThat(grootboek.geschreven()).extracting(overboeking -> overboeking.naar().naam()).containsExactly("Sanne");
+    }
+
     private static String betaling(Iban van) {
+        return betaling(van, "Sanne");
+    }
+
+    private static String betaling(Iban van, String naam) {
         return """
-                {"van": "%s", "naar": "%s", "naam": "Sanne", "bedrag": "25.00"}""".formatted(van, VAN_SANNE);
+                {"van": "%s", "naar": "%s", "naam": "%s", "bedrag": "25.00"}""".formatted(van, VAN_SANNE, naam);
     }
 
     private static RequestPostProcessor jan() {

@@ -38,3 +38,17 @@ test('Betaling naar een rekening die geen contact is wordt geweigerd', async ({ 
   await bank.en('is het saldo van Jan € 500,00', () => jan.verwachtSaldo('500.00'));
   await bank.en('heeft Piet geen bijschrijving ontvangen', () => piet.verwachtGeenTransacties());
 });
+
+test('Betaling met een naam die niet bij het rekeningnummer past wordt geweigerd', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await bank.en('Sanne is een contact met een betaalrekening', () =>
+    sanne.heeftBetaalrekening({ contact: true }),
+  );
+  await bank.als('Jan € 25,00 probeert te betalen aan de betaalrekening van Sanne, met de naam "Piet"', () =>
+    jan.probeertTeBetalen({ bedrag: '25.00', aan: sanne, naam: 'Piet' }),
+  );
+  await bank.dan('wordt de betaling geweigerd', () => jan.verwachtWeigering('naam-past-niet'));
+  await bank.en('is het saldo van Jan € 500,00', () => jan.verwachtSaldo('500.00'));
+  await bank.en('heeft Sanne geen bijschrijving ontvangen', () => sanne.verwachtGeenTransacties());
+});

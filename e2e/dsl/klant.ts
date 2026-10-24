@@ -223,10 +223,13 @@ export class Klant {
     await (await this.sessie()).betaal({ bedrag, naam: aan.naam(), iban: aan.iban() });
   }
 
-  /** Zoals betaalt, maar de bank mag weigeren; de weigering volgt uit verwachtWeigering. */
-  async probeertTeBetalen({ bedrag, aan }: { bedrag: string; aan: Klant }): Promise<void> {
+  /**
+   * Zoals betaalt, maar de bank mag weigeren; de weigering volgt uit verwachtWeigering. Zonder `naam` de naam van de
+   * ontvanger, met `naam` een andere (S7.1: de naam moet bij het rekeningnummer passen).
+   */
+  async probeertTeBetalen({ bedrag, aan, naam = aan.naam() }: { bedrag: string; aan: Klant; naam?: string }): Promise<void> {
     await this.opentBetaalrekening();
-    await (await this.sessie()).probeerTeBetalen({ bedrag, naam: aan.naam(), iban: aan.iban() });
+    await (await this.sessie()).probeerTeBetalen({ bedrag, naam, iban: aan.iban() });
   }
 
   /** De eigen betaalrekening heeft geen enkele af- of bijschrijving. */

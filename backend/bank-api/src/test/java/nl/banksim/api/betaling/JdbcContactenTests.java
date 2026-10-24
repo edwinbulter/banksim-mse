@@ -2,6 +2,7 @@ package nl.banksim.api.betaling;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import nl.banksim.domain.grootboek.Contact;
 import nl.banksim.domain.rekening.Iban;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -35,12 +36,13 @@ class JdbcContactenTests {
     private final JdbcContacten contacten = new JdbcContacten(jdbc);
 
     @Test
-    void bevatEenIbanUitDeContactenlijst() {
-        assertThat(contacten.bevat(Iban.van("NL67SIMB0000000002"))).isTrue();
+    void vindtHetContactMetDeNaamBijEenIbanUitDeContactenlijst() {
+        assertThat(contacten.vind(Iban.van("NL67SIMB0000000002")))
+                .contains(new Contact(Iban.van("NL67SIMB0000000002"), "Sanne"));
     }
 
     @Test
-    void bevatGeenIbanDatNietInDeContactenlijstStaat() {
-        assertThat(contacten.bevat(Iban.van("NL40SIMB0000000003"))).isFalse();
+    void vindtNietsBijEenIbanDatNietInDeContactenlijstStaat() {
+        assertThat(contacten.vind(Iban.van("NL40SIMB0000000003"))).isEmpty();
     }
 }

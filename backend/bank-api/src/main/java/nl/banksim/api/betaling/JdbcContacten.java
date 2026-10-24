@@ -1,5 +1,8 @@
 package nl.banksim.api.betaling;
 
+import java.util.Optional;
+
+import nl.banksim.domain.grootboek.Contact;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -15,10 +18,11 @@ class JdbcContacten implements Contacten {
     }
 
     @Override
-    public boolean bevat(Iban iban) {
-        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM contact WHERE iban = :iban)")
+    public Optional<Contact> vind(Iban iban) {
+        return jdbc.sql("SELECT naam FROM contact WHERE iban = :iban")
                 .param("iban", iban.toString())
-                .query(Boolean.class)
-                .single();
+                .query(String.class)
+                .optional()
+                .map(naam -> new Contact(iban, naam));
     }
 }

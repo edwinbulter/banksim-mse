@@ -912,6 +912,8 @@ test('Uitloggen', { tag: '@rook' }, async ({ bank }) => {
 // `aan: sanne` in plaats van `aan: 'Sanne'`: de driver vult naam én IBAN in, zoals het formulier vraagt.
 // Het tweede scenario: `bank.klant('Piet')` en `aan: piet`; de beforeEach bevat alleen Jan, Sanne staat in scenario 1.
 // De weigering is een 422 met probleemtype `onbekend-contact`; de UI toont "Naar dit rekeningnummer kan niet worden betaald.".
+// Extra scenario uit het FO: "Betaling met een naam die niet bij het rekeningnummer past wordt geweigerd" (`naam-past-niet`);
+// hoofdletters en extra spaties tellen niet mee (unittest), en de tegenpartij is de naam van het contact.
 test.beforeEach(async ({ bank }) => {
   await bank.gegeven('Jan heeft een betaalrekening met saldo € 500,00',
     () => bank.klant('Jan').heeftBetaalrekening({ saldo: '500.00' }));

@@ -4,6 +4,7 @@ import type { Betaalopdracht } from '../bank-driver';
 /** De meldingen na "Bevestigen", terug naar het probleemtype van de API (S7.1). */
 const WEIGERINGEN: Record<string, string> = {
   'Naar dit rekeningnummer kan niet worden betaald.': 'onbekend-contact',
+  'De naam van de ontvanger hoort niet bij dit rekeningnummer.': 'naam-past-niet',
 };
 
 /** Het scherm Betalen (FO "Betalen scherm"): het formulier, het controlescherm en terug naar de betaalrekening. */
