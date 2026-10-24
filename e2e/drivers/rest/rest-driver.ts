@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type APIResponse } from '@playwright/test';
 import type {
   BankDriver,
+  Betaalopdracht,
   Partij,
   RekeningInOverzicht,
   TransactieDetails,
@@ -66,15 +67,7 @@ export class RestDriver implements BankDriver {
    * uitlog-URL van Keycloak in Location; die volgt de app, en dus ook de driver (ADR 0021).
    */
   async logUit(): Promise<void> {
-    let token = await this.csrfToken();
-    if (!token) {
-      await this.request.get('/api/versie');
-      token = await this.csrfToken();
-    }
-    const antwoord = await this.request.post('/logout', {
-      headers: token ? { 'X-XSRF-TOKEN': token } : undefined,
-      maxRedirects: 0,
-    });
+    const antwoord = await this.request.post('/logout', { headers: await this.csrfHeader(), maxRedirects: 0 });
     expect(antwoord.status(), 'POST /logout').toBe(202);
     const keycloak = antwoord.headers()['location'];
     expect(keycloak, 'Location na POST /logout').toBeTruthy();
@@ -221,6 +214,31 @@ export class RestDriver implements BankDriver {
 
   async herlaad(): Promise<void> {
     throw new Error('Geen browser in de REST-driver: een scenario met herladen hoort de tag @ui te hebben');
+  }
+
+  /**
+   * S7.1: één POST met het CSRF-token, zoals Angular na "Bevestigen" op het controlescherm. Daarna laadt de driver de
+   * rekening opnieuw, zoals de app terugkeert naar de betaalrekening.
+   */
+  async betaal({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
+    const van = this.geopend;
+    expect(van, 'een geopende rekening om van te betalen').toBeTruthy();
+    const antwoord = await this.request.post('/api/betalingen', {
+      headers: await this.csrfHeader(),
+      data: { van, naar: iban, naam, bedrag },
+    });
+    expect(antwoord.status(), `POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+    await this.openRekening(van!);
+  }
+
+  /** Het CSRF-token uit het cookie XSRF-TOKEN (ADR 0016); zonder cookie haalt een GET via de BFF het eerst op. */
+  private async csrfHeader(): Promise<Record<string, string> | undefined> {
+    let token = await this.csrfToken();
+    if (!token) {
+      await this.request.get('/api/versie');
+      token = await this.csrfToken();
+    }
+    return token ? { 'X-XSRF-TOKEN': token } : undefined;
   }
 
   async zetSimulatiedatum(datum: string): Promise<Uitkomst> {

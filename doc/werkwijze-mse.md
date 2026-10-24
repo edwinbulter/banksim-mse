@@ -907,6 +907,9 @@ test('Uitloggen', { tag: '@rook' }, async ({ bank }) => {
 
 ```ts
 // e2e/specs/betalen.spec.ts
+// Zo gebouwd in S7.1 ("Betaling naar een contact"): de Gegeven-stappen staan in de test zelf (de beforeEach volgt bij
+// het tweede scenario), zonder omschrijving "Etentje" (geen Dan-stap controleerde hem; een eigen scenario later), en met
+// `aan: sanne` in plaats van `aan: 'Sanne'`: de driver vult naam én IBAN in, zoals het formulier vraagt.
 test.beforeEach(async ({ bank }) => {
   await bank.gegeven('Jan heeft een betaalrekening met saldo € 500,00',
     () => bank.klant('Jan').heeftBetaalrekening({ saldo: '500.00' }));

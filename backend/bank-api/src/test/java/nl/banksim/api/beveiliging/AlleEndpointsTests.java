@@ -6,14 +6,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import java.util.List;
 
+import nl.banksim.api.PostgresTestDatabase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -25,8 +23,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 /**
  * ADR 0022: elk endpoint van de echte applicatie, zoals Spring ze kent. Een nieuw endpoint doet vanzelf mee. Zonder
@@ -36,7 +32,7 @@ import org.testcontainers.utility.DockerImageName;
         "banksim.cursor.sleutel=test-sleutel-van-minstens-32-tekens",
         "management.server.port="})
 @AutoConfigureMockMvc
-@Import(AlleEndpointsTests.Database.class)
+@Import(PostgresTestDatabase.class)
 class AlleEndpointsTests {
 
     static final String PERMIT_ALL = "permitAll()";
@@ -101,18 +97,6 @@ class AlleEndpointsTests {
         /** Met een lege JSON-body, zodat een PUT of POST niet al bij het lezen van de body strandt. */
         MockHttpServletRequestBuilder verzoek() {
             return request(methode, pad).contentType(MediaType.APPLICATION_JSON).content("{}");
-        }
-    }
-
-    @TestConfiguration(proxyBeanMethods = false)
-    static class Database {
-
-        @Bean
-        @ServiceConnection
-        PostgreSQLContainer postgres() {
-            return new PostgreSQLContainer(DockerImageName
-                    .parse("postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873")
-                    .asCompatibleSubstituteFor("postgres"));
         }
     }
 }

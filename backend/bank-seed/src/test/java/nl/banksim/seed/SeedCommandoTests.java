@@ -29,8 +29,10 @@ class SeedCommandoTests {
         aanroepen.add("beheerder " + gebruikersnaam);
         return "beheerder-wachtwoord";
     };
+    private final Contacten contacten = (iban, naam) -> aanroepen.add("contact " + iban + " " + naam);
     private final ByteArrayOutputStream uitvoer = new ByteArrayOutputStream();
-    private final SeedCommando commando = new SeedCommando(aanmaker, transacties, beheerders, JsonMapper.builder().build(),
+    private final SeedCommando commando = new SeedCommando(aanmaker, transacties, beheerders, contacten,
+            JsonMapper.builder().build(),
             new PrintStream(uitvoer, true, StandardCharsets.UTF_8));
 
     /** ADR 0015: een login met de realm-rol beheerder, zonder rekeninghouder of rekening. */
@@ -51,6 +53,25 @@ class SeedCommandoTests {
         assertThat(aanroepen).containsExactly("jan-f4de79-1 Jan 1842.17");
         assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo(
                 "{\"gebruikersnaam\":\"jan-f4de79-1\",\"wachtwoord\":\"geheim-wachtwoord\",\"iban\":\"NL12SIMB0123456789\"}\n");
+    }
+
+    /** S7.1: de contactenlijst geldt voor de hele bank; alleen naar een contact mag je betalen. */
+    @Test
+    void voegtEenContactToeEnSchrijftHetAlsEenJsonRegel() {
+        commando.voerUit("contact", "--iban", "NL94SIMB0000000001", "--naam", "Sanne");
+
+        assertThat(aanroepen).containsExactly("contact NL94SIMB0000000001 Sanne");
+        assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
+                {"iban":"NL94SIMB0000000001","naam":"Sanne"}
+                """);
+    }
+
+    @Test
+    void eenContactZonderNaamWordtGeweigerd() {
+        assertThatThrownBy(() -> commando.voerUit("contact", "--iban", "NL94SIMB0000000001"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("--naam");
+        assertThat(aanroepen).isEmpty();
     }
 
     @Test

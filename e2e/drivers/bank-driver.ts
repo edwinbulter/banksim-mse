@@ -72,6 +72,13 @@ export interface Zoekformulier {
   richting: Richting | 'alle';
 }
 
+/** Een betaling zoals de klant hem invult (S7.1): het bedrag in domeinnotatie ("25.00"), de naam en het IBAN van de ontvanger. */
+export interface Betaalopdracht {
+  bedrag: string;
+  naam: string;
+  iban: string;
+}
+
 /** Of een verzoek dat iets verandert, is uitgevoerd of door de rechten geweigerd (403). */
 export type Uitkomst = 'gelukt' | 'geweigerd';
 
@@ -127,6 +134,8 @@ export interface BankDriver {
   opnieuwGeladen(): Promise<boolean>;
   /** De pagina herladen; alleen in de UI-driver (@ui). */
   herlaad(): Promise<void>;
+  /** Vanaf de geopende rekening betalen en op het controlescherm bevestigen (S7.1); daarna staat de rekening weer open. */
+  betaal(opdracht: Betaalopdracht): Promise<void>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */
   zetSimulatiedatum(datum: string): Promise<Uitkomst>;
   /** De simulatiedatum wissen: de bank draait weer op vandaag. */

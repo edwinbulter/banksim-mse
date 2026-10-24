@@ -1,4 +1,4 @@
-import { bedragMetTeken, bedragVoorWeergave } from './bedrag';
+import { bedragMetTeken, bedragUitInvoer, bedragVoorWeergave } from './bedrag';
 
 /** ADR 0010: de API levert "1842.17"; de frontend zet dat om voor weergave, zonder te rekenen. */
 describe('bedragVoorWeergave', () => {
@@ -32,5 +32,12 @@ describe('bedragMetTeken', () => {
 
   it('weigert een bedrag zonder precies 2 decimalen', () => {
     expect(() => bedragMetTeken('12.5')).toThrow('12.5');
+  });
+});
+
+/** S7.1: het bedrag zoals de klant het typt, met komma, naar de notatie van de API (ADR 0010); als tekst, zonder rekenen. */
+describe('bedragUitInvoer', () => {
+  it('zet de komma om in een punt', () => {
+    expect(bedragUitInvoer('25,00')).toBe('25.00');
   });
 });

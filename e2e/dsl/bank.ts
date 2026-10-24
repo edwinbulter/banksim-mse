@@ -10,6 +10,7 @@ export class Bank extends Stappen {
   /** Binnen één scenario is een alias steeds dezelfde klant, ook tussen beforeEach en de test. */
   private readonly klanten = new Map<string, Klant>();
   private eenBeheerder?: Beheerder;
+  private driverVanHetScenarioVrij = true;
 
   constructor(
     private readonly driver: BankDriver,
@@ -17,6 +18,8 @@ export class Bank extends Stappen {
     stap: Stap,
     /** Een driver met een eigen sessie, voor de beheerder. */
     private readonly maakBeheerderDriver: () => Promise<BankDriver>,
+    /** Een driver met een eigen sessie in hetzelfde protocol (REST of browser), voor een tweede klant (S7.1). */
+    private readonly maakKlantDriver: () => Promise<BankDriver>,
   ) {
     super(stap);
   }
@@ -30,10 +33,17 @@ export class Bank extends Stappen {
     return this.eenBeheerder;
   }
 
+  /** De eerste klant krijgt de driver van het scenario; een volgende een eigen, anders zou hij in de sessie van de eerste zitten. */
+  private async kiesKlantDriver(): Promise<BankDriver> {
+    if (!this.driverVanHetScenarioVrij) return this.maakKlantDriver();
+    this.driverVanHetScenarioVrij = false;
+    return this.driver;
+  }
+
   klant(alias: string): Klant {
     let klant = this.klanten.get(alias);
     if (!klant) {
-      klant = new Klant(alias, this.driver, this.seed);
+      klant = new Klant(alias, () => this.kiesKlantDriver(), this.seed);
       this.klanten.set(alias, klant);
     }
     return klant;

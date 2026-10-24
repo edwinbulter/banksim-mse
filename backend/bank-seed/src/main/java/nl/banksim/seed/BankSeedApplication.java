@@ -41,17 +41,22 @@ public class BankSeedApplication {
     }
 
     @Bean
+    Contacten contacten(JdbcClient jdbc) {
+        return new JdbcContacten(jdbc);
+    }
+
+    @Bean
     KeycloakLogins logins(RestClient.Builder builder, SeedProperties properties) {
         return new KeycloakLogins(builder, properties.keycloak(), () -> HexFormat.of().formatHex(bytes(24)));
     }
 
     @Bean
     CommandLineRunner seed(KeycloakLogins logins, Rekeninghouders rekeninghouders, Transacties transacties,
-            JsonMapper json) {
+            Contacten contacten, JsonMapper json) {
         var aanmaker = new SeedKlantAanmaker(logins, rekeninghouders,
                 () -> Iban.simBank(RANDOM.nextLong(10_000_000_000L)));
         return args -> {
-            var commando = new SeedCommando(aanmaker, transacties, logins, json, System.out);
+            var commando = new SeedCommando(aanmaker, transacties, logins, contacten, json, System.out);
             if (args.length == 1 && args[0].equals("sessie")) {
                 var stdin = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
                 new SeedSessie(commando, json, stdin, System.out).voerUit();

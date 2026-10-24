@@ -38,6 +38,11 @@ export class BankSeed {
     return this.voerUit<GeseedeKlant>(['klant', '--alias', uniek(alias), '--naam', alias, '--betaalrekening', saldo]);
   }
 
+  /** S7.1: een IBAN met naam in de contactenlijst van de bank; alleen daarheen mag een klant betalen. */
+  async contact(iban: string, naam: string): Promise<void> {
+    await this.voerUit(['contact', '--iban', iban, '--naam', naam]);
+  }
+
   /** Een login met de realm-rol beheerder, zonder rekeningen. */
   async beheerder(alias: string): Promise<GeseedeBeheerder> {
     return this.voerUit<GeseedeBeheerder>(['beheerder', '--alias', uniek(alias)]);

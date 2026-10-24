@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import type {
   BankDriver,
+  Betaalopdracht,
   RekeningInOverzicht,
   TransactieDetails,
   TransactiesOpDatum,
@@ -10,6 +11,7 @@ import type {
 } from '../bank-driver';
 import { wijzigSimulatiedatum } from '../simulatiedatum';
 import { BetaalrekeningPagina } from './betaalrekening-pagina';
+import { BetalenPagina } from './betalen-pagina';
 import { InlogPagina } from './inlog-pagina';
 import { OverzichtPagina } from './overzicht-pagina';
 import { StartPagina } from './start-pagina';
@@ -22,6 +24,7 @@ export class UiDriver implements BankDriver {
   private readonly overzicht: OverzichtPagina;
   private readonly betaalrekening: BetaalrekeningPagina;
   private readonly zoeken: ZoekenPagina;
+  private readonly betalen: BetalenPagina;
 
   constructor(private readonly page: Page) {
     this.start = new StartPagina(page);
@@ -29,6 +32,7 @@ export class UiDriver implements BankDriver {
     this.overzicht = new OverzichtPagina(page);
     this.betaalrekening = new BetaalrekeningPagina(page);
     this.zoeken = new ZoekenPagina(page);
+    this.betalen = new BetalenPagina(page);
   }
 
   async openStartpagina(): Promise<void> {
@@ -69,7 +73,7 @@ export class UiDriver implements BankDriver {
   }
 
   async openOverzicht(): Promise<void> {
-    await this.overzicht.wachtTotGeladen();
+    await this.overzicht.open();
   }
 
   async rekeningenInOverzicht(): Promise<RekeningInOverzicht[]> {
@@ -130,6 +134,10 @@ export class UiDriver implements BankDriver {
 
   async toonMeer(): Promise<void> {
     await this.betaalrekening.toonMeer();
+  }
+
+  async betaal(opdracht: Betaalopdracht): Promise<void> {
+    await this.betalen.betaal(opdracht);
   }
 
   async naarOverzicht(): Promise<void> {

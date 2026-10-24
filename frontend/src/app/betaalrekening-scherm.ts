@@ -11,6 +11,7 @@ import { ZoekFormulier, type Zoekopdracht } from './zoek-formulier';
  * Zoeken (S5.1) vervangt de lijst door wat gevonden is; "Toon meer" stuurt de zoekvelden opnieuw mee, "Wissen" laadt
  * weer alles. Een geweigerde zoekopdracht (400) toont de melding van de API in het formulier.
  * Een rekening die niet bestaat of van een ander is (404, S6.1), is voor de klant hetzelfde: "Rekening is niet gevonden.".
+ * "Betalen" opent het betaalscherm van deze rekening (S7.1).
  */
 @Component({
   selector: 'app-betaalrekening-scherm',
@@ -20,6 +21,7 @@ import { ZoekFormulier, type Zoekopdracht } from './zoek-formulier';
     @if (nietGevonden()) {
       <p role="alert">Rekening is niet gevonden.</p>
     } @else {
+      <a routerLink="betalen">Betalen</a>
       <app-zoek-formulier [melding]="melding()" (zoek)="zoek($event)" (wis)="zoek({})" />
       @if (geladen(); as geladen) {
         <app-betaalrekening

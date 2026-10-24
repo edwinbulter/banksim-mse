@@ -1,4 +1,4 @@
-import { test as basis, type APIRequestContext } from '@playwright/test';
+import { test as basis, type APIRequestContext, type BrowserContext } from '@playwright/test';
 import { Bank } from './bank';
 import { Omgeving } from './omgeving';
 import { RestDriver } from '../drivers/rest/rest-driver';
@@ -25,21 +25,33 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving }, { 
     },
     { scope: 'worker' },
   ],
-  bank: async ({ driver, page, request, playwright, baseURL, seedSessie }, use, testInfo) => {
+  bank: async ({ driver, page, request, playwright, browser, baseURL, seedSessie }, use, testInfo) => {
     const bankDriver = driver === 'ui' ? new UiDriver(page) : new RestDriver(request);
     const seed = new BankSeed(new ShellDriver(context()), seedSessie);
-    const eigenSessies: APIRequestContext[] = [];
-    const bank = new Bank(bankDriver, seed, (titel, stap) => basis.step(titel, stap), async () => {
+    const eigenSessies: (APIRequestContext | BrowserContext)[] = [];
+    const eigenRestDriver = async () => {
       const sessie = await playwright.request.newContext({ baseURL, ignoreHTTPSErrors: true });
       eigenSessies.push(sessie);
       return new RestDriver(sessie);
-    });
+    };
+    // Een tweede klant in de browser krijgt een eigen context, met dezelfde instellingen als het project.
+    const eigenUiDriver = async () => {
+      const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, locale, timezoneId, ignoreHTTPSErrors } =
+        testInfo.project.use;
+      const context = await browser.newContext({
+        baseURL, viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, locale, timezoneId, ignoreHTTPSErrors,
+      });
+      eigenSessies.push(context);
+      return new UiDriver(await context.newPage());
+    };
+    const bank = new Bank(bankDriver, seed, (titel, stap) => basis.step(titel, stap), eigenRestDriver,
+      driver === 'ui' ? eigenUiDriver : eigenRestDriver);
     await use(bank);
     // De simulatiedatum geldt voor de hele bank: wissen, ook als het scenario faalde (ADR 0014).
     if (testInfo.tags.includes('@simulatiedatum')) {
       await basis.step('Na afloop wist de beheerder de simulatiedatum', () => bank.beheerder().wistSimulatiedatum());
     }
-    await Promise.all(eigenSessies.map((sessie) => sessie.dispose()));
+    await Promise.all(eigenSessies.map((sessie) => ('dispose' in sessie ? sessie.dispose() : sessie.close())));
   },
   // Installatiescenario's (project infra). BANKSIM_CONTEXT is in CI het tijdelijke cluster; BANKSIM_IMAGE_TAG de
   // images uit de commit stage. Zonder tag hergebruikt de omgeving de bestaande installatie (install.sh --skip-build).

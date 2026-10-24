@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import org.junit.jupiter.api.Test;
@@ -46,5 +47,21 @@ class SimulationClockTests {
         var klok = new SimulationClock(Clock.fixed(Instant.parse("2026-10-22T12:00:00Z"), AMSTERDAM), opgeslagen);
 
         assertThat(klok.vandaag()).isEqualTo(LocalDate.of(2026, 10, 22));
+    }
+
+    /** S7.1 (FO): een betaling krijgt de simulatiedatum met de huidige tijd, in Europe/Amsterdam (12:00 UTC is 14:00). */
+    @Test
+    void nuIsDeSimulatiedatumMetDeHuidigeTijdInEuropeAmsterdam() {
+        opgeslagen.zet(LocalDate.of(2026, 10, 5));
+        var klok = new SimulationClock(Clock.fixed(Instant.parse("2026-10-22T12:00:00Z"), ZoneId.of("UTC")), opgeslagen);
+
+        assertThat(klok.nu()).isEqualTo(LocalDateTime.of(2026, 10, 5, 14, 0));
+    }
+
+    @Test
+    void nuIsZonderSimulatiedatumHetEchteTijdstipInEuropeAmsterdam() {
+        var klok = new SimulationClock(Clock.fixed(Instant.parse("2026-10-21T23:30:00Z"), ZoneId.of("UTC")), opgeslagen);
+
+        assertThat(klok.nu()).isEqualTo(LocalDateTime.of(2026, 10, 22, 1, 30));
     }
 }

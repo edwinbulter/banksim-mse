@@ -8,7 +8,19 @@ export class OverzichtPagina {
   constructor(private readonly page: Page) {}
 
   async wachtTotGeladen(): Promise<void> {
-    await expect(this.page.getByRole('heading', { name: /^Welkom/ })).toBeVisible();
+    await expect(this.welkom()).toBeVisible();
+  }
+
+  /** Na het inloggen staat het overzicht er al; vanaf een ander scherm via de link "Overzicht", zoals een gebruiker. */
+  async open(): Promise<void> {
+    const link = this.page.getByRole('link', { name: 'Overzicht' });
+    await expect(this.welkom().or(link).first()).toBeVisible();
+    if (!(await this.welkom().isVisible())) await link.click();
+    await this.wachtTotGeladen();
+  }
+
+  private welkom(): Locator {
+    return this.page.getByRole('heading', { name: /^Welkom/ });
   }
 
   async rekeningen(): Promise<RekeningInOverzicht[]> {

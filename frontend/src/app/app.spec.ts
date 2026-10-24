@@ -311,4 +311,50 @@ describe('App', () => {
 
     expect(genavigeerd).toEqual([keycloak]);
   });
+  /** Vult het veld met dit label in, zoals een gebruiker typt. */
+  function vulIn(pagina: HTMLElement, label: string, waarde: string): void {
+    const id = [...pagina.querySelectorAll('label')].find((l) => l.textContent?.trim() === label)?.htmlFor;
+    const veld = id ? pagina.querySelector<HTMLInputElement>(`#${id}`) : null;
+    if (!veld) throw new Error(`Geen veld met label ${label}`);
+    veld.value = waarde;
+    veld.dispatchEvent(new Event('input'));
+  }
+
+  /** S7.1 (FO "Betalen scherm"): invullen, "Volgende", het controlescherm, "Bevestigen", terug naar de rekening. */
+  it('betaalt vanaf de betaalrekening na het controlescherm en laadt daarna de rekening opnieuw (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001');
+    await transacties('/api/rekeningen/NL94SIMB0000000001/transacties', TWEE_DAGEN);
+
+    link(pagina, 'Betalen')?.click();
+    await ververs();
+    expect(TestBed.inject(Location).path()).toBe('/rekeningen/NL94SIMB0000000001/betalen');
+    vulIn(pagina, 'Bedrag (€)', '25,00');
+    vulIn(pagina, 'Naam ontvanger', 'Sanne');
+    vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL67SIMB0000000002');
+    knop(pagina, 'Volgende')?.click();
+    await ververs();
+
+    expect(pagina.querySelector('h2')?.textContent).toBe('Controleer je betaling');
+    expect(pagina.textContent).toContain('€ 25,00');
+    expect(pagina.textContent).toContain('Sanne');
+    expect(pagina.textContent).toContain('NL67SIMB0000000002');
+    http.expectNone('/api/betalingen');
+
+    knop(pagina, 'Bevestigen')?.click();
+    await ververs();
+    const betaling = http.expectOne('/api/betalingen');
+    expect(betaling.request.method).toBe('POST');
+    expect(betaling.request.body).toEqual({
+      van: 'NL94SIMB0000000001',
+      naar: 'NL67SIMB0000000002',
+      naam: 'Sanne',
+      bedrag: '25.00',
+    });
+    betaling.flush(null, { status: 201, statusText: 'Created' });
+    await ververs();
+
+    expect(TestBed.inject(Location).path()).toBe('/rekeningen/NL94SIMB0000000001');
+    await transacties('/api/rekeningen/NL94SIMB0000000001/transacties', TWEE_DAGEN);
+    expect(pagina.querySelector('h2')?.textContent).toBe('Betaalrekening');
+  });
 });

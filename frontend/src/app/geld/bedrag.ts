@@ -27,3 +27,8 @@ function delen(bedrag: string): { negatief: boolean; euros: string; centen: stri
   const [, min, euros, centen] = match;
   return { negatief: min === '-', euros: euros.replace(/\B(?=(\d{3})+$)/g, '.'), centen };
 }
+
+/** "25,00" → "25.00" (S7.1): het bedrag zoals de klant het typt, naar de notatie van de API (ADR 0010). */
+export function bedragUitInvoer(invoer: string): string {
+  return invoer.replace(',', '.');
+}

@@ -45,18 +45,28 @@ export class Klant {
   private ingelogd = false;
   private uitkomst?: Uitkomst;
 
+  private eigenDriver?: BankDriver;
+
   constructor(
     private readonly alias: string,
-    private readonly driver: BankDriver,
+    /** De sessie van deze klant: de eerste klant die hem nodig heeft, krijgt die van het scenario, de rest een eigen. */
+    private readonly kiesDriver: () => Promise<BankDriver>,
     private readonly seed: BankSeed,
   ) {}
 
+  private async sessie(): Promise<BankDriver> {
+    this.eigenDriver ??= await this.kiesDriver();
+    return this.eigenDriver;
+  }
+
   /**
    * De alias is ook de naam van de rekeninghouder, zoals Van en Naar hem tonen. Zonder saldo is het 0,00: het scenario
-   * zegt dan niets over het saldo, maar de seed heeft er een nodig.
+   * zegt dan niets over het saldo, maar de seed heeft er een nodig. Met `contact` komt de betaalrekening met die naam in
+   * de contactenlijst van de bank (S7.1).
    */
-  async heeftBetaalrekening({ saldo }: { saldo: string } = { saldo: '0.00' }): Promise<void> {
+  async heeftBetaalrekening({ saldo = '0.00', contact = false }: { saldo?: string; contact?: boolean } = {}): Promise<void> {
     this.gegevens = await this.seed.klantMetBetaalrekening(this.alias, saldo);
+    if (contact) await this.seed.contact(this.gegevens.iban, this.alias);
   }
 
   /** `op` is een datum ("2026-10-01") of een tijdstip in Europe/Amsterdam ("2026-10-01T06:02"). */
@@ -71,6 +81,11 @@ export class Klant {
   /** Alle boekingen in één keer, in deze volgorde. */
   async heeftBoekingen(boekingen: Boeking[]): Promise<void> {
     await this.seed.boekingen(this.vereisGegevens().iban, boekingen);
+  }
+
+  /** De naam van de rekeninghouder: de alias (zie heeftBetaalrekening). */
+  naam(): string {
+    return this.alias;
   }
 
   /** Het IBAN van de betaalrekening uit "Gegeven", voor de verwachting bij Van of Naar. */
@@ -95,13 +110,13 @@ export class Klant {
   /** Logt de eerste keer in; daarna is Jan al ingelogd. */
   async opentOverzicht(): Promise<void> {
     await this.logtIn();
-    await this.driver.openOverzicht();
+    await (await this.sessie()).openOverzicht();
   }
 
   /** Met de eigen sessie: een klant heeft de rol beheerder niet. */
   async probeertSimulatiedatumTeZetten(datum: string): Promise<void> {
     await this.logtIn();
-    this.uitkomst = await this.driver.zetSimulatiedatum(datum);
+    this.uitkomst = await (await this.sessie()).zetSimulatiedatum(datum);
   }
 
   async verwachtGeweigerd(): Promise<void> {
@@ -111,38 +126,38 @@ export class Klant {
   private async logtIn(): Promise<void> {
     if (this.ingelogd) return;
     const { gebruikersnaam, wachtwoord } = this.vereisGegevens();
-    await this.driver.logIn(gebruikersnaam, wachtwoord);
+    await (await this.sessie()).logIn(gebruikersnaam, wachtwoord);
     this.ingelogd = true;
   }
 
   /** S6.1: met Jans gebruikersnaam en een ander wachtwoord; Jan is daarna niet ingelogd. */
   async logtInMetWachtwoord(wachtwoord: string): Promise<void> {
-    await this.driver.probeerInTeLoggen(this.vereisGegevens().gebruikersnaam, wachtwoord);
+    await (await this.sessie()).probeerInTeLoggen(this.vereisGegevens().gebruikersnaam, wachtwoord);
   }
 
   /** Jan staat nog op het inlogscherm, met deze melding. */
   async verwachtInlogfout(melding: string): Promise<void> {
-    expect(await this.driver.inlogfout(), `inlogfout bij ${this.alias}`).toBe(melding);
+    expect(await (await this.sessie()).inlogfout(), `inlogfout bij ${this.alias}`).toBe(melding);
   }
 
   /** S6.2: via "Uitloggen"; daarna is Jan niet meer ingelogd. */
   async logtUit(): Promise<void> {
-    await this.driver.logUit();
+    await (await this.sessie()).logUit();
     this.ingelogd = false;
   }
 
   async verwachtNietIngelogd(): Promise<void> {
-    expect(await this.driver.ingelogd(), `${this.alias} nog ingelogd`).toBe(false);
+    expect(await (await this.sessie()).ingelogd(), `${this.alias} nog ingelogd`).toBe(false);
   }
 
   /** Inloggen eindigt niet stilletjes in de oude sessie: Keycloak toont het formulier voor gebruikersnaam en wachtwoord. */
   async verwachtInlogscherm(): Promise<void> {
-    expect(await this.driver.inloggenVraagtWachtwoord(), `inlogscherm voor ${this.alias}`).toBe(true);
+    expect(await (await this.sessie()).inloggenVraagtWachtwoord(), `inlogscherm voor ${this.alias}`).toBe(true);
   }
 
   async verwachtRekeningInOverzicht(soort: Soort, saldo: string): Promise<void> {
     const { iban } = this.vereisGegevens();
-    expect(await this.driver.rekeningenInOverzicht(), `rekeningen van ${this.alias}`).toContainEqual({
+    expect(await (await this.sessie()).rekeningenInOverzicht(), `rekeningen van ${this.alias}`).toContainEqual({
       soort,
       iban,
       saldo,
@@ -151,40 +166,40 @@ export class Klant {
 
   async opentBetaalrekening(): Promise<void> {
     await this.opentOverzicht();
-    await this.driver.openRekening(this.vereisGegevens().iban);
+    await (await this.sessie()).openRekening(this.vereisGegevens().iban);
   }
 
   /** Met het IBAN in het adres, zoals een bladwijzer of een gedeelde link: andermans rekening staat niet in het overzicht. */
   async opentRekening(iban: string): Promise<void> {
     await this.logtIn();
-    await this.driver.openRekeningViaAdres(iban);
+    await (await this.sessie()).openRekeningViaAdres(iban);
   }
 
   /** S6.1: de rekening bestaat voor deze klant niet, ook als hij van een ander is. */
   async verwachtNietGevonden(): Promise<void> {
-    expect(await this.driver.rekeningNietGevonden(), `rekening niet gevonden bij ${this.alias}`).toBe(true);
+    expect(await (await this.sessie()).rekeningNietGevonden(), `rekening niet gevonden bij ${this.alias}`).toBe(true);
   }
 
   /** Via de link "Overzicht" op de betaalrekening. */
   async gaatNaarOverzicht(): Promise<void> {
-    await this.driver.naarOverzicht();
+    await (await this.sessie()).naarOverzicht();
   }
 
   async gaatTerugInBrowser(): Promise<void> {
-    await this.driver.terugInBrowser();
+    await (await this.sessie()).terugInBrowser();
   }
 
   /** Een stap terug binnen de app, geen nieuwe start: wat geladen was, blijft (ADR 0012). */
   async verwachtDatDeAppNietOpnieuwLaadde(): Promise<void> {
-    expect(await this.driver.opnieuwGeladen(), `app opnieuw geladen bij ${this.alias}`).toBe(false);
+    expect(await (await this.sessie()).opnieuwGeladen(), `app opnieuw geladen bij ${this.alias}`).toBe(false);
   }
 
   async herlaadt(): Promise<void> {
-    await this.driver.herlaad();
+    await (await this.sessie()).herlaad();
   }
 
   async verwachtTransactielijst(verwacht: TransactiesOpDatum[]): Promise<void> {
-    expect(await this.driver.transacties(), `transacties van ${this.alias}`).toEqual(verwacht);
+    expect(await (await this.sessie()).transacties(), `transacties van ${this.alias}`).toEqual(verwacht);
   }
 
   /** De nieuwste `nieuwste` transacties uit heeftTransacties, per datum, nieuw naar oud; en of er "Toon meer" is. */
@@ -194,58 +209,77 @@ export class Klant {
       if (verwacht.at(-1)?.datum !== datum) verwacht.push({ datum, transacties: [] });
       verwacht.at(-1)!.transacties.push({ tegenpartij, bedrag });
     }
-    expect(await this.driver.transacties(), `transacties van ${this.alias}`).toEqual(verwacht);
-    expect(await this.driver.heeftMeer(), `"Toon meer" bij ${this.alias}`).toBe(meer);
+    expect(await (await this.sessie()).transacties(), `transacties van ${this.alias}`).toEqual(verwacht);
+    expect(await (await this.sessie()).heeftMeer(), `"Toon meer" bij ${this.alias}`).toBe(meer);
   }
 
   async toontMeer(keer: number): Promise<void> {
-    for (let i = 0; i < keer; i++) await this.driver.toonMeer();
+    for (let i = 0; i < keer; i++) await (await this.sessie()).toonMeer();
+  }
+
+  /** S7.1: vanaf de eigen betaalrekening, met de naam en het IBAN van de ontvanger; bevestigd op het controlescherm. */
+  async betaalt({ bedrag, aan }: { bedrag: string; aan: Klant }): Promise<void> {
+    await this.opentBetaalrekening();
+    await (await this.sessie()).betaal({ bedrag, naam: aan.naam(), iban: aan.iban() });
+  }
+
+  /** De nieuwste transactie op de eigen betaalrekening, na die opnieuw te openen. */
+  async verwachtBovensteTransactie(tegenpartij: string, bedrag: string): Promise<void> {
+    await this.opentBetaalrekening();
+    const bovenste = (await (await this.sessie()).transacties())[0]?.transacties[0];
+    expect(bovenste, `bovenste transactie van ${this.alias}`).toEqual({ tegenpartij, bedrag });
+  }
+
+  /** Het saldo van de betaalrekening, zoals het overzicht het toont. */
+  async verwachtSaldo(saldo: string): Promise<void> {
+    await this.opentOverzicht();
+    await this.verwachtRekeningInOverzicht('betaal', saldo);
   }
 
   /** Op de geopende betaalrekening. */
   async klaptTransactieUit(tegenpartij: string): Promise<void> {
     await this.opentBetaalrekening();
-    await this.driver.klapUit(tegenpartij);
+    await (await this.sessie()).klapUit(tegenpartij);
   }
 
   /** Alleen de genoemde velden; bij Van en Naar de naam en het IBAN (null: geen IBAN). */
   async verwachtDetails(verwacht: Partial<TransactieDetails>): Promise<void> {
-    expect(await this.driver.details(), `details bij ${this.alias}`).toMatchObject(verwacht);
+    expect(await (await this.sessie()).details(), `details bij ${this.alias}`).toMatchObject(verwacht);
   }
 
   /** Op de geopende betaalrekening (S5.1). */
   async zoekt(opdracht: Zoekopdracht): Promise<void> {
     await this.opentBetaalrekening();
-    await this.driver.zoek(opdracht);
+    await (await this.sessie()).zoek(opdracht);
   }
 
   /** De tegenpartijen in de lijst, nieuw naar oud; leeg als er niets gevonden is. */
   async verwachtGevonden(tegenpartijen: string[]): Promise<void> {
-    const gevonden = (await this.driver.transacties()).flatMap((dag) => dag.transacties.map((t) => t.tegenpartij));
+    const gevonden = (await (await this.sessie()).transacties()).flatMap((dag) => dag.transacties.map((t) => t.tegenpartij));
     expect(gevonden, `gevonden transacties van ${this.alias}`).toEqual(tegenpartijen);
   }
 
   async verwachtWeigering(probleemtype: string): Promise<void> {
-    expect(await this.driver.weigering(), `weigering bij ${this.alias}`).toBe(probleemtype);
+    expect(await (await this.sessie()).weigering(), `weigering bij ${this.alias}`).toBe(probleemtype);
   }
 
   async opentZoeken(): Promise<void> {
     await this.opentBetaalrekening();
-    await this.driver.openZoeken();
+    await (await this.sessie()).openZoeken();
   }
 
   async verwachtZoekknop(tekst: string): Promise<void> {
-    expect(await this.driver.zoekknop(), 'de knop bij het zoekformulier').toBe(tekst);
+    expect(await (await this.sessie()).zoekknop(), 'de knop bij het zoekformulier').toBe(tekst);
   }
 
   async zoektEnWist(opdracht: Zoekopdracht): Promise<void> {
-    await this.driver.zoek(opdracht);
-    await this.driver.wisZoeken();
+    await (await this.sessie()).zoek(opdracht);
+    await (await this.sessie()).wisZoeken();
   }
 
   async verwachtLeegZoekformulier(): Promise<void> {
     const leeg: Zoekformulier = { tekst: '', van: '', tm: '', type: '', richting: 'alle' };
-    expect(await this.driver.zoekformulier(), 'het zoekformulier na wissen').toEqual(leeg);
+    expect(await (await this.sessie()).zoekformulier(), 'het zoekformulier na wissen').toEqual(leeg);
   }
 
   private vereisGegevens(): GeseedeKlant {
