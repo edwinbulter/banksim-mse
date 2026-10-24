@@ -167,7 +167,7 @@ jobs:
 
   installatie:
     # Een eigen runner en cluster, parallel aan de acceptatietests: de installatiescenario's installeren en
-    # verwijderen zelf, en hebben de browsers niet nodig (doc/werkwijze-mse.md, 9.2).
+    # verwijderen zelf (doc/werkwijze-mse.md, 9.2).
     name: Acceptance stage – installatiescenario's (kind, namespace banksim-mse)
     needs: [backend, mutatietests, frontend, infrastructuur, images]
     runs-on: ubuntu-24.04
@@ -184,8 +184,25 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
       - uses: ./.github/actions/kind-banksim-mse
-      - name: Playwright zonder browsers
-        run: npm --prefix e2e ci
+      - name: Playwright-browsers uit de cache
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          # Een eigen sleutel: deze cache heeft alleen chromium, die van de acceptatietests alle drie.
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+      - name: Playwright met chromium
+        # Alleen chromium: het upgradescenario logt na de upgrade in via de browser.
+        timeout-minutes: 15
+        env:
+          UIT_CACHE: ${{ steps.browsers.outputs.cache-hit }}
+        run: |
+          npm --prefix e2e ci
+          if [ "$UIT_CACHE" = "true" ]; then
+            npm --prefix e2e exec -- playwright install-deps chromium
+          else
+            npm --prefix e2e exec -- playwright install --with-deps chromium
+          fi
       - name: Nep-origineel in namespace banksim
         # Zodat "Het origineel blijft onaangeroerd" ook hier iets controleert (doc/werkwijze-mse.md, 9.2).
         # Het bank-web-image staat al op de node; er komt geen nieuw image bij.

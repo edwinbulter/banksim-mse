@@ -21,9 +21,6 @@ export default defineConfig<Opties>({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  // De standaard is de helft van de cores: 2 op de CI-runner. De scenario's wachten vooral op de seed-pods en het
-  // cluster, niet op de CPU van de runner; lokaal gebruikt Playwright er al meer.
-  workers: process.env.CI ? 4 : undefined,
   timeout: 30_000,
   expect: { timeout: 10_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
