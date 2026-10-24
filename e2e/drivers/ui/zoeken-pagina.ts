@@ -24,7 +24,11 @@ export class ZoekenPagina {
     return ((await knop.textContent()) ?? '').trim();
   }
 
-  /** Vult de velden in zoals de klant (bedragen letterlijk, ook met komma) en wacht op het antwoord van de API. */
+  /**
+   * Vult de velden in zoals de klant (bedragen letterlijk, ook met komma) en wacht op het antwoord van de API op
+   * déze zoekopdracht. Niet op elk antwoord van /transacties: het laden van de rekening kan nog onderweg zijn, en
+   * dan zou de lijst na het lezen alsnog door de zoekresultaten vervangen worden.
+   */
   async zoek(opdracht: Zoekopdracht): Promise<void> {
     await this.open();
     const formulier = this.formulier();
@@ -33,7 +37,11 @@ export class ZoekenPagina {
     await formulier.getByLabel('Bedrag t/m (€)').fill(opdracht.tm ?? '');
     await formulier.getByLabel('Transactietype').selectOption(opdracht.type ?? '');
     await formulier.getByRole('radio', { name: RICHTINGEN[opdracht.richting ?? 'alle'] }).check();
-    const antwoord = this.page.waitForResponse((r) => r.url().includes('/transacties'));
+    const velden = Object.keys(opdracht).filter((veld) => opdracht[veld as keyof Zoekopdracht]?.trim()).sort();
+    const antwoord = this.page.waitForResponse((r) => {
+      const url = new URL(r.url());
+      return url.pathname.endsWith('/transacties') && [...url.searchParams.keys()].sort().join() === velden.join();
+    });
     await formulier.getByRole('button', { name: 'Zoeken', exact: true }).click();
     await antwoord;
   }
