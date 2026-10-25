@@ -334,14 +334,23 @@ export class RestDriver implements BankDriver {
     return koppen;
   }
 
-  /** Zoals de app: met CSRF-token en een eigen Idempotency-Key (ADR 0027); daarna de spaarrekening opnieuw openen. */
-  async legIn({ van, naar, bedrag }: Overschrijfopdracht): Promise<void> {
+  async legIn(opdracht: Overschrijfopdracht): Promise<void> {
+    await this.schrijfOver(opdracht);
+    await this.openSpaarrekening(opdracht.naar);
+  }
+
+  async neemOp(opdracht: Overschrijfopdracht): Promise<void> {
+    await this.schrijfOver(opdracht);
+    await this.openSpaarrekening(opdracht.van);
+  }
+
+  /** Zoals de app: met CSRF-token en een eigen Idempotency-Key (ADR 0027). */
+  private async schrijfOver({ van, naar, bedrag }: Overschrijfopdracht): Promise<void> {
     const antwoord = await this.request.post('/api/overschrijvingen', {
       headers: await this.betaalHeaders(),
       data: { van, naar, bedrag },
     });
     expect(antwoord.status(), `POST /api/overschrijvingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
-    await this.openSpaarrekening(naar);
   }
 
   async lopendeRente(): Promise<string> {

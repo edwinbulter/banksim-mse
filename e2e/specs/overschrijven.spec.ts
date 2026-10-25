@@ -26,4 +26,18 @@ test.describe('Overschrijven', () => {
       jan.verwachtSaldi({ betaal: '750.00', spaar: '5250.00' }),
     );
   });
+
+  test('Opnemen', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.als('Jan € 500,00 opneemt van de spaarrekening', () => jan.neemtOp('500.00'));
+    await bank.dan('staat op de spaarrekening een mutatie "Opname" van −500,00', () =>
+      jan.verwachtSpaarmutatie({ op: 'vandaag', type: 'Opname', bedrag: '-500.00' }),
+    );
+    await bank.en('staat op de betaalrekening een "Overschrijving" van +500,00 van de eigen spaarrekening', () =>
+      jan.verwachtOverschrijvingVanSpaarrekening('500.00'),
+    );
+    await bank.en('is in het overzicht het betaalsaldo € 1.500,00 en het spaarsaldo € 4.500,00', () =>
+      jan.verwachtSaldi({ betaal: '1500.00', spaar: '4500.00' }),
+    );
+  });
 });

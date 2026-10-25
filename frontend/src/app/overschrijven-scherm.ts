@@ -11,8 +11,8 @@ interface Rekening {
 }
 
 /**
- * Route `/spaarrekeningen/:iban/inleggen` (S9.1, FO "Overschrijven scherm"): Van is de eigen betaalrekening, Naar de
- * spaarrekening uit de URL. "Overschrijven" boekt met één Idempotency-Key per scherm (ADR 0027) en keert terug naar de
+ * Routes `/spaarrekeningen/:iban/inleggen` en `/opnemen` (S9.1, FO "Overschrijven scherm"): bij inleggen is Van de eigen
+ * betaalrekening en Naar de spaarrekening uit de URL, bij opnemen andersom. "Overschrijven" boekt met één Idempotency-Key per scherm (ADR 0027) en keert terug naar de
  * spaarrekening. De link "Spaarrekening" is "< Spaarrekening" uit het FO.
  */
 @Component({
@@ -22,8 +22,8 @@ interface Rekening {
     <a [routerLink]="['/spaarrekeningen', iban()]">Spaarrekening</a>
     <h2>Overschrijven</h2>
     <form aria-label="Overschrijven" (submit)="$event.preventDefault(); schrijfOver()">
-      <section aria-label="Van">Van: Betaalrekening {{ van() }}</section>
-      <section aria-label="Naar">Naar: Spaarrekening {{ iban() }}</section>
+      <section aria-label="Van">Van: {{ van().naam }} {{ van().iban }}</section>
+      <section aria-label="Naar">Naar: {{ naar().naam }} {{ naar().iban }}</section>
       <label for="overschrijven-bedrag">Bedrag (€)</label>
       <input id="overschrijven-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
       <button type="submit">Overschrijven</button>
@@ -37,8 +37,17 @@ export class OverschrijvenScherm {
   /** De spaarrekening uit de URL, via withComponentInputBinding. */
   readonly iban = input.required<string>();
 
+  /** Uit de routedata: inleggen gaat naar de spaarrekening, opnemen komt ervan (FO). */
+  readonly richting = input<'inleggen' | 'opnemen'>('inleggen');
+
   private readonly rekeningen = signal<Rekening[]>([]);
-  protected readonly van = computed(() => this.rekeningen().find((rekening) => rekening.soort === 'betaal')?.iban ?? '');
+  private readonly betaal = computed(() => ({
+    naam: 'Betaalrekening',
+    iban: this.rekeningen().find((rekening) => rekening.soort === 'betaal')?.iban ?? '',
+  }));
+  private readonly spaar = computed(() => ({ naam: 'Spaarrekening', iban: this.iban() }));
+  protected readonly van = computed(() => (this.richting() === 'inleggen' ? this.betaal() : this.spaar()));
+  protected readonly naar = computed(() => (this.richting() === 'inleggen' ? this.spaar() : this.betaal()));
   protected readonly bedrag = signal('');
 
   /** ADR 0027: één sleutel per scherm; een dubbelklik stuurt dezelfde. */
@@ -49,7 +58,7 @@ export class OverschrijvenScherm {
   }
 
   protected schrijfOver(): void {
-    const opdracht = { van: this.van(), naar: this.iban(), bedrag: bedragUitInvoer(this.bedrag()) };
+    const opdracht = { van: this.van().iban, naar: this.naar().iban, bedrag: bedragUitInvoer(this.bedrag()) };
     const headers = { 'Idempotency-Key': this.sleutel };
     this.http
       .post('/api/overschrijvingen', opdracht, { headers })

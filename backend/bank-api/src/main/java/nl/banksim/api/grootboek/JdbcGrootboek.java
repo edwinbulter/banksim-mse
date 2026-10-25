@@ -45,6 +45,14 @@ class JdbcGrootboek implements Grootboek {
                 .single();
     }
 
+    @Override
+    public boolean isSpaarrekening(Iban iban) {
+        return jdbc.sql("SELECT soort = 'spaar' FROM rekening WHERE iban = :iban")
+                .param("iban", iban.toString())
+                .query(Boolean.class)
+                .single();
+    }
+
     /** De volgorde ligt hier, in de query: twee transacties wachten zo nooit in een kring op elkaar (ADR 0026). */
     @Override
     public void vergrendel(Iban... rekeningen) {

@@ -9,7 +9,6 @@ import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.grootboek.Partij;
 import nl.banksim.domain.rekening.Iban;
-import nl.banksim.domain.transactie.TransactieType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,12 +29,13 @@ class OverschrijfService {
     }
 
     /**
-     * Inleggen: van de eigen betaalrekening naar de eigen spaarrekening, met de standaardomschrijving "Inleg" (FO).
+     * Inleggen (naar de spaarrekening) of opnemen (van de spaarrekening), met de standaardomschrijving "Inleg" of
+     * "Opname" (FO).
      * Andermans rekening bestaat voor de klant niet (ADR 0023). ADR 0027: eerst de sleutel, in dezelfde
      * databasetransactie, zoals bij betalen.
      */
     @Transactional
-    void legIn(String gebruikersnaam, String sleutel, Iban van, Iban naar, Bedrag bedrag) {
+    void schrijfOver(String gebruikersnaam, String sleutel, Iban van, Iban naar, Bedrag bedrag) {
         String verzoek = VerzoekHash.van("overschrijving", van.toString(), naar.toString(), bedrag.toString());
         Optional<String> eerder = idempotentie.claim(sleutel, gebruikersnaam, verzoek);
         if (eerder.isPresent()) {
@@ -46,7 +46,10 @@ class OverschrijfService {
         }
         String naamVan = grootboek.naamBijEigenRekening(gebruikersnaam, van).orElseThrow(RekeningNietGevonden::new);
         String naamNaar = grootboek.naamBijEigenRekening(gebruikersnaam, naar).orElseThrow(RekeningNietGevonden::new);
-        ledger.boek(Overboeking.overschrijving(new Partij(van, naamVan), new Partij(naar, naamNaar), bedrag,
-                TransactieType.INLEG, klok.nu(), "Inleg"));
+        Partij vanPartij = new Partij(van, naamVan);
+        Partij naarPartij = new Partij(naar, naamNaar);
+        ledger.boek(grootboek.isSpaarrekening(van)
+                ? Overboeking.opname(vanPartij, naarPartij, bedrag, klok.nu(), "Opname")
+                : Overboeking.inleg(vanPartij, naarPartij, bedrag, klok.nu(), "Inleg"));
     }
 }

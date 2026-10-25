@@ -22,12 +22,19 @@ public class GeheugenGrootboek implements Grootboek {
     private final List<Overboeking> geschreven = new ArrayList<>();
     private final List<String> saldoGevraagd = new ArrayList<>();
     private final java.util.Set<Iban> magRoodStaan = new java.util.HashSet<>();
+    private final java.util.Set<Iban> spaarrekeningen = new java.util.HashSet<>();
 
     /** Een rekening met een vast saldo; geschreven overboekingen veranderen het niet. */
     public void rekening(String gebruikersnaam, Iban iban, String naam, Bedrag saldo) {
         gebruikers.put(iban, gebruikersnaam);
         namen.put(iban, naam);
         saldi.put(iban, saldo);
+    }
+
+    /** Een spaarrekening (S9.1): bij een overschrijving is zij de kant met Inleg of Opname. */
+    public void spaarrekening(String gebruikersnaam, Iban iban, String naam, Bedrag saldo) {
+        rekening(gebruikersnaam, iban, naam, saldo);
+        spaarrekeningen.add(iban);
     }
 
     public void leeg() {
@@ -38,6 +45,7 @@ public class GeheugenGrootboek implements Grootboek {
         geschreven.clear();
         saldoGevraagd.clear();
         magRoodStaan.clear();
+        spaarrekeningen.clear();
     }
 
     public List<Overboeking> geschreven() {
@@ -73,6 +81,11 @@ public class GeheugenGrootboek implements Grootboek {
     @Override
     public boolean magRoodStaan(Iban iban) {
         return magRoodStaan.contains(iban);
+    }
+
+    @Override
+    public boolean isSpaarrekening(Iban iban) {
+        return spaarrekeningen.contains(iban);
     }
 
     /** Eén test-thread: vergrendelen is niet nodig. */

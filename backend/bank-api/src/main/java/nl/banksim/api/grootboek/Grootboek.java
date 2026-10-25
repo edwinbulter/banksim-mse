@@ -22,6 +22,9 @@ public interface Grootboek {
     /** Een interne rekening van BankSim mag negatief worden; nooit rood geldt voor betaal en spaar (ADR 0028). */
     boolean magRoodStaan(Iban iban);
 
+    /** S9.1: bij een overschrijving is de spaarrekening de kant met Inleg of Opname (ADR 0029). */
+    boolean isSpaarrekening(Iban iban);
+
     /** Vergrendelt de rekeningen tot het einde van de databasetransactie, altijd in IBAN-volgorde (ADR 0026). */
     void vergrendel(Iban... rekeningen);
 

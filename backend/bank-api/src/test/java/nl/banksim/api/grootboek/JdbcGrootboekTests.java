@@ -181,8 +181,7 @@ class JdbcGrootboekTests {
     /** ADR 0029: elke transactie krijgt het type van haar eigen kant; de overboeking is een Overschrijving. */
     @Test
     void schrijftBijElkeKantHaarEigenType() {
-        var overboeking = Overboeking.overschrijving(new Partij(PIET, "Piet"), new Partij(SANNE, "Sanne"), Bedrag.van("2.00"),
-                TransactieType.INLEG, LocalDateTime.of(2026, 10, 7, 9, 0), "Inleg");
+        var overboeking = Overboeking.inleg(new Partij(PIET, "Piet"), new Partij(SANNE, "Sanne"), Bedrag.van("2.00"), LocalDateTime.of(2026, 10, 7, 9, 0), "Inleg");
 
         transactie.executeWithoutResult(status -> grootboek.schrijf(overboeking));
 
@@ -192,6 +191,32 @@ class JdbcGrootboekTests {
                 .query((rij, nummer) -> rij.getString("iban") + " " + rij.getString("type") + " " + rij.getString("overboeking"))
                 .list())
                 .containsExactly(PIET + " OVERSCHRIJVING OVERSCHRIJVING", SANNE + " INLEG OVERSCHRIJVING");
+    }
+
+    /** S9.1: alleen een rekening van de soort spaar is een spaarrekening. */
+    @Test
+    void herkentEenSpaarrekening() {
+        Iban spaar = Iban.simBank(5L);
+        jdbc.sql("""
+                INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
+                SELECT :iban, id, 'spaar', 0.00 FROM rekeninghouder WHERE gebruikersnaam = 'jan'""")
+                .param("iban", spaar.toString()).update();
+
+        assertThat(grootboek.isSpaarrekening(spaar)).isTrue();
+        assertThat(grootboek.isSpaarrekening(JAN)).isFalse();
+    }
+
+    /** ADR 0029: bij een opname krijgt de kant van Van het type Opname. */
+    @Test
+    void schrijftEenOpnameMetOpnameBijVan() {
+        var overboeking = Overboeking.opname(new Partij(SANNE, "Sanne"), new Partij(PIET, "Piet"), Bedrag.van("1.00"),
+                LocalDateTime.of(2026, 10, 8, 9, 0), "Opname");
+
+        transactie.executeWithoutResult(status -> grootboek.schrijf(overboeking));
+
+        assertThat(jdbc.sql("SELECT iban || ' ' || type FROM transactie WHERE datum = '2026-10-08' ORDER BY bedrag")
+                .query(String.class).list())
+                .containsExactly(SANNE + " OPNAME", PIET + " OVERSCHRIJVING");
     }
 
     /** ADR 0028: de renterekening van BankSim (V11) mag negatief worden, een betaalrekening niet. */

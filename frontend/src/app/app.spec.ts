@@ -655,4 +655,35 @@ describe('App', () => {
 
     expect(TestBed.inject(Location).path()).toBe('/spaarrekeningen/NL67SIMB0000000002');
   });
+  /** S9.1 (FO): "Opnemen" opent Overschrijven met Van = spaarrekening en Naar = betaalrekening. */
+  it('neemt op van de spaarrekening naar de betaalrekening (S9.1)', async () => {
+    const pagina = await start('/spaarrekeningen/NL67SIMB0000000002');
+    await transacties('/api/rekeningen/NL67SIMB0000000002/transacties', { transacties: [], volgende: null });
+    await transacties('/api/rekeningen/NL67SIMB0000000002/lopende-rente', { bedrag: '0.00' });
+
+    link(pagina, 'Opnemen')?.click();
+    await ververs();
+    expect(TestBed.inject(Location).path()).toBe('/spaarrekeningen/NL67SIMB0000000002/opnemen');
+    await rekeningen({
+      status: 200,
+      body: [...JAN, { soort: 'spaar', iban: 'NL67SIMB0000000002', saldo: '5000.00' }],
+    });
+
+    expect(pagina.querySelector('[aria-label="Van"]')?.textContent).toContain('Spaarrekening NL67SIMB0000000002');
+    expect(pagina.querySelector('[aria-label="Naar"]')?.textContent).toContain('Betaalrekening NL94SIMB0000000001');
+    vulIn(pagina, 'Bedrag (€)', '500,00');
+    knop(pagina, 'Overschrijven')?.click();
+    await ververs();
+
+    const overschrijving = http.expectOne('/api/overschrijvingen');
+    expect(overschrijving.request.body).toEqual({
+      van: 'NL67SIMB0000000002',
+      naar: 'NL94SIMB0000000001',
+      bedrag: '500.00',
+    });
+    overschrijving.flush(null, { status: 201, statusText: 'Created' });
+    await ververs();
+
+    expect(TestBed.inject(Location).path()).toBe('/spaarrekeningen/NL67SIMB0000000002');
+  });
 });

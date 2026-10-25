@@ -32,17 +32,29 @@ class OverboekingTests {
                 new Boeking(SANNE.iban(), Bedrag.van("25.00"), JAN, TransactieType.ONLINE_BANKIEREN));
     }
 
-    /** ADR 0029: een overschrijving heeft een type per kant; de overboeking zelf is een Overschrijving. */
+    /** ADR 0029: een overschrijving heeft een type per kant; bij een inleg ziet de spaarrekening een Inleg. */
     @Test
-    void eenOverschrijvingGeeftElkeKantZijnEigenType() {
+    void eenInlegIsEenOverschrijvingMetInlegAanDeKantVanDeSpaarrekening() {
         var spaar = new Partij(Iban.simBank(3L), "Jan");
-        var overboeking = Overboeking.overschrijving(JAN, spaar, Bedrag.van("250.00"), TransactieType.INLEG, TIJDSTIP, "Inleg");
+        var overboeking = Overboeking.inleg(JAN, spaar, Bedrag.van("250.00"), TIJDSTIP, "Inleg");
 
         assertThat(overboeking.type()).isEqualTo(TransactieType.OVERSCHRIJVING);
         assertThat(overboeking.omschrijving()).isEqualTo("Inleg");
         assertThat(overboeking.boekingen()).containsExactly(
                 new Boeking(JAN.iban(), Bedrag.van("-250.00"), spaar, TransactieType.OVERSCHRIJVING),
                 new Boeking(spaar.iban(), Bedrag.van("250.00"), JAN, TransactieType.INLEG));
+    }
+
+    /** S9.1: bij een opname is de spaarrekening Van; zij ziet een Opname, de betaalrekening een Overschrijving. */
+    @Test
+    void eenOpnameIsEenOverschrijvingMetOpnameAanDeKantVanDeSpaarrekening() {
+        var spaar = new Partij(Iban.simBank(3L), "Jan");
+        var overboeking = Overboeking.opname(spaar, JAN, Bedrag.van("500.00"), TIJDSTIP, "Opname");
+
+        assertThat(overboeking.type()).isEqualTo(TransactieType.OVERSCHRIJVING);
+        assertThat(overboeking.boekingen()).containsExactly(
+                new Boeking(spaar.iban(), Bedrag.van("-500.00"), JAN, TransactieType.OPNAME),
+                new Boeking(JAN.iban(), Bedrag.van("500.00"), spaar, TransactieType.OVERSCHRIJVING));
     }
 
     @Property

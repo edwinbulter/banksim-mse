@@ -66,8 +66,8 @@ class OverschrijvingControllerTests {
     void janHeeftEenBetaalEnEenSpaarrekening() {
         grootboek.leeg();
         grootboek.rekening("jan-a1-1", BETAAL_JAN, "Jan", Bedrag.van("1000.00"));
-        grootboek.rekening("jan-a1-1", SPAAR_JAN, "Jan", Bedrag.van("5000.00"));
-        grootboek.rekening("sanne-a1-2", SPAAR_SANNE, "Sanne", Bedrag.van("5000.00"));
+        grootboek.spaarrekening("jan-a1-1", SPAAR_JAN, "Jan", Bedrag.van("5000.00"));
+        grootboek.spaarrekening("sanne-a1-2", SPAAR_SANNE, "Sanne", Bedrag.van("5000.00"));
         idempotentie.leeg();
     }
 
@@ -77,9 +77,20 @@ class OverschrijvingControllerTests {
         mvc.perform(verzoek(UUID.randomUUID().toString()).content(opdracht(BETAAL_JAN, SPAAR_JAN)))
                 .andExpect(status().isCreated());
 
-        assertThat(grootboek.geschreven()).containsExactly(Overboeking.overschrijving(
-                new Partij(BETAAL_JAN, "Jan"), new Partij(SPAAR_JAN, "Jan"), Bedrag.van("250.00"),
-                TransactieType.INLEG, LocalDateTime.of(2026, 10, 5, 14, 0), "Inleg"));
+        assertThat(grootboek.geschreven()).containsExactly(Overboeking.inleg(
+                new Partij(BETAAL_JAN, "Jan"), new Partij(SPAAR_JAN, "Jan"), Bedrag.van("250.00"), LocalDateTime.of(2026, 10, 5, 14, 0), "Inleg"));
+    }
+
+    /** FO: bij opnemen is de spaarrekening Van; zij krijgt een "Opname", de betaalrekening een "Overschrijving". */
+    @Test
+    void opnemenBoektEenOverschrijvingMetOpnameAlsTypeOpDeSpaarrekening() throws Exception {
+        mvc.perform(verzoek(UUID.randomUUID().toString()).content("""
+                        {"van": "%s", "naar": "%s", "bedrag": "500.00"}""".formatted(SPAAR_JAN, BETAAL_JAN)))
+                .andExpect(status().isCreated());
+
+        assertThat(grootboek.geschreven()).containsExactly(Overboeking.opname(
+                new Partij(SPAAR_JAN, "Jan"), new Partij(BETAAL_JAN, "Jan"), Bedrag.van("500.00"),
+                LocalDateTime.of(2026, 10, 5, 14, 0), "Opname"));
     }
 
     /** ADR 0023: andermans spaarrekening bestaat voor Jan niet. */

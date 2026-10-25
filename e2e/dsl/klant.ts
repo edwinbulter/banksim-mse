@@ -108,6 +108,12 @@ export class Klant {
     await (await this.sessie()).legIn({ van: this.iban(), naar: this.spaarIban!, bedrag });
   }
 
+  /** S9.1: vanaf de spaarrekening met "Opnemen"; Van is de spaarrekening, Naar de betaalrekening. */
+  async neemtOp(bedrag: string): Promise<void> {
+    await this.opentSpaarrekening();
+    await (await this.sessie()).neemOp({ van: this.spaarIban!, naar: this.iban(), bedrag });
+  }
+
   /**
    * Op de geopende spaarrekening staat deze mutatie (de andere mutaties doen niet mee). `op` is een datum, of
    * "vandaag": de datum in Europe/Amsterdam, voor een scenario zonder simulatiedatum.
@@ -352,6 +358,13 @@ export class Klant {
     await this.verwachtBovensteTransactie(this.alias, bedrag);
     await (await this.sessie()).klapUit(this.alias);
     await this.verwachtDetails({ transactietype: 'OVERSCHRIJVING', naar: { naam: this.alias, iban: this.spaarIban! } });
+  }
+
+  /** S9.1: bovenaan de eigen betaalrekening de bijschrijving van de eigen spaarrekening, als Overschrijving. */
+  async verwachtOverschrijvingVanSpaarrekening(bedrag: string): Promise<void> {
+    await this.verwachtBovensteTransactie(this.alias, bedrag);
+    await (await this.sessie()).klapUit(this.alias);
+    await this.verwachtDetails({ transactietype: 'OVERSCHRIJVING', van: { naam: this.alias, iban: this.spaarIban! } });
   }
 
   /** Beide saldi, zoals het overzicht ze toont. */

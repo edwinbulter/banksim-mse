@@ -11,6 +11,7 @@ export const routes: Routes = [
   { path: 'rekeningen/:iban', component: BetaalrekeningScherm },
   { path: 'rekeningen/:iban/betalen', component: BetalenScherm },
   { path: 'spaarrekeningen/:iban', component: SpaarrekeningScherm },
-  { path: 'spaarrekeningen/:iban/inleggen', component: OverschrijvenScherm },
+  { path: 'spaarrekeningen/:iban/inleggen', component: OverschrijvenScherm, data: { richting: 'inleggen' } },
+  { path: 'spaarrekeningen/:iban/opnemen', component: OverschrijvenScherm, data: { richting: 'opnemen' } },
   { path: '**', redirectTo: '' },
 ];

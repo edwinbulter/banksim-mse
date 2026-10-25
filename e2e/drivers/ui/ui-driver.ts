@@ -187,7 +187,11 @@ export class UiDriver implements BankDriver {
   }
 
   async legIn({ bedrag }: Overschrijfopdracht): Promise<void> {
-    await this.spaarrekening.legIn(bedrag);
+    await this.spaarrekening.schrijfOver('Inleggen', bedrag);
+  }
+
+  async neemOp({ bedrag }: Overschrijfopdracht): Promise<void> {
+    await this.spaarrekening.schrijfOver('Opnemen', bedrag);
   }
 
   async lopendeRente(): Promise<string> {

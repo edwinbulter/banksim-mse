@@ -35,7 +35,7 @@ class OverschrijvingController {
         if (sleutel == null) {
             throw new SleutelOntbreekt();
         }
-        overschrijven.legIn(gebruiker.gebruikersnaam(), sleutel, Iban.van(json.van()), Iban.van(json.naar()),
+        overschrijven.schrijfOver(gebruiker.gebruikersnaam(), sleutel, Iban.van(json.van()), Iban.van(json.naar()),
                 Bedrag.van(json.bedrag()));
     }
 

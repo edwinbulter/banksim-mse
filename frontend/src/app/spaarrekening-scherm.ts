@@ -17,6 +17,7 @@ import { bedragMetTeken, bedragVoorWeergave } from './geld/bedrag';
   template: `
     <a routerLink="/">Overzicht</a>
     <h2>Spaarrekening</h2>
+    <a [routerLink]="['/spaarrekeningen', iban(), 'opnemen']">Opnemen</a>
     <a [routerLink]="['/spaarrekeningen', iban(), 'inleggen']">Inleggen</a>
     @if (lopendeRente(); as rente) {
       <dl>

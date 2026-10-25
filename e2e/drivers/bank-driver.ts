@@ -193,6 +193,8 @@ export interface BankDriver {
   spaarkoppen(): Promise<string[]>;
   /** Vanaf de geopende spaarrekening geld inleggen (S9.1); daarna staat de spaarrekening weer open. */
   legIn(opdracht: Overschrijfopdracht): Promise<void>;
+  /** Vanaf de geopende spaarrekening geld opnemen (S9.1); daarna staat de spaarrekening weer open. */
+  neemOp(opdracht: Overschrijfopdracht): Promise<void>;
   /** De lopende rente van de geopende spaarrekening, in domeinnotatie ("12.36"). */
   lopendeRente(): Promise<string>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */

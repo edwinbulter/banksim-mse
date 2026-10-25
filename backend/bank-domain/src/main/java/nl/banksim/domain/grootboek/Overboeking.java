@@ -27,14 +27,16 @@ public record Overboeking(Partij van, Partij naar, Bedrag bedrag, TransactieType
         this(van, naar, bedrag, type, tijdstip, null, null, null);
     }
 
-    /**
-     * S9.1 (FO): een overschrijving tussen de eigen rekeningen. De kant van Van ziet een "Overschrijving", de kant van
-     * Naar {@code typeNaar}, bijvoorbeeld een Inleg op de spaarrekening (ADR 0029).
-     */
-    public static Overboeking overschrijving(Partij van, Partij naar, Bedrag bedrag, TransactieType typeNaar,
-            LocalDateTime tijdstip, String omschrijving) {
-        return new Overboeking(van, naar, bedrag, TransactieType.OVERSCHRIJVING, tijdstip, omschrijving, null, null,
-                TransactieType.OVERSCHRIJVING, typeNaar);
+    /** S9.1 (FO): van de betaalrekening naar de eigen spaarrekening; de spaarrekening ziet een Inleg (ADR 0029). */
+    public static Overboeking inleg(Partij betaal, Partij spaar, Bedrag bedrag, LocalDateTime tijdstip, String omschrijving) {
+        return new Overboeking(betaal, spaar, bedrag, TransactieType.OVERSCHRIJVING, tijdstip, omschrijving, null, null,
+                TransactieType.OVERSCHRIJVING, TransactieType.INLEG);
+    }
+
+    /** S9.1 (FO): van de spaarrekening naar de eigen betaalrekening; de spaarrekening ziet een Opname (ADR 0029). */
+    public static Overboeking opname(Partij spaar, Partij betaal, Bedrag bedrag, LocalDateTime tijdstip, String omschrijving) {
+        return new Overboeking(spaar, betaal, bedrag, TransactieType.OVERSCHRIJVING, tijdstip, omschrijving, null, null,
+                TransactieType.OPNAME, TransactieType.OVERSCHRIJVING);
     }
 
     public Overboeking {

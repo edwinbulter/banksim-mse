@@ -17,11 +17,11 @@ export class SpaarrekeningPagina {
   }
 
   /**
-   * S9.1 (FO "Overschrijven scherm"): "Inleggen" opent het scherm Overschrijven met Van en Naar al ingevuld. Het bedrag
-   * zoals de klant het typt, met komma; na "Overschrijven" weer op de spaarrekening.
+   * S9.1 (FO "Overschrijven scherm"): "Inleggen" of "Opnemen" opent het scherm Overschrijven met Van en Naar al
+   * ingevuld. Het bedrag zoals de klant het typt, met komma; na "Overschrijven" weer op de spaarrekening.
    */
-  async legIn(bedrag: string): Promise<void> {
-    await this.page.getByRole('link', { name: 'Inleggen' }).click();
+  async schrijfOver(knop: 'Inleggen' | 'Opnemen', bedrag: string): Promise<void> {
+    await this.page.getByRole('link', { name: knop }).click();
     await expect(this.page.getByRole('heading', { name: 'Overschrijven' })).toBeVisible();
     await this.page.getByLabel('Bedrag (€)').fill(bedrag.replace('.', ','));
     await this.page.getByRole('button', { name: 'Overschrijven' }).click();
