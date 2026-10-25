@@ -80,9 +80,9 @@ class JdbcGrootboek implements Grootboek {
         for (Boeking boeking : overboeking.boekingen()) {
             jdbc.sql("""
                             INSERT INTO transactie (iban, datum, bedrag, tegenpartij, type, tijdstip, tegen_iban, overboeking_id,
-                                                    omschrijving, betalingskenmerk)
+                                                    omschrijving, betalingskenmerk, extra_omschrijving)
                             VALUES (:iban, :datum, :bedrag, :tegenpartij, :type, :tijdstip, :tegenIban, :overboeking,
-                                    :omschrijving, :betalingskenmerk)""")
+                                    :omschrijving, :betalingskenmerk, :extraOmschrijving)""")
                     .param("iban", boeking.rekening().toString())
                     .param("datum", overboeking.datum())
                     .param("bedrag", boeking.bedrag().waarde())
@@ -93,6 +93,7 @@ class JdbcGrootboek implements Grootboek {
                     .param("overboeking", id)
                     .param("omschrijving", overboeking.omschrijving())
                     .param("betalingskenmerk", overboeking.betalingskenmerk())
+                    .param("extraOmschrijving", overboeking.extraOmschrijving())
                     .update();
         }
     }

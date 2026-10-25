@@ -85,6 +85,15 @@ export interface Betaalopdracht {
   betalingskenmerk?: string;
 }
 
+/** De maximale lengtes van de velden op het betaalscherm (FO). */
+export interface MaximaleLengtes {
+  naamOntvanger: number;
+  rekeningnummer: number;
+  omschrijving: number;
+  betalingskenmerk: number;
+  extraOmschrijving: number;
+}
+
 /** Of een verzoek dat iets verandert, is uitgevoerd of door de rechten geweigerd (403). */
 export type Uitkomst = 'gelukt' | 'geweigerd';
 
@@ -150,6 +159,10 @@ export interface BankDriver {
    * browser een dubbelklik op "Bevestigen" (S7.1, CFR).
    */
   betaalDubbel(opdracht: Betaalopdracht): Promise<void>;
+  /** Alleen in de UI-driver (@ui): vanaf de geopende rekening het betaalscherm openen. */
+  openBetalen(): Promise<void>;
+  /** Alleen in de UI-driver (@ui): hoeveel tekens er in elk veld van het betaalscherm passen. */
+  maximaleLengtes(): Promise<MaximaleLengtes>;
   /** Alleen in de UI-driver (@ui): op het betaalscherm `tekst` typen en de suggestie met dit IBAN kiezen. */
   kiesSuggestie(tekst: string, iban: string): Promise<void>;
   /** Alleen in de UI-driver (@ui): de naam en het IBAN van de ontvanger zoals ze in het formulier staan. */

@@ -3,6 +3,7 @@ import { expect, type APIRequestContext, type APIResponse } from '@playwright/te
 import type {
   BankDriver,
   Betaalopdracht,
+  MaximaleLengtes,
   Partij,
   RekeningInOverzicht,
   TransactieDetails,
@@ -253,6 +254,14 @@ export class RestDriver implements BankDriver {
       expect(antwoord.status(), `${keer} POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
     }
     await this.openRekening(van!);
+  }
+
+  async openBetalen(): Promise<void> {
+    throw new Error('Het betaalscherm bestaat alleen in de browser (@ui)');
+  }
+
+  async maximaleLengtes(): Promise<MaximaleLengtes> {
+    throw new Error('Het betaalscherm bestaat alleen in de browser (@ui)');
   }
 
   async kiesSuggestie(): Promise<void> {

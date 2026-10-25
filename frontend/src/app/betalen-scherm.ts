@@ -43,9 +43,9 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
         <label for="betalen-bedrag">Bedrag (€)</label>
         <input id="betalen-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
         <label for="betalen-naam">Naam ontvanger</label>
-        <input id="betalen-naam" [value]="naam()" (input)="naam.set(waarde($event)); zoekContacten(naam())" />
+        <input id="betalen-naam" maxlength="70" [value]="naam()" (input)="naam.set(waarde($event)); zoekContacten(naam())" />
         <label for="betalen-iban">Rekeningnummer (IBAN)</label>
-        <input id="betalen-iban" [value]="ontvanger()" (input)="ontvanger.set(waarde($event)); zoekContacten(ontvanger())" />
+        <input id="betalen-iban" maxlength="34" [value]="ontvanger()" (input)="ontvanger.set(waarde($event)); zoekContacten(ontvanger())" />
         @if (suggesties().length > 0) {
           <ul aria-label="Suggesties">
             @for (contact of suggesties(); track contact.iban) {
@@ -56,9 +56,11 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
           </ul>
         }
         <label for="betalen-omschrijving">Omschrijving</label>
-        <input id="betalen-omschrijving" [value]="omschrijving()" (input)="omschrijving.set(waarde($event))" />
+        <input id="betalen-omschrijving" maxlength="140" [value]="omschrijving()" (input)="omschrijving.set(waarde($event))" />
         <label for="betalen-kenmerk">Betalingskenmerk</label>
-        <input id="betalen-kenmerk" [value]="betalingskenmerk()" (input)="betalingskenmerk.set(waarde($event))" />
+        <input id="betalen-kenmerk" maxlength="25" [value]="betalingskenmerk()" (input)="betalingskenmerk.set(waarde($event))" />
+        <label for="betalen-extra">Extra omschrijving</label>
+        <input id="betalen-extra" maxlength="35" [value]="extraOmschrijving()" (input)="extraOmschrijving.set(waarde($event))" />
         <button type="submit">Volgende</button>
       </form>
     }
@@ -77,6 +79,7 @@ export class BetalenScherm {
   /** Optioneel (FO); leeg gaat niet mee naar de API. */
   protected readonly omschrijving = signal('');
   protected readonly betalingskenmerk = signal('');
+  protected readonly extraOmschrijving = signal('');
   protected readonly controle = signal(false);
   /** De melding van de API bij een geweigerde betaling (RFC 9457), zoals "Naar dit rekeningnummer kan niet worden betaald.". */
   protected readonly melding = signal<string | undefined>(undefined);
@@ -111,6 +114,7 @@ export class BetalenScherm {
       bedrag: bedragUitInvoer(this.bedrag()),
       omschrijving: this.omschrijving() || undefined,
       betalingskenmerk: this.betalingskenmerk() || undefined,
+      extraOmschrijving: this.extraOmschrijving() || undefined,
     };
     const headers = { 'Idempotency-Key': this.sleutel };
     this.http.post('/api/betalingen', betaling, { headers }).subscribe({

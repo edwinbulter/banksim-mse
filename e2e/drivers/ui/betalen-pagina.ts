@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { Betaalopdracht } from '../bank-driver';
+import type { Betaalopdracht, MaximaleLengtes } from '../bank-driver';
 
 /** De meldingen na "Bevestigen", terug naar het probleemtype van de API (S7.1). */
 const WEIGERINGEN: Record<string, string> = {
@@ -23,6 +23,24 @@ export class BetalenPagina {
     await this.vulInEnGaNaarControle({ bedrag, naam, iban });
     await this.page.getByRole('button', { name: 'Bevestigen' }).dblclick();
     await expect(this.page.getByRole('heading', { name: 'Betaalrekening' })).toBeVisible();
+  }
+
+  async open(): Promise<void> {
+    await this.page.getByRole('link', { name: 'Betalen' }).click();
+    await expect(this.page.getByRole('heading', { name: 'Betalen' })).toBeVisible();
+  }
+
+  /** Het attribuut maxlength van elk veld; zonder attribuut is het geen getal en faalt de vergelijking. */
+  async maximaleLengtes(): Promise<MaximaleLengtes> {
+    const lengte = async (label: string) =>
+      Number(await this.page.getByLabel(label, { exact: true }).getAttribute('maxlength'));
+    return {
+      naamOntvanger: await lengte('Naam ontvanger'),
+      rekeningnummer: await lengte('Rekeningnummer (IBAN)'),
+      omschrijving: await lengte('Omschrijving'),
+      betalingskenmerk: await lengte('Betalingskenmerk'),
+      extraOmschrijving: await lengte('Extra omschrijving'),
+    };
   }
 
   /** Vanaf de geopende betaalrekening: typen in het IBAN-veld, en de suggestie met dit IBAN kiezen. */

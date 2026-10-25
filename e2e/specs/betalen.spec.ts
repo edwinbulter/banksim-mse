@@ -80,6 +80,21 @@ test('De omschrijving en het betalingskenmerk staan bij de ontvanger in de detai
   );
 });
 
+// FO "Betalen scherm": de maximale lengtes van de velden. Dezelfde controle in de API staat op de backlog.
+test('Het betaalformulier heeft de maximale lengtes uit het FO', { tag: '@ui' }, async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.als('Jan het betaalformulier opent', () => jan.opentBetalen());
+  await bank.dan('passen er in de velden hoogstens 70, 34, 140, 25 en 35 tekens', () =>
+    jan.verwachtMaximaleLengtes({
+      naamOntvanger: 70,
+      rekeningnummer: 34,
+      omschrijving: 140,
+      betalingskenmerk: 25,
+      extraOmschrijving: 35,
+    }),
+  );
+});
+
 // FO: bij typen verschijnen suggesties uit de contactenlijst; kiezen vult naam en IBAN. Jan typt het begin van het
 // IBAN: de contactenlijst is van de hele bank, en daarin staan veel contacten met de naam Sanne.
 test('Een suggestie uit de contactenlijst vult naam en rekeningnummer in', { tag: '@ui' }, async ({ bank }) => {

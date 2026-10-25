@@ -162,19 +162,20 @@ class JdbcGrootboekTests {
         }
     }
 
-    /** FO: omschrijving en betalingskenmerk staan bij beide kanten, zodat Jan en de ontvanger ze allebei zien. */
+    /** FO: omschrijving, betalingskenmerk en extra omschrijving staan bij beide kanten. */
     @Test
-    void schrijftOmschrijvingEnBetalingskenmerkBijBeideKanten() {
+    void schrijftOmschrijvingBetalingskenmerkEnExtraOmschrijvingBijBeideKanten() {
         var overboeking = new Overboeking(new Partij(PIET, "Piet"), new Partij(SANNE, "Sanne"), Bedrag.van("1.00"),
-                TransactieType.ONLINE_BANKIEREN, LocalDateTime.of(2026, 10, 6, 9, 0), "Etentje", "ETEN-2026");
+                TransactieType.ONLINE_BANKIEREN, LocalDateTime.of(2026, 10, 6, 9, 0), "Etentje", "ETEN-2026", "Voor de pizza");
 
         transactie.executeWithoutResult(status -> grootboek.schrijf(overboeking));
 
         assertThat(jdbc.sql("""
-                        SELECT omschrijving, betalingskenmerk FROM transactie
+                        SELECT omschrijving, betalingskenmerk, extra_omschrijving FROM transactie
                         WHERE datum = '2026-10-06' AND iban IN ('NL40SIMB0000000003', 'NL67SIMB0000000002')""")
-                .query((rij, nummer) -> rij.getString("omschrijving") + " " + rij.getString("betalingskenmerk")).list())
-                .containsExactly("Etentje ETEN-2026", "Etentje ETEN-2026");
+                .query((rij, nummer) -> rij.getString("omschrijving") + " " + rij.getString("betalingskenmerk") + " "
+                        + rij.getString("extra_omschrijving")).list())
+                .containsExactly("Etentje ETEN-2026 Voor de pizza", "Etentje ETEN-2026 Voor de pizza");
     }
 
     /** De trigger is de laatste verdedigingslinie: ook SQL buiten LedgerService om komt er niet door. */

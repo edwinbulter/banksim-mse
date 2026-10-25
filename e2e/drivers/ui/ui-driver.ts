@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import type {
   BankDriver,
   Betaalopdracht,
+  MaximaleLengtes,
   RekeningInOverzicht,
   TransactieDetails,
   TransactiesOpDatum,
@@ -145,6 +146,14 @@ export class UiDriver implements BankDriver {
 
   async betaalDubbel(opdracht: Betaalopdracht): Promise<void> {
     await this.betalen.betaalDubbel(opdracht);
+  }
+
+  async openBetalen(): Promise<void> {
+    await this.betalen.open();
+  }
+
+  async maximaleLengtes(): Promise<MaximaleLengtes> {
+    return this.betalen.maximaleLengtes();
   }
 
   async kiesSuggestie(tekst: string, iban: string): Promise<void> {

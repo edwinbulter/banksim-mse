@@ -95,6 +95,17 @@ class BetalingControllerTests {
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("Etentje", "ETEN-2026"));
     }
 
+    /** FO: de extra omschrijving is optioneel en gaat mee in de overboeking; getoond wordt ze niet. */
+    @Test
+    void neemtDeExtraOmschrijvingMeeInDeOverboeking() throws Exception {
+        mvc.perform(betaalverzoek().content("""
+                        {"van": "%s", "naar": "%s", "naam": "Sanne", "bedrag": "25.00", "extraOmschrijving": "Voor de pizza"}"""
+                        .formatted(VAN_JAN, VAN_SANNE)))
+                .andExpect(status().isCreated());
+
+        assertThat(grootboek.geschreven()).extracting(Overboeking::extraOmschrijving).containsExactly("Voor de pizza");
+    }
+
     /** ADR 0023: van andermans rekening bestaat voor de klant niet. */
     @Test
     void vanEenRekeningVanEenAnderGeeft404EnBoektNiets() throws Exception {

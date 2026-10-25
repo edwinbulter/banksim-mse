@@ -495,4 +495,32 @@ describe('App', () => {
       betalingskenmerk: 'ETEN-2026',
     });
   });
+  /** FO "Betalen scherm": de maximale lengtes van de velden. */
+  it('geeft de velden van het betaalscherm de maximale lengtes uit het FO (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+    const lengte = (id: string) => pagina.querySelector(`#${id}`)?.getAttribute('maxlength');
+
+    expect([
+      lengte('betalen-naam'),
+      lengte('betalen-iban'),
+      lengte('betalen-omschrijving'),
+      lengte('betalen-kenmerk'),
+      lengte('betalen-extra'),
+    ]).toEqual(['70', '34', '140', '25', '35']);
+  });
+
+  it('stuurt de extra omschrijving mee als die is ingevuld (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+    vulIn(pagina, 'Bedrag (€)', '25,00');
+    vulIn(pagina, 'Naam ontvanger', 'Sanne');
+    vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL67SIMB0000000002');
+    vulIn(pagina, 'Extra omschrijving', 'Voor de pizza');
+    http.match(() => true).forEach((v) => v.flush([]));
+    knop(pagina, 'Volgende')?.click();
+    await ververs();
+    knop(pagina, 'Bevestigen')?.click();
+    await ververs();
+
+    expect(http.expectOne('/api/betalingen').request.body.extraOmschrijving).toBe('Voor de pizza');
+  });
 });

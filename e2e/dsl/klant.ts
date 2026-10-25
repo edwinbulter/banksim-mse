@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import type {
   BankDriver,
+  MaximaleLengtes,
   Soort,
   TransactieDetails,
   TransactieType,
@@ -247,6 +248,16 @@ export class Klant {
   async betaaltDubbel({ bedrag, aan }: { bedrag: string; aan: Klant }): Promise<void> {
     await this.opentBetaalrekening();
     await (await this.sessie()).betaalDubbel({ bedrag, naam: aan.naam(), iban: aan.iban() });
+  }
+
+  /** Vanaf de eigen betaalrekening, met "Betalen". */
+  async opentBetalen(): Promise<void> {
+    await this.opentBetaalrekening();
+    await (await this.sessie()).openBetalen();
+  }
+
+  async verwachtMaximaleLengtes(verwacht: MaximaleLengtes): Promise<void> {
+    expect(await (await this.sessie()).maximaleLengtes(), `velden van het betaalscherm bij ${this.alias}`).toEqual(verwacht);
   }
 
   /** FO: op het betaalscherm het begin van het IBAN van de ontvanger typen, en de suggestie met dat IBAN kiezen. */
