@@ -1,7 +1,8 @@
 package nl.banksim.api.grootboek;
 
-import nl.banksim.domain.geld.Bedrag;
+import nl.banksim.domain.grootboek.NooitRoodRegel;
 import nl.banksim.domain.grootboek.Overboeking;
+import nl.banksim.domain.grootboek.SaldoVerloop;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +17,13 @@ public class LedgerService {
     }
 
     /**
-     * Beide kanten in één databasetransactie; de trigger controleert ze bij commit. Nooit rood: het saldo van de
-     * betalende rekening op de uitvoerdatum moet de overboeking dekken.
+     * Beide kanten in één databasetransactie; de trigger controleert ze bij commit. Nooit rood (ADR 0025): het laagste
+     * lopende saldo van de betalende rekening vanaf de uitvoerdatum moet de overboeking dekken.
      */
     @Transactional
     public void boek(Overboeking overboeking) {
-        Bedrag saldo = grootboek.saldo(overboeking.van().iban(), overboeking.datum());
-        if (saldo.waarde().compareTo(overboeking.bedrag().waarde()) < 0) {
+        SaldoVerloop verloop = grootboek.saldoVerloop(overboeking.van().iban(), overboeking.datum());
+        if (!NooitRoodRegel.staatToe(verloop, overboeking.bedrag())) {
             throw new SaldoOntoereikend();
         }
         grootboek.schrijf(overboeking);

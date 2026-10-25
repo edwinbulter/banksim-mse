@@ -13,6 +13,7 @@ import java.util.Map;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.grootboek.Partij;
+import nl.banksim.domain.grootboek.SaldoVerloop;
 import nl.banksim.domain.rekening.Iban;
 import nl.banksim.domain.transactie.TransactieType;
 import org.flywaydb.core.Flyway;
@@ -71,7 +72,8 @@ class JdbcGrootboekTests {
                 INSERT INTO transactie (iban, datum, bedrag, tegenpartij, type, tijdstip) VALUES
                 ('NL13SIMB0000000004', '2026-10-01', -100.00, 'Woningstichting', 'INCASSO', '2026-10-01T06:00+02:00'),
                 ('NL13SIMB0000000004', '2026-10-05', -20.00, 'Bakker', 'BETAALAUTOMAAT', '2026-10-05T09:00+02:00'),
-                ('NL13SIMB0000000004', '2026-10-10', 50.00, 'Werkgever', 'OVERSCHRIJVING', '2026-10-10T09:00+02:00')
+                ('NL13SIMB0000000004', '2026-10-10', 50.00, 'Werkgever', 'OVERSCHRIJVING', '2026-10-10T09:00+02:00'),
+                ('NL13SIMB0000000004', '2026-10-10', -10.00, 'Kapper', 'BETAALAUTOMAAT', '2026-10-10T15:00+02:00')
                 """).update();
     }
 
@@ -84,12 +86,18 @@ class JdbcGrootboekTests {
         assertThat(grootboek.naamBijEigenRekening("jan", Iban.simBank(99L))).isEmpty();
     }
 
-    /** Openingssaldo plus de transacties tot en met de datum; een latere telt niet mee (ADR 0013). */
+    /**
+     * Openingssaldo plus de transacties tot en met de datum; daarna de bewegingen per latere dag opgeteld, in
+     * datumvolgorde (ADR 0025).
+     */
     @Test
-    void hetSaldoIsHetOpeningssaldoPlusDeTransactiesTotEnMetDeDatum() {
-        assertThat(grootboek.saldo(KEES, LocalDate.of(2026, 9, 30))).isEqualTo(Bedrag.van("500.00"));
-        assertThat(grootboek.saldo(KEES, LocalDate.of(2026, 10, 5))).isEqualTo(Bedrag.van("380.00"));
-        assertThat(grootboek.saldo(KEES, LocalDate.of(2026, 10, 10))).isEqualTo(Bedrag.van("430.00"));
+    void hetVerloopIsHetSaldoOpDeDatumEnDaarnaDeBewegingenPerDag() {
+        assertThat(grootboek.saldoVerloop(KEES, LocalDate.of(2026, 9, 30))).isEqualTo(new SaldoVerloop(Bedrag.van("500.00"),
+                List.of(Bedrag.van("-100.00"), Bedrag.van("-20.00"), Bedrag.van("40.00"))));
+        assertThat(grootboek.saldoVerloop(KEES, LocalDate.of(2026, 10, 5)))
+                .isEqualTo(new SaldoVerloop(Bedrag.van("380.00"), List.of(Bedrag.van("40.00"))));
+        assertThat(grootboek.saldoVerloop(KEES, LocalDate.of(2026, 10, 10)))
+                .isEqualTo(new SaldoVerloop(Bedrag.van("420.00"), List.of()));
     }
 
     /** Beide kanten, met type, tijdstip in Europe/Amsterdam, uitvoerdatum en de andere kant als tegenpartij (S4.1). */

@@ -3,12 +3,14 @@ package nl.banksim.api.grootboek;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import nl.banksim.api.simulatie.SimulationClock;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.Boeking;
 import nl.banksim.domain.grootboek.Overboeking;
+import nl.banksim.domain.grootboek.SaldoVerloop;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -35,8 +37,8 @@ class JdbcGrootboek implements Grootboek {
     }
 
     @Override
-    public Bedrag saldo(Iban iban, LocalDate datum) {
-        return new Bedrag(jdbc.sql("""
+    public SaldoVerloop saldoVerloop(Iban iban, LocalDate datum) {
+        Bedrag saldo = new Bedrag(jdbc.sql("""
                         SELECT r.openingssaldo + coalesce((SELECT sum(t.bedrag) FROM transactie t
                                                            WHERE t.iban = r.iban AND t.datum <= :datum), 0)
                         FROM rekening r WHERE r.iban = :iban""")
@@ -44,6 +46,14 @@ class JdbcGrootboek implements Grootboek {
                 .param("datum", datum)
                 .query(BigDecimal.class)
                 .single());
+        List<Bedrag> latereBewegingen = jdbc.sql("""
+                        SELECT sum(bedrag) FROM transactie WHERE iban = :iban AND datum > :datum
+                        GROUP BY datum ORDER BY datum""")
+                .param("iban", iban.toString())
+                .param("datum", datum)
+                .query(BigDecimal.class)
+                .list().stream().map(Bedrag::new).toList();
+        return new SaldoVerloop(saldo, latereBewegingen);
     }
 
     /** Vraagt een lopende databasetransactie: de trigger controleert de twee kanten pas bij commit (ADR 0024). */

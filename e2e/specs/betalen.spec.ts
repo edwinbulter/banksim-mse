@@ -64,3 +64,22 @@ test('Rood staan is niet toegestaan', async ({ bank }) => {
   );
   await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
 });
+
+// De simulatiedatum geldt voor de hele bank: dit scenario draait na de andere, één voor één (ADR 0014).
+test('Een betaling mag een latere boeking niet rood laten staan', { tag: '@simulatiedatum' }, async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await bank.en('Sanne is een contact met een betaalrekening', () =>
+    sanne.heeftBetaalrekening({ contact: true }),
+  );
+  await bank.en('op 10 oktober 2026 wordt € 450,00 van Jan geïncasseerd door Woningstichting Thuis', () =>
+    jan.heeftBetaald({ op: '2026-10-10', bedrag: '450.00', aan: 'Woningstichting Thuis', type: 'INCASSO' }),
+  );
+  await bank.en('de beheerder zet de simulatiedatum op 5 oktober 2026', () =>
+    bank.beheerder().zetSimulatiedatum('2026-10-05'),
+  );
+  await bank.als('Jan op 5 oktober € 100,00 probeert te betalen aan Sanne', () =>
+    jan.probeertTeBetalen({ bedrag: '100.00', aan: sanne }),
+  );
+  await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
+});

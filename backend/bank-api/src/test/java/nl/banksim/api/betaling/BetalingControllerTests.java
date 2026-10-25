@@ -131,10 +131,23 @@ class BetalingControllerTests {
                         .content(betaling(VAN_JAN, "Sanne", "500.01")))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.type").value("urn:banksim:probleem:saldo-ontoereikend"))
-                .andExpect(jsonPath("$.detail").value("Saldo ontoereikend: deze betaling zou het saldo onder € 0,00 brengen."));
+                .andExpect(jsonPath("$.detail").value("Saldo ontoereikend: deze betaling zou het saldo onder € 0,00 brengen, nu of op een latere datum."));
 
         assertThat(grootboek.geschreven()).isEmpty();
         assertThat(grootboek.saldoGevraagd()).containsExactly(VAN_JAN + " 2026-10-05");
+    }
+
+    /** ADR 0025: een incasso na de uitvoerdatum verlaagt wat er nu betaald mag worden (€ 500,00 - € 450,00). */
+    @Test
+    void eenLatereAfschrijvingDieRoodZouGevenGeeft422() throws Exception {
+        grootboek.latereBewegingen(VAN_JAN, Bedrag.van("-450.00"));
+
+        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+                        .content(betaling(VAN_JAN, "Sanne", "100.00")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:saldo-ontoereikend"));
+
+        assertThat(grootboek.geschreven()).isEmpty();
     }
 
     /** Precies het saldo mag: daarna is het saldo € 0,00, niet onder nul. */

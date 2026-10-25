@@ -9,6 +9,7 @@ import java.util.Optional;
 
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.Overboeking;
+import nl.banksim.domain.grootboek.SaldoVerloop;
 import nl.banksim.domain.rekening.Iban;
 
 /** Het grootboek in het geheugen, voor tests zonder database: rekeningen per gebruiker en de geschreven overboekingen. */
@@ -17,6 +18,7 @@ public class GeheugenGrootboek implements Grootboek {
     private final Map<Iban, String> gebruikers = new HashMap<>();
     private final Map<Iban, String> namen = new HashMap<>();
     private final Map<Iban, Bedrag> saldi = new HashMap<>();
+    private final Map<Iban, List<Bedrag>> latereBewegingen = new HashMap<>();
     private final List<Overboeking> geschreven = new ArrayList<>();
     private final List<String> saldoGevraagd = new ArrayList<>();
 
@@ -31,6 +33,7 @@ public class GeheugenGrootboek implements Grootboek {
         gebruikers.clear();
         namen.clear();
         saldi.clear();
+        latereBewegingen.clear();
         geschreven.clear();
         saldoGevraagd.clear();
     }
@@ -44,15 +47,20 @@ public class GeheugenGrootboek implements Grootboek {
         return gebruikersnaam.equals(gebruikers.get(iban)) ? Optional.of(namen.get(iban)) : Optional.empty();
     }
 
+    /** Bewegingen na de uitvoerdatum, per latere dag, in datumvolgorde (ADR 0025). */
+    public void latereBewegingen(Iban iban, Bedrag... bewegingen) {
+        latereBewegingen.put(iban, List.of(bewegingen));
+    }
+
     /** Per vraag "IBAN datum". */
     public List<String> saldoGevraagd() {
         return List.copyOf(saldoGevraagd);
     }
 
     @Override
-    public Bedrag saldo(Iban iban, LocalDate datum) {
+    public SaldoVerloop saldoVerloop(Iban iban, LocalDate datum) {
         saldoGevraagd.add(iban + " " + datum);
-        return saldi.get(iban);
+        return new SaldoVerloop(saldi.get(iban), latereBewegingen.getOrDefault(iban, List.of()));
     }
 
     @Override
