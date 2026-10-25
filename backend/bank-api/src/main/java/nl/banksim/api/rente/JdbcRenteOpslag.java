@@ -6,6 +6,7 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import nl.banksim.domain.geld.Bedrag;
@@ -32,6 +33,18 @@ class JdbcRenteOpslag implements RenteOpslag {
                 .query((rij, nummer) -> new Spaarrekening(Iban.van(rij.getString("iban")), rij.getString("naam"),
                         rij.getObject("geopend_op", LocalDate.class)))
                 .list();
+    }
+
+    @Override
+    public Optional<Spaarrekening> spaarrekening(String gebruikersnaam, Iban iban) {
+        return jdbc.sql("""
+                        SELECT r.iban, h.naam, r.geopend_op FROM rekening r JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
+                        WHERE r.soort = 'spaar' AND r.iban = :iban AND h.gebruikersnaam = :gebruikersnaam""")
+                .param("iban", iban.toString())
+                .param("gebruikersnaam", gebruikersnaam)
+                .query((rij, nummer) -> new Spaarrekening(Iban.van(rij.getString("iban")), rij.getString("naam"),
+                        rij.getObject("geopend_op", LocalDate.class)))
+                .optional();
     }
 
     /** Wacht bij een gelijktijdige afsluiting op de unieke sleutel; daarna is het al gebeurd. */

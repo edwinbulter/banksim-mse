@@ -589,4 +589,12 @@ describe('App', () => {
       'Jan +500,00',
     );
   });
+  /** S8.1 (FO): bovenaan de opgebouwde, nog niet bijgeschreven rente van deze maand. */
+  it('toont de lopende rente van de spaarrekening (S8.1)', async () => {
+    const pagina = await start('/spaarrekeningen/NL67SIMB0000000002');
+    await transacties('/api/rekeningen/NL67SIMB0000000002/lopende-rente', { bedrag: '1234.56' });
+
+    const term = [...pagina.querySelectorAll('dt')].find((dt) => dt.textContent?.trim() === 'Lopende rente');
+    expect(term?.nextElementSibling?.textContent?.trim()).toBe('€ 1.234,56');
+  });
 });

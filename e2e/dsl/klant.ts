@@ -111,6 +111,11 @@ export class Klant {
     });
   }
 
+  /** Op de geopende spaarrekening: de opgebouwde, nog niet bijgeschreven rente van deze maand (S8.1). */
+  async verwachtLopendeRente(bedrag: string): Promise<void> {
+    expect(await (await this.sessie()).lopendeRente(), `lopende rente van ${this.alias}`).toBe(bedrag);
+  }
+
   /** De naam van de rekeninghouder: de alias (zie heeftBetaalrekening). */
   naam(): string {
     return this.alias;

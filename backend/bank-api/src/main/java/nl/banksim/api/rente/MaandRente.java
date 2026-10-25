@@ -1,6 +1,5 @@
 package nl.banksim.api.rente;
 
-import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.Locale;
@@ -36,8 +35,8 @@ class MaandRente {
         if (!opslag.markeer(rekening.iban(), maand)) {
             return;
         }
-        LocalDate eerste = maand.atDay(1).isBefore(rekening.geopendOp()) ? rekening.geopendOp() : maand.atDay(1);
-        Bedrag rente = RenteCalculator.rente(opslag.dagsaldi(rekening.iban(), eerste, maand.atEndOfMonth()));
+        Bedrag rente = RenteCalculator.rente(
+                opslag.dagsaldi(rekening.iban(), rekening.eersteRentedag(maand), maand.atEndOfMonth()));
         if (rente.waarde().signum() > 0) {
             String omschrijving = "Rente " + maand.getMonth().getDisplayName(TextStyle.FULL, Locale.of("nl"));
             ledger.boek(new Overboeking(BANKSIM, new Partij(rekening.iban(), rekening.naam()), rente, TransactieType.RENTE,

@@ -1003,6 +1003,8 @@ Werk deze scenario's **één voor één** af; de rest staat op `@wip`. Het vierd
 // Zo gebouwd in S8.2: "Klant ziet ook de spaarrekening met saldo in het overzicht" (overzicht.spec.ts). In S8.1 kreeg
 // "Rente wordt maandelijks bijgeschreven" een Als-stap ("Jan de spaarrekening opent"), zet de beheerder de datum, en maakt
 // heeftSpaarrekening zelf een klant met lege betaalrekening. De rente boekt een maandafsluiting (ADR 0028).
+// "Lopende rente wordt apart getoond" kreeg een bedrag (€ 12,36 op 15 februari, de simulatiedatum telt mee, FO) en
+// opent de spaarrekening; de API rekent hem uit bij GET /api/rekeningen/{iban}/lopende-rente, zonder te boeken.
 test.describe('Spaarrekening en rente', { tag: '@simulatiedatum' }, () => {
   test('Rente wordt maandelijks bijgeschreven', async ({ bank }) => {
     const jan = bank.klant('Jan');

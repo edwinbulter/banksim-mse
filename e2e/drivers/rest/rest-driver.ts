@@ -23,6 +23,8 @@ import { wijzigSimulatiedatum } from '../simulatiedatum';
 export class RestDriver implements BankDriver {
   private geopend?: string;
   private geladen: Pagina['transacties'] = [];
+  /** De lopende rente van de geopende spaarrekening (S8.1). */
+  private lopend?: string;
   private volgende: string | null = null;
   private uitgeklapt?: TransactieJson;
   /** De zoekvelden van de laatste zoekopdracht; leeg na het openen van de rekening. */
@@ -306,9 +308,21 @@ export class RestDriver implements BankDriver {
     return token ? { 'X-XSRF-TOKEN': token } : undefined;
   }
 
-  /** Dezelfde route als de betaalrekening; de mutaties zijn de transacties van de spaarrekening. */
+  /**
+   * Dezelfde route als de betaalrekening; de mutaties zijn de transacties van de spaarrekening. Net als de browser
+   * vraagt hij ook de lopende rente op.
+   */
   async openSpaarrekening(iban: string): Promise<void> {
     await this.openRekening(iban);
+    const pad = `/api/rekeningen/${iban}/lopende-rente`;
+    const antwoord = await this.request.get(pad);
+    expect(antwoord.status(), `GET ${pad}`).toBe(200);
+    this.lopend = ((await antwoord.json()) as { bedrag: string }).bedrag;
+  }
+
+  async lopendeRente(): Promise<string> {
+    if (this.lopend === undefined) throw new Error('Open eerst een spaarrekening');
+    return this.lopend;
   }
 
   async spaarmutaties(): Promise<Spaarmutatie[]> {

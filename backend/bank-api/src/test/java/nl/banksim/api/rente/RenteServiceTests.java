@@ -7,6 +7,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 import nl.banksim.api.PostgresTestDatabase;
+import nl.banksim.domain.geld.Bedrag;
+import nl.banksim.domain.rekening.Iban;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -120,14 +122,72 @@ class RenteServiceTests {
                 .containsExactly("2026-01-31", "2026-02-28", "2026-03-31");
     }
 
+    /**
+     * S8.1 (FO): de lopende rente telt van de 1e van de maand tot en met vandaag. Na de rente van januari (€ 25,48):
+     * € 10.025,48 × 0,03 / 365 × 15 dagen = € 12,36.
+     */
+    @Test
+    void deLopendeRenteTeltVanDeEersteVanDeMaandTotEnMetVandaag() {
+        String spaar = spaarrekening("rente-7", 3007L, "10000.00", "2026-01-01");
+        rente.sluitAf(LocalDate.of(2026, 2, 15));
+
+        assertThat(rente.van("rente-7", Iban.van(spaar), LocalDate.of(2026, 2, 15))).contains(Bedrag.van("12.36"));
+    }
+
+    /** Geopend op 10 februari: 6 dagen € 10.000,00 = € 4,93. */
+    @Test
+    void deLopendeRenteBegintOpDeDagVanOpenen() {
+        String spaar = spaarrekening("rente-8", 3008L, "10000.00", "2026-02-10");
+
+        assertThat(rente.van("rente-8", Iban.van(spaar), LocalDate.of(2026, 2, 15))).contains(Bedrag.van("4.93"));
+    }
+
+    /** De simulatiedatum ligt voor de dag van openen: nog geen rente. */
+    @Test
+    void voorDeDagVanOpenenIsDeLopendeRenteNul() {
+        String spaar = spaarrekening("rente-9", 3009L, "10000.00", "2026-02-10");
+
+        assertThat(rente.van("rente-9", Iban.van(spaar), LocalDate.of(2026, 2, 9))).contains(Bedrag.van("0.00"));
+    }
+
+    /** Zoals de maandafsluiting (ADR 0028): zonder datum van openen geen rente. */
+    @Test
+    void zonderDatumVanOpenenIsDeLopendeRenteNul() {
+        String spaar = spaarrekening("rente-10", 3010L, "10000.00", null);
+
+        assertThat(rente.van("rente-10", Iban.van(spaar), LocalDate.of(2026, 2, 15))).contains(Bedrag.van("0.00"));
+    }
+
+    /** ADR 0023: andermans spaarrekening bestaat voor deze klant niet. */
+    @Test
+    void eenSpaarrekeningVanEenAnderHeeftGeenLopendeRente() {
+        String spaar = spaarrekening("rente-11", 3011L, "10000.00", "2026-01-01");
+        spaarrekening("rente-12", 3012L, "10.00", "2026-01-01");
+
+        assertThat(rente.van("rente-12", Iban.van(spaar), LocalDate.of(2026, 2, 15))).isEmpty();
+    }
+
+    /** Alleen een spaarrekening krijgt rente (FO). */
+    @Test
+    void eenBetaalrekeningHeeftGeenLopendeRente() {
+        String betaal = rekening("rente-13", 3013L, "betaal", "10000.00", "2026-01-01");
+
+        assertThat(rente.van("rente-13", Iban.van(betaal), LocalDate.of(2026, 2, 15))).isEmpty();
+    }
+
     private String spaarrekening(String gebruiker, long nummer, String saldo, String geopendOp) {
-        String iban = nl.banksim.domain.rekening.Iban.simBank(nummer).toString();
+        return rekening(gebruiker, nummer, "spaar", saldo, geopendOp);
+    }
+
+    private String rekening(String gebruiker, long nummer, String soort, String saldo, String geopendOp) {
+        String iban = Iban.simBank(nummer).toString();
         jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES (:gebruiker, :gebruiker)").param("gebruiker", gebruiker)
                 .update();
         jdbc.sql("""
                         INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo, geopend_op)
-                        SELECT :iban, id, 'spaar', :saldo, :geopendOp FROM rekeninghouder WHERE gebruikersnaam = :gebruiker""")
-                .param("iban", iban).param("saldo", new BigDecimal(saldo)).param("geopendOp", LocalDate.parse(geopendOp))
+                        SELECT :iban, id, :soort, :saldo, :geopendOp FROM rekeninghouder WHERE gebruikersnaam = :gebruiker""")
+                .param("iban", iban).param("soort", soort).param("saldo", new BigDecimal(saldo))
+                .param("geopendOp", geopendOp == null ? null : LocalDate.parse(geopendOp))
                 .param("gebruiker", gebruiker).update();
         return iban;
     }

@@ -16,6 +16,15 @@ export class SpaarrekeningPagina {
     await expect(this.page.getByRole('heading', { name: 'Spaarrekening' })).toBeVisible();
   }
 
+  /** In de kop: "Lopende rente € 12,36", terug naar domeinnotatie. */
+  async lopendeRente(): Promise<string> {
+    const waarde = this.page.locator('dt', { hasText: 'Lopende rente' }).locator('+ dd');
+    await expect(waarde).toHaveText(/€/);
+    const delen = /€\s?([\d.]+,\d{2})/.exec((await waarde.textContent()) ?? '');
+    if (!delen) throw new Error(`Geen bedrag bij "Lopende rente": "${await waarde.textContent()}"`);
+    return delen[1].replace(/\./g, '').replace(',', '.');
+  }
+
   async mutaties(): Promise<Spaarmutatie[]> {
     const lijst = this.page.getByRole('list', { name: 'Mutaties' });
     await expect(lijst).toBeVisible();

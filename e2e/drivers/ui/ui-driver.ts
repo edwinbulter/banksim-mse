@@ -181,6 +181,10 @@ export class UiDriver implements BankDriver {
     return this.spaarrekening.mutaties();
   }
 
+  async lopendeRente(): Promise<string> {
+    return this.spaarrekening.lopendeRente();
+  }
+
   async naarOverzicht(): Promise<void> {
     await this.betaalrekening.kiesOverzicht();
     await this.overzicht.wachtTotGeladen();
