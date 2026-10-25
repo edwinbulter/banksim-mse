@@ -5,6 +5,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.HexFormat;
+import java.util.function.Supplier;
 
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.boot.CommandLineRunner;
@@ -52,11 +53,12 @@ public class BankSeedApplication {
 
     @Bean
     CommandLineRunner seed(KeycloakLogins logins, Rekeninghouders rekeninghouders, Transacties transacties,
-            Contacten contacten, JsonMapper json) {
-        var aanmaker = new SeedKlantAanmaker(logins, rekeninghouders,
-                () -> Iban.simBank(RANDOM.nextLong(10_000_000_000L)));
+            Contacten contacten, JdbcClient jdbc, JsonMapper json) {
+        Supplier<Iban> nieuweIban = () -> Iban.simBank(RANDOM.nextLong(10_000_000_000L));
+        var aanmaker = new SeedKlantAanmaker(logins, rekeninghouders, nieuweIban);
+        var spaarrekeningen = new JdbcSpaarrekeningen(jdbc, nieuweIban);
         return args -> {
-            var commando = new SeedCommando(aanmaker, transacties, logins, contacten, json, System.out);
+            var commando = new SeedCommando(aanmaker, transacties, logins, contacten, spaarrekeningen, json, System.out);
             if (args.length == 1 && args[0].equals("sessie")) {
                 var stdin = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
                 new SeedSessie(commando, json, stdin, System.out).voerUit();

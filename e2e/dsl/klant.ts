@@ -41,6 +41,7 @@ export interface Boeking {
  */
 export class Klant {
   private gegevens?: GeseedeKlant;
+  private spaarIban?: string;
   /** Wat heeftTransacties boekte, in boekingsvolgorde. */
   private geseed: GeseedeTransactie[] = [];
   private ingelogd = false;
@@ -82,6 +83,11 @@ export class Klant {
   /** Alle boekingen in één keer, in deze volgorde. */
   async heeftBoekingen(boekingen: Boeking[]): Promise<void> {
     await this.seed.boekingen(this.vereisGegevens().iban, boekingen);
+  }
+
+  /** S8.2: naast de betaalrekening uit "Gegeven" een spaarrekening, vandaag geopend. */
+  async heeftSpaarrekening({ saldo }: { saldo: string }): Promise<void> {
+    this.spaarIban = (await this.seed.spaarrekening(this.vereisGegevens().gebruikersnaam, saldo)).iban;
   }
 
   /** De naam van de rekeninghouder: de alias (zie heeftBetaalrekening). */
@@ -157,7 +163,8 @@ export class Klant {
   }
 
   async verwachtRekeningInOverzicht(soort: Soort, saldo: string): Promise<void> {
-    const { iban } = this.vereisGegevens();
+    const iban = soort === 'spaar' ? this.spaarIban : this.vereisGegevens().iban;
+    if (!iban) throw new Error(`${this.alias} heeft geen spaarrekening: begin met heeftSpaarrekening`);
     expect(await (await this.sessie()).rekeningenInOverzicht(), `rekeningen van ${this.alias}`).toContainEqual({
       soort,
       iban,

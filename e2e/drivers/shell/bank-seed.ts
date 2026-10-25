@@ -38,6 +38,11 @@ export class BankSeed {
     return this.voerUit<GeseedeKlant>(['klant', '--alias', uniek(alias), '--naam', alias, '--betaalrekening', saldo]);
   }
 
+  /** S8.2: een spaarrekening voor een bestaande klant, met dit beginsaldo; geeft het IBAN. */
+  async spaarrekening(gebruikersnaam: string, saldo: string): Promise<{ iban: string }> {
+    return this.voerUit<{ iban: string }>(['spaarrekening', '--gebruikersnaam', gebruikersnaam, '--saldo', saldo]);
+  }
+
   /** S7.1: een IBAN met naam in de contactenlijst van de bank; alleen daarheen mag een klant betalen. */
   async contact(iban: string, naam: string): Promise<void> {
     await this.voerUit(['contact', '--iban', iban, '--naam', naam]);

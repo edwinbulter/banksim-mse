@@ -59,6 +59,22 @@ class JdbcRekeningRepositoryTests {
                 new Rekening(Soort.BETAAL, Iban.van("NL94SIMB0000000001"), Bedrag.van("1842.17")));
     }
 
+    /** S8.2: ook de spaarrekening, na de betaalrekening. */
+    @Test
+    void geeftOokDeSpaarrekeningNaDeBetaalrekening() {
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('sanne', 'Sanne')").update();
+        jdbc.sql("""
+                INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
+                SELECT 'NL67SIMB0000000002', id, 'spaar', 12405.63 FROM rekeninghouder WHERE gebruikersnaam = 'sanne'
+                UNION ALL
+                SELECT 'NL40SIMB0000000003', id, 'betaal', 1842.17 FROM rekeninghouder WHERE gebruikersnaam = 'sanne'
+                """).update();
+
+        assertThat(repository.vanGebruiker("sanne", NA_ALLES)).containsExactly(
+                new Rekening(Soort.BETAAL, Iban.van("NL40SIMB0000000003"), Bedrag.van("1842.17")),
+                new Rekening(Soort.SPAAR, Iban.van("NL67SIMB0000000002"), Bedrag.van("12405.63")));
+    }
+
     @Test
     void hetSaldoIsHetOpeningssaldoPlusDeTransacties() {
         assertThat(repository.vanGebruiker("kees", NA_ALLES)).containsExactly(

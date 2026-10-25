@@ -20,7 +20,8 @@ import tools.jackson.databind.json.JsonMapper;
  * {@code transactie --iban NL94SIMB0000000001 --datum 2026-10-01 --bedrag -812.40 --tegenpartij "Woningstichting Thuis"}.
  * Veel transacties in één keer: {@code transacties --iban … --transactie "2026-10-01,-812.40,Woningstichting Thuis" …}.
  * Een beheerder (ADR 0015): {@code beheerder --alias beheerder-f4de79-1}. Een contact (S7.1):
- * {@code contact --iban NL94SIMB0000000001 --naam Sanne}. Het
+ * {@code contact --iban NL94SIMB0000000001 --naam Sanne}. Een spaarrekening (S8.2):
+ * {@code spaarrekening --gebruikersnaam jan-f4de79-1 --saldo 12405.63}. Het
  * resultaat komt als één JSON-regel op stdout; de shell-driver leest de laatste regel (ADR 0003).
  */
 class SeedCommando {
@@ -29,15 +30,17 @@ class SeedCommando {
     private final Transacties transacties;
     private final Beheerders beheerders;
     private final Contacten contacten;
+    private final Spaarrekeningen spaarrekeningen;
     private final JsonMapper json;
     private final PrintStream uit;
 
     SeedCommando(KlantAanmaker klanten, Transacties transacties, Beheerders beheerders, Contacten contacten,
-            JsonMapper json, PrintStream uit) {
+            Spaarrekeningen spaarrekeningen, JsonMapper json, PrintStream uit) {
         this.klanten = klanten;
         this.transacties = transacties;
         this.beheerders = beheerders;
         this.contacten = contacten;
+        this.spaarrekeningen = spaarrekeningen;
         this.json = json;
         this.uit = uit;
     }
@@ -60,8 +63,9 @@ class SeedCommando {
             case "transacties" -> transacties(args);
             case "beheerder" -> beheerder(opties);
             case "contact" -> contact(opties);
+            case "spaarrekening" -> spaarrekening(opties);
             default -> throw new IllegalArgumentException("Onbekend commando: " + String.join(" ", args)
-                    + " (verwacht: klant, transactie, transacties, beheerder of contact)");
+                    + " (verwacht: klant, transactie, transacties, beheerder, contact of spaarrekening)");
         };
     }
 
@@ -85,6 +89,16 @@ class SeedCommando {
     }
 
     record Contact(String iban, String naam) {
+    }
+
+    /** S8.2: een spaarrekening voor een klant die er al is. */
+    private GeopendeSpaarrekening spaarrekening(Map<String, String> opties) {
+        String gebruikersnaam = verplicht(opties, "--gebruikersnaam");
+        Bedrag saldo = Bedrag.van(verplicht(opties, "--saldo"));
+        return new GeopendeSpaarrekening(spaarrekeningen.open(gebruikersnaam, saldo).toString());
+    }
+
+    record GeopendeSpaarrekening(String iban) {
     }
 
     /** Het resultaat van {@code beheerder}: de login, zonder rekeninghouder of rekening (ADR 0015). */

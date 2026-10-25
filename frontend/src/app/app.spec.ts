@@ -115,6 +115,29 @@ describe('App', () => {
     expect(link(pagina, 'Inloggen')).toBeUndefined();
   });
 
+  it('toont ook de spaarrekening met IBAN en saldo, onder Spaarrekeningen (S8.2)', async () => {
+    const pagina = await start('/');
+    await rekeningen({
+      status: 200,
+      body: [
+        { soort: 'betaal', iban: 'NL94SIMB0000000001', saldo: '1842.17' },
+        { soort: 'spaar', iban: 'NL67SIMB0000000002', saldo: '12405.63' },
+      ],
+    });
+    const regels = (lijst: string) =>
+      [...(pagina.querySelector(`ul[aria-label="${lijst}"]`)?.querySelectorAll('li') ?? [])].map((li) =>
+        li.textContent?.replace(/\s+/g, ' ').trim(),
+      );
+    expect(regels('Betaalrekeningen')).toEqual(['NL94SIMB0000000001 € 1.842,17']);
+    expect(regels('Spaarrekeningen')).toEqual(['NL67SIMB0000000002 € 12.405,63']);
+  });
+
+  it('toont zonder spaarrekening geen lege lijst Spaarrekeningen (S8.2)', async () => {
+    const pagina = await start('/');
+    await rekeningen({ status: 200, body: JAN });
+    expect(pagina.querySelector('ul[aria-label="Spaarrekeningen"]')).toBeNull();
+  });
+
   it('opent de betaalrekening op een eigen URL als je op het IBAN klikt (S2.1, S2a.1)', async () => {
     const pagina = await start('/');
     await rekeningen({ status: 200, body: JAN });

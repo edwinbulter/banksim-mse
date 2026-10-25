@@ -30,8 +30,12 @@ class SeedCommandoTests {
         return "beheerder-wachtwoord";
     };
     private final Contacten contacten = (iban, naam) -> aanroepen.add("contact " + iban + " " + naam);
+    private final Spaarrekeningen spaarrekeningen = (gebruikersnaam, saldo) -> {
+        aanroepen.add("spaarrekening " + gebruikersnaam + " " + saldo);
+        return Iban.simBank(2L);
+    };
     private final ByteArrayOutputStream uitvoer = new ByteArrayOutputStream();
-    private final SeedCommando commando = new SeedCommando(aanmaker, transacties, beheerders, contacten,
+    private final SeedCommando commando = new SeedCommando(aanmaker, transacties, beheerders, contacten, spaarrekeningen,
             JsonMapper.builder().build(),
             new PrintStream(uitvoer, true, StandardCharsets.UTF_8));
 
@@ -63,6 +67,17 @@ class SeedCommandoTests {
         assertThat(aanroepen).containsExactly("contact NL94SIMB0000000001 Sanne");
         assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
                 {"iban":"NL94SIMB0000000001","naam":"Sanne"}
+                """);
+    }
+
+    /** S8.2: een spaarrekening voor een klant die er al is (met betaalrekening en login). */
+    @Test
+    void opentEenSpaarrekeningVoorEenBestaandeKlantEnSchrijftHetIbanAlsEenJsonRegel() {
+        commando.voerUit("spaarrekening", "--gebruikersnaam", "jan-f4de79-1", "--saldo", "12405.63");
+
+        assertThat(aanroepen).containsExactly("spaarrekening jan-f4de79-1 12405.63");
+        assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
+                {"iban":"NL67SIMB0000000002"}
                 """);
     }
 

@@ -28,12 +28,13 @@ class SeedSessieTests {
         return "beheerder-wachtwoord";
     };
     private final Contacten contacten = (iban, naam) -> aanroepen.add("contact " + iban);
+    private final Spaarrekeningen spaarrekeningen = (gebruikersnaam, saldo) -> Iban.simBank(2L);
     private final JsonMapper json = JsonMapper.builder().build();
     private final ByteArrayOutputStream uitvoer = new ByteArrayOutputStream();
 
     private void sessie(String invoer) {
         var uit = new PrintStream(uitvoer, true, StandardCharsets.UTF_8);
-        var commando = new SeedCommando(aanmaker, transacties, beheerders, contacten, json, uit);
+        var commando = new SeedCommando(aanmaker, transacties, beheerders, contacten, spaarrekeningen, json, uit);
         new SeedSessie(commando, json, new BufferedReader(new StringReader(invoer)), uit).voerUit();
     }
 
