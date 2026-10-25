@@ -154,9 +154,17 @@ export class RestDriver implements BankDriver {
   }
 
   async details(): Promise<TransactieDetails> {
-    const { type, tijdstip, datum, van, naar } = this.uitgeklapt!;
+    const { type, tijdstip, datum, van, naar, omschrijving, betalingskenmerk } = this.uitgeklapt!;
     // "2026-10-01T06:02:00+02:00": de API geeft het tijdstip al in Europe/Amsterdam.
-    return { transactietype: type, van, naar, datumTransactie: tijdstip?.slice(0, 16) ?? '', uitgevoerdOp: datum };
+    return {
+      transactietype: type,
+      van,
+      naar,
+      datumTransactie: tijdstip?.slice(0, 16) ?? '',
+      uitgevoerdOp: datum,
+      ...(omschrijving ? { omschrijving } : {}),
+      ...(betalingskenmerk ? { betalingskenmerk } : {}),
+    };
   }
 
   /**
@@ -221,12 +229,12 @@ export class RestDriver implements BankDriver {
    * S7.1: één POST met het CSRF-token, zoals Angular na "Bevestigen" op het controlescherm. Daarna laadt de driver de
    * rekening opnieuw, zoals de app terugkeert naar de betaalrekening.
    */
-  async betaal({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
+  async betaal({ bedrag, naam, iban, omschrijving, betalingskenmerk }: Betaalopdracht): Promise<void> {
     const van = this.geopend;
     expect(van, 'een geopende rekening om van te betalen').toBeTruthy();
     const antwoord = await this.request.post('/api/betalingen', {
       headers: await this.betaalHeaders(),
-      data: { van, naar: iban, naam, bedrag },
+      data: { van, naar: iban, naam, bedrag, omschrijving, betalingskenmerk },
     });
     expect(antwoord.status(), `POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
     await this.openRekening(van!);
@@ -327,4 +335,7 @@ interface TransactieJson {
   tijdstip: string;
   van: Partij;
   naar: Partij;
+  /** Null als er geen is (S7.1). */
+  omschrijving: string | null;
+  betalingskenmerk: string | null;
 }

@@ -40,6 +40,7 @@ class TransactieTests {
 
     private static Transactie transactie(Bedrag bedrag) {
         return new Transactie(LocalDate.of(2026, 10, 1), bedrag, JAN, WONINGSTICHTING, TransactieType.INCASSO,
-                OffsetDateTime.parse("2026-10-01T06:02:00+02:00"));
+                OffsetDateTime.parse("2026-10-01T06:02:00+02:00"),
+                Optional.empty(), Optional.empty());
     }
 }

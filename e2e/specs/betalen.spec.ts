@@ -65,6 +65,21 @@ test('Rood staan is niet toegestaan', async ({ bank }) => {
   await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
 });
 
+// FO: omschrijving en betalingskenmerk staan, indien aanwezig, in de details van de transactie.
+test('De omschrijving en het betalingskenmerk staan bij de ontvanger in de details', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await bank.en('Sanne is een contact met een betaalrekening', () =>
+    sanne.heeftBetaalrekening({ contact: true }),
+  );
+  await bank.als('Jan € 25,00 aan Sanne betaalt met omschrijving "Etentje" en betalingskenmerk "ETEN-2026"', () =>
+    jan.betaalt({ bedrag: '25.00', aan: sanne, omschrijving: 'Etentje', betalingskenmerk: 'ETEN-2026' }),
+  );
+  await bank.dan('ziet Sanne bij de bijschrijving van Jan de omschrijving "Etentje" en het betalingskenmerk "ETEN-2026"', () =>
+    sanne.verwachtDetailsVan('Jan', { omschrijving: 'Etentje', betalingskenmerk: 'ETEN-2026' }),
+  );
+});
+
 // FO: bij typen verschijnen suggesties uit de contactenlijst; kiezen vult naam en IBAN. Jan typt het begin van het
 // IBAN: de contactenlijst is van de hele bank, en daarin staan veel contacten met de naam Sanne.
 test('Een suggestie uit de contactenlijst vult naam en rekeningnummer in', { tag: '@ui' }, async ({ bank }) => {

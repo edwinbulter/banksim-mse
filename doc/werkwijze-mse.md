@@ -920,6 +920,8 @@ test('Uitloggen', { tag: '@rook' }, async ({ bank }) => {
 // In het vierde scenario zet de beheerder de datum (`bank.beheerder().zetSimulatiedatum`) en heeft de incasso een tegenpartij.
 // "Dubbel verzonden betaling wordt één keer geboekt": in domeintaal ("de bevestiging twee keer verstuurt", `betaaltDubbel`),
 // met als Dan het saldo van Jan en precies één bijschrijving bij Sanne (ADR 0027).
+// Extra scenario's (keuze 2a): suggesties uit de contactenlijst (@ui, op het begin van het IBAN), en omschrijving en
+// betalingskenmerk in de details van de ontvanger.
 test.beforeEach(async ({ bank }) => {
   await bank.gegeven('Jan heeft een betaalrekening met saldo € 500,00',
     () => bank.klant('Jan').heeftBetaalrekening({ saldo: '500.00' }));
@@ -1180,7 +1182,7 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Punt | Reden van uitstel | Komt terug bij |
 | --- | --- | --- |
 | Binnen één dag sorteren op tijdstip in plaats van op volgorde van boeken | Geen scenario vroeg erom; de cursor (ADR 0011) sorteert op datum en id | Een scenario met twee transacties op één dag in een andere volgorde, uiterlijk slice 7 (betalen) |
-| Omschrijving en betalingskenmerk in de details, en zoeken op omschrijving | Bestaan nog niet in de data (FO: "indien aanwezig") | Slice 7: een betaling krijgt een omschrijving |
+| Zoeken op omschrijving (FO: "Naam, bedrag, IBAN of omschrijving") | De omschrijving staat sinds S7.1 in de data en de details, maar zoeken erop vroeg nog geen scenario | Eigen scenario in `zoeken.spec.ts`, samen met zoeken op bedrag |
 | Zoeken op bedrag in het tekstveld (FO: "Naam, bedrag, IBAN of omschrijving") | Bij S5.1 gekozen voor naam en IBAN; op bedrag zoeken kan via het bedragbereik | Eigen scenario, samen met de omschrijving |
 | Het aantal resultaten ("12 resultaten", FO) | Niet in S5.1 meegenomen | Eigen scenario in `zoeken.spec.ts` |
 | `pg_trgm`-index voor zoeken | Geen test kan de prestatie nu eisen | Zie de ADR-backlog (hoofdstuk 6): slice 11 of een prestatie-eis |

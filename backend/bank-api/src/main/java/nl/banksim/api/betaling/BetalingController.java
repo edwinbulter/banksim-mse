@@ -36,7 +36,7 @@ class BetalingController {
             throw new SleutelOntbreekt();
         }
         betalen.betaal(gebruiker.gebruikersnaam(), sleutel, Iban.van(json.van()), Iban.van(json.naar()), json.naam(),
-                Bedrag.van(json.bedrag()));
+                Bedrag.van(json.bedrag()), json.omschrijving(), json.betalingskenmerk());
     }
 
     /** RFC 9457: het probleemtype voor de software, de melding voor de klant. */
@@ -66,7 +66,7 @@ class BetalingController {
         // ADR 0023: dezelfde 404 als voor een rekening die niet bestaat.
     }
 
-    /** ADR 0010: het bedrag als string, bijvoorbeeld "25.00". */
-    record BetalingJson(String van, String naar, String naam, String bedrag) {
+    /** ADR 0010: het bedrag als string, bijvoorbeeld "25.00". Omschrijving en betalingskenmerk mogen ontbreken (FO). */
+    record BetalingJson(String van, String naar, String naam, String bedrag, String omschrijving, String betalingskenmerk) {
     }
 }

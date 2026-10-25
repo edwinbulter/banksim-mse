@@ -60,11 +60,13 @@ export class BetalenPagina {
     await this.page.getByRole('button', { name: 'Bevestigen' }).click();
   }
 
-  private async vulInEnGaNaarControle({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
+  private async vulInEnGaNaarControle({ bedrag, naam, iban, omschrijving, betalingskenmerk }: Betaalopdracht): Promise<void> {
     await this.page.getByRole('link', { name: 'Betalen' }).click();
     await this.page.getByLabel('Bedrag (€)').fill(bedrag.replace('.', ','));
     await this.page.getByLabel('Naam ontvanger').fill(naam);
     await this.page.getByLabel('Rekeningnummer (IBAN)').fill(iban);
+    if (omschrijving) await this.page.getByLabel('Omschrijving', { exact: true }).fill(omschrijving);
+    if (betalingskenmerk) await this.page.getByLabel('Betalingskenmerk').fill(betalingskenmerk);
     await this.page.getByRole('button', { name: 'Volgende' }).click();
     await expect(this.page.getByRole('heading', { name: 'Controleer je betaling' })).toBeVisible();
   }

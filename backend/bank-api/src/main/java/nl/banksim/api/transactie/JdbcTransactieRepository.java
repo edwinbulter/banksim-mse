@@ -36,7 +36,8 @@ class JdbcTransactieRepository implements TransactieRepository {
         }
         // Eén rij extra: is die er, dan volgt er nog een pagina.
         List<Rij> rijen = jdbc.sql("""
-                        SELECT t.id, t.datum, t.tegenpartij, t.bedrag, t.type, t.tijdstip, t.tegen_iban, h.naam
+                        SELECT t.id, t.datum, t.tegenpartij, t.bedrag, t.type, t.tijdstip, t.tegen_iban, h.naam, t.omschrijving,
+                               t.betalingskenmerk
                         FROM transactie t
                         JOIN rekening r ON r.iban = t.iban
                         JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
@@ -74,7 +75,8 @@ class JdbcTransactieRepository implements TransactieRepository {
                                 Optional.ofNullable(rij.getString("tegen_iban")).map(Iban::van)),
                         TransactieType.valueOf(rij.getString("type")),
                         // De klok van de bank (ADR 0013), ook al geeft de database het tijdstip in UTC.
-                        rij.getObject("tijdstip", OffsetDateTime.class).atZoneSameInstant(SimulationClock.BANK).toOffsetDateTime())))
+                        rij.getObject("tijdstip", OffsetDateTime.class).atZoneSameInstant(SimulationClock.BANK).toOffsetDateTime(),
+                        Optional.ofNullable(rij.getString("omschrijving")), Optional.ofNullable(rij.getString("betalingskenmerk")))))
                 .list();
         List<Rij> pagina = rijen.subList(0, Math.min(aantal, rijen.size()));
         Optional<Positie> volgende = rijen.size() > aantal

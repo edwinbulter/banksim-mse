@@ -469,4 +469,30 @@ describe('App', () => {
 
     http.expectOne('/api/contacten?q=San').flush([]);
   });
+  /** FO: omschrijving en betalingskenmerk zijn optioneel; het controlescherm toont ze, de betaling stuurt ze mee. */
+  it('stuurt omschrijving en betalingskenmerk mee en toont ze op het controlescherm (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+    vulIn(pagina, 'Bedrag (€)', '25,00');
+    vulIn(pagina, 'Naam ontvanger', 'Sanne');
+    vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL67SIMB0000000002');
+    vulIn(pagina, 'Omschrijving', 'Etentje');
+    vulIn(pagina, 'Betalingskenmerk', 'ETEN-2026');
+    http.match(() => true).forEach((v) => v.flush([]));
+    knop(pagina, 'Volgende')?.click();
+    await ververs();
+
+    expect(pagina.textContent).toContain('Etentje');
+    expect(pagina.textContent).toContain('ETEN-2026');
+    knop(pagina, 'Bevestigen')?.click();
+    await ververs();
+
+    expect(http.expectOne('/api/betalingen').request.body).toEqual({
+      van: 'NL94SIMB0000000001',
+      naar: 'NL67SIMB0000000002',
+      naam: 'Sanne',
+      bedrag: '25.00',
+      omschrijving: 'Etentje',
+      betalingskenmerk: 'ETEN-2026',
+    });
+  });
 });

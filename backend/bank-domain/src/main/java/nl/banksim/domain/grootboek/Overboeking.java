@@ -9,9 +9,15 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * Geld van de ene rekening van BankSim naar de andere (ADR 0024), op een tijdstip in Europe/Amsterdam. De datum van het
- * tijdstip is de uitvoerdatum.
+ * tijdstip is de uitvoerdatum. Omschrijving en betalingskenmerk zijn null als ze er niet zijn (FO: optioneel).
  */
-public record Overboeking(Partij van, Partij naar, Bedrag bedrag, TransactieType type, LocalDateTime tijdstip) {
+public record Overboeking(Partij van, Partij naar, Bedrag bedrag, TransactieType type, LocalDateTime tijdstip,
+        String omschrijving, String betalingskenmerk) {
+
+    /** Zonder omschrijving en betalingskenmerk; die zijn optioneel (FO). */
+    public Overboeking(Partij van, Partij naar, Bedrag bedrag, TransactieType type, LocalDateTime tijdstip) {
+        this(van, naar, bedrag, type, tijdstip, null, null);
+    }
 
     public Overboeking {
         if (bedrag.waarde().signum() <= 0) {

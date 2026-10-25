@@ -162,6 +162,21 @@ class JdbcGrootboekTests {
         }
     }
 
+    /** FO: omschrijving en betalingskenmerk staan bij beide kanten, zodat Jan en de ontvanger ze allebei zien. */
+    @Test
+    void schrijftOmschrijvingEnBetalingskenmerkBijBeideKanten() {
+        var overboeking = new Overboeking(new Partij(PIET, "Piet"), new Partij(SANNE, "Sanne"), Bedrag.van("1.00"),
+                TransactieType.ONLINE_BANKIEREN, LocalDateTime.of(2026, 10, 6, 9, 0), "Etentje", "ETEN-2026");
+
+        transactie.executeWithoutResult(status -> grootboek.schrijf(overboeking));
+
+        assertThat(jdbc.sql("""
+                        SELECT omschrijving, betalingskenmerk FROM transactie
+                        WHERE datum = '2026-10-06' AND iban IN ('NL40SIMB0000000003', 'NL67SIMB0000000002')""")
+                .query((rij, nummer) -> rij.getString("omschrijving") + " " + rij.getString("betalingskenmerk")).list())
+                .containsExactly("Etentje ETEN-2026", "Etentje ETEN-2026");
+    }
+
     /** De trigger is de laatste verdedigingslinie: ook SQL buiten LedgerService om komt er niet door. */
     @Test
     void eenOverboekingMetMaarEenTransactieFaaltBijCommit() {

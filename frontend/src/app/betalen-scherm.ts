@@ -24,6 +24,14 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
         <dd>{{ naam() }}</dd>
         <dt>Rekeningnummer (IBAN)</dt>
         <dd>{{ ontvanger() }}</dd>
+        @if (omschrijving()) {
+          <dt>Omschrijving</dt>
+          <dd>{{ omschrijving() }}</dd>
+        }
+        @if (betalingskenmerk()) {
+          <dt>Betalingskenmerk</dt>
+          <dd>{{ betalingskenmerk() }}</dd>
+        }
       </dl>
       @if (melding(); as melding) {
         <p role="alert">{{ melding }}</p>
@@ -47,6 +55,10 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
             }
           </ul>
         }
+        <label for="betalen-omschrijving">Omschrijving</label>
+        <input id="betalen-omschrijving" [value]="omschrijving()" (input)="omschrijving.set(waarde($event))" />
+        <label for="betalen-kenmerk">Betalingskenmerk</label>
+        <input id="betalen-kenmerk" [value]="betalingskenmerk()" (input)="betalingskenmerk.set(waarde($event))" />
         <button type="submit">Volgende</button>
       </form>
     }
@@ -62,6 +74,9 @@ export class BetalenScherm {
   protected readonly bedrag = signal('');
   protected readonly naam = signal('');
   protected readonly ontvanger = signal('');
+  /** Optioneel (FO); leeg gaat niet mee naar de API. */
+  protected readonly omschrijving = signal('');
+  protected readonly betalingskenmerk = signal('');
   protected readonly controle = signal(false);
   /** De melding van de API bij een geweigerde betaling (RFC 9457), zoals "Naar dit rekeningnummer kan niet worden betaald.". */
   protected readonly melding = signal<string | undefined>(undefined);
@@ -89,7 +104,14 @@ export class BetalenScherm {
   }
 
   protected bevestig(): void {
-    const betaling = { van: this.iban(), naar: this.ontvanger(), naam: this.naam(), bedrag: bedragUitInvoer(this.bedrag()) };
+    const betaling = {
+      van: this.iban(),
+      naar: this.ontvanger(),
+      naam: this.naam(),
+      bedrag: bedragUitInvoer(this.bedrag()),
+      omschrijving: this.omschrijving() || undefined,
+      betalingskenmerk: this.betalingskenmerk() || undefined,
+    };
     const headers = { 'Idempotency-Key': this.sleutel };
     this.http.post('/api/betalingen', betaling, { headers }).subscribe({
       next: () => void this.router.navigate(['/rekeningen', this.iban()]),

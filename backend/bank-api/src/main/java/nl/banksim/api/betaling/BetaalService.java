@@ -44,8 +44,10 @@ class BetaalService {
      * rolt ook de sleutel terug, zodat een nieuwe poging opnieuw beoordeeld wordt.
      */
     @Transactional
-    void betaal(String gebruikersnaam, String sleutel, Iban van, Iban naar, String naam, Bedrag bedrag) {
-        String verzoek = hash(String.join("|", van.toString(), naar.toString(), naam, bedrag.toString()));
+    void betaal(String gebruikersnaam, String sleutel, Iban van, Iban naar, String naam, Bedrag bedrag, String omschrijving,
+            String betalingskenmerk) {
+        String verzoek = hash(String.join("|", van.toString(), naar.toString(), naam, bedrag.toString(),
+                String.valueOf(omschrijving), String.valueOf(betalingskenmerk)));
         Optional<String> eerder = idempotentie.claim(sleutel, gebruikersnaam, verzoek);
         if (eerder.isPresent()) {
             if (!eerder.get().equals(verzoek)) {
@@ -61,7 +63,7 @@ class BetaalService {
         }
         // De tegenpartij is de naam van het contact, niet de schrijfwijze van de klant.
         ledger.boek(new Overboeking(new Partij(van, eigenNaam), new Partij(naar, contact.naam()), bedrag,
-                TransactieType.ONLINE_BANKIEREN, klok.nu()));
+                TransactieType.ONLINE_BANKIEREN, klok.nu(), omschrijving, betalingskenmerk));
     }
 
     /** SHA-256 in hex: genoeg om een ander verzoek met dezelfde sleutel te herkennen. */

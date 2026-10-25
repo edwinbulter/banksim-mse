@@ -46,6 +46,9 @@ export interface TransactieDetails {
   naar: Partij;
   datumTransactie: string;
   uitgevoerdOp: string;
+  /** Alleen als ze er zijn (FO): bij een betaling uit S7.1. */
+  omschrijving?: string;
+  betalingskenmerk?: string;
 }
 
 /** Inkomend: bedrag > 0; uitgaand: bedrag < 0 (FO "Filteren op"). */
@@ -77,6 +80,9 @@ export interface Betaalopdracht {
   bedrag: string;
   naam: string;
   iban: string;
+  /** Optioneel (FO): hoogstens 140 en 25 tekens. */
+  omschrijving?: string;
+  betalingskenmerk?: string;
 }
 
 /** Of een verzoek dat iets verandert, is uitgevoerd of door de rechten geweigerd (403). */

@@ -94,6 +94,10 @@ export class BetaalrekeningPagina {
     await expect(details).toBeVisible();
     const waarde = async (term: string) =>
       ((await details.locator('dt', { hasText: term }).locator('+ dd').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+    const optioneel = async (term: string) =>
+      (await details.locator('dt', { hasText: term }).count()) > 0 ? await waarde(term) : undefined;
+    const omschrijving = await optioneel('Omschrijving');
+    const betalingskenmerk = await optioneel('Betalingskenmerk');
     const type = await waarde('Transactietype');
     if (!(type in TYPEN)) throw new Error(`Onbekend transactietype op het scherm: "${type}"`);
     return {
@@ -102,6 +106,8 @@ export class BetaalrekeningPagina {
       naar: partij(await waarde('Naar')),
       datumTransactie: tijdstipUitTekst(await waarde('Datum transactie')),
       uitgevoerdOp: datumUitTekst(await waarde('Uitgevoerd op')),
+      ...(omschrijving ? { omschrijving } : {}),
+      ...(betalingskenmerk ? { betalingskenmerk } : {}),
     };
   }
 

@@ -121,6 +121,15 @@ describe('Betaalrekening', () => {
     });
   });
 
+  /** FO: omschrijving en betalingskenmerk worden, indien aanwezig, ook getoond (S7.1). */
+  it('toont omschrijving en betalingskenmerk in de details als ze er zijn (S7.1)', () => {
+    const pagina = toon([{ ...INCASSO, omschrijving: 'Etentje', betalingskenmerk: 'ETEN-2026' }]);
+    regel(pagina, 'Woningstichting Thuis')?.click();
+    fixture.detectChanges();
+    expect(details(pagina, 'Woningstichting Thuis')?.['Omschrijving']).toBe('Etentje');
+    expect(details(pagina, 'Woningstichting Thuis')?.['Betalingskenmerk']).toBe('ETEN-2026');
+  });
+
   it('toont bij Naar alleen de naam als er geen IBAN is (betaalautomaat, S4.1)', () => {
     const pagina = toon([
       {

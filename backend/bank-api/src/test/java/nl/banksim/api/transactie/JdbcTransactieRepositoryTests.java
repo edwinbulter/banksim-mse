@@ -57,6 +57,8 @@ class JdbcTransactieRepositoryTests {
                 ('NL94SIMB0000000001', '2026-10-02', -12.50, 'Bakkerij De Korst', '2026-10-02T13:26:00+02:00',
                  'BETAALAUTOMAAT', NULL)
                 """).update();
+        jdbc.sql("UPDATE transactie SET omschrijving = 'Salaris oktober', betalingskenmerk = 'SAL-2026-10' WHERE tegenpartij = 'Werkgever B.V.'")
+                .update();
     }
 
     /** Na alle transacties in deze test, zodat de tests niet afhangen van de dag waarop ze draaien. */
@@ -113,6 +115,11 @@ class JdbcTransactieRepositoryTests {
         assertThat(incasso.tegen()).isEqualTo(new Partij("Woningstichting Thuis", Optional.of(Iban.van("NL91ABNA0417164300"))));
         assertThat(transacties.getFirst().tegen()).isEqualTo(new Partij("Bakkerij De Korst", Optional.empty()));
         assertThat(transacties.getFirst().type()).isEqualTo(TransactieType.BETAALAUTOMAAT);
+        // S7.1: omschrijving en betalingskenmerk alleen als ze er zijn.
+        assertThat(transacties.get(1).omschrijving()).contains("Salaris oktober");
+        assertThat(transacties.get(1).betalingskenmerk()).contains("SAL-2026-10");
+        assertThat(incasso.omschrijving()).isEmpty();
+        assertThat(incasso.betalingskenmerk()).isEmpty();
     }
 
     private List<String> zoek(LocalDate vandaag, Zoekfilter filter) {

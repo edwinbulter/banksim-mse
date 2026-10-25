@@ -83,6 +83,18 @@ class BetalingControllerTests {
                 TransactieType.ONLINE_BANKIEREN, LocalDateTime.of(2026, 10, 5, 14, 0)));
     }
 
+    /** FO: omschrijving en betalingskenmerk zijn optioneel en gaan mee in de overboeking. */
+    @Test
+    void neemtOmschrijvingEnBetalingskenmerkMeeInDeOverboeking() throws Exception {
+        mvc.perform(betaalverzoek().content("""
+                        {"van": "%s", "naar": "%s", "naam": "Sanne", "bedrag": "25.00",
+                         "omschrijving": "Etentje", "betalingskenmerk": "ETEN-2026"}""".formatted(VAN_JAN, VAN_SANNE)))
+                .andExpect(status().isCreated());
+
+        assertThat(grootboek.geschreven()).extracting(Overboeking::omschrijving, Overboeking::betalingskenmerk)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Etentje", "ETEN-2026"));
+    }
+
     /** ADR 0023: van andermans rekening bestaat voor de klant niet. */
     @Test
     void vanEenRekeningVanEenAnderGeeft404EnBoektNiets() throws Exception {

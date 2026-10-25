@@ -218,9 +218,20 @@ export class Klant {
   }
 
   /** S7.1: vanaf de eigen betaalrekening, met de naam en het IBAN van de ontvanger; bevestigd op het controlescherm. */
-  async betaalt({ bedrag, aan }: { bedrag: string; aan: Klant }): Promise<void> {
+  async betaalt({
+    bedrag,
+    aan,
+    omschrijving,
+    betalingskenmerk,
+  }: { bedrag: string; aan: Klant; omschrijving?: string; betalingskenmerk?: string }): Promise<void> {
     await this.opentBetaalrekening();
-    await (await this.sessie()).betaal({ bedrag, naam: aan.naam(), iban: aan.iban() });
+    await (await this.sessie()).betaal({ bedrag, naam: aan.naam(), iban: aan.iban(), omschrijving, betalingskenmerk });
+  }
+
+  /** De transactie met deze tegenpartij uitklappen op de eigen betaalrekening, en alleen de genoemde details. */
+  async verwachtDetailsVan(tegenpartij: string, verwacht: Partial<TransactieDetails>): Promise<void> {
+    await this.klaptTransactieUit(tegenpartij);
+    await this.verwachtDetails(verwacht);
   }
 
   /**

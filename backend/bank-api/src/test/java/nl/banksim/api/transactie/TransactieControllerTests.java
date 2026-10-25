@@ -62,7 +62,10 @@ class TransactieControllerTests {
     Cursor cursor;
 
     @Test
-    /** S4.1: ook type, tijdstip in Europe/Amsterdam, Van en Naar; zonder IBAN (betaalautomaat) is het iban null. */
+    /**
+     * S4.1: ook type, tijdstip in Europe/Amsterdam, Van en Naar; zonder IBAN (betaalautomaat) is het iban null. S7.1:
+     * omschrijving en betalingskenmerk, null als ze er niet zijn.
+     */
     void geeftDeEerstePaginaVan50MetDatumEnBedragAlsStringEnZonderVolgendeAanHetEind() throws Exception {
         AANROEPEN.clear();
         mvc.perform(get("/api/rekeningen/" + OOK_VAN_JAN + "/transacties").with(gebruiker("jan-a1-1")))
@@ -72,11 +75,13 @@ class TransactieControllerTests {
                            {"datum": "2026-10-02", "tegenpartij": "Werkgever B.V.", "bedrag": "3215.00",
                             "type": "ONLINE_BANKIEREN", "tijdstip": "2026-10-02T09:15:00+02:00",
                             "van": {"naam": "Werkgever B.V.", "iban": "NL20INGB0001234567"},
-                            "naar": {"naam": "Jan", "iban": "NL94SIMB0000000001"}},
+                            "naar": {"naam": "Jan", "iban": "NL94SIMB0000000001"},
+                            "omschrijving": "Salaris oktober", "betalingskenmerk": "SAL-2026-10"},
                            {"datum": "2026-10-01", "tegenpartij": "Albert Heijn", "bedrag": "-63.48",
                             "type": "BETAALAUTOMAAT", "tijdstip": "2026-10-01T13:26:00+02:00",
                             "van": {"naam": "Jan", "iban": "NL94SIMB0000000001"},
-                            "naar": {"naam": "Albert Heijn", "iban": null}}],
+                            "naar": {"naam": "Albert Heijn", "iban": null},
+                            "omschrijving": null, "betalingskenmerk": null}],
                          "volgende": null}""",
                         JsonCompareMode.STRICT));
         assertThat(AANROEPEN).containsExactly(OOK_VAN_JAN + " tot 2026-10-05 vanaf het begin, 50");
@@ -182,10 +187,12 @@ class TransactieControllerTests {
                 return Optional.of(new Pagina(List.of(
                         new Transactie(LocalDate.of(2026, 10, 2), Bedrag.van("3215.00"), jan,
                                 new Partij("Werkgever B.V.", Optional.of(Iban.van("NL20INGB0001234567"))),
-                                TransactieType.ONLINE_BANKIEREN, OffsetDateTime.parse("2026-10-02T07:15:00Z")),
+                                TransactieType.ONLINE_BANKIEREN, OffsetDateTime.parse("2026-10-02T07:15:00Z"),
+                                Optional.of("Salaris oktober"), Optional.of("SAL-2026-10")),
                         new Transactie(LocalDate.of(2026, 10, 1), Bedrag.van("-63.48"), jan,
                                 new Partij("Albert Heijn", Optional.empty()),
-                                TransactieType.BETAALAUTOMAAT, OffsetDateTime.parse("2026-10-01T11:26:00Z"))),
+                                TransactieType.BETAALAUTOMAAT, OffsetDateTime.parse("2026-10-01T11:26:00Z"),
+                                Optional.empty(), Optional.empty())),
                         VAN_JAN.equals(iban) ? Optional.of(LAATSTE_OP_PAGINA) : Optional.empty()));
             };
         }

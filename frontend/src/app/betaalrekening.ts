@@ -14,6 +14,9 @@ export interface Transactie {
   tijdstip: string;
   van: Partij;
   naar: Partij;
+  /** S7.1 (FO): alleen als ze er zijn; de API geeft anders null. */
+  omschrijving?: string | null;
+  betalingskenmerk?: string | null;
 }
 
 export interface Partij {
@@ -69,6 +72,14 @@ export interface Partij {
                       <dd>{{ transactie.details.tijdstip }}</dd>
                       <dt>Uitgevoerd op</dt>
                       <dd>{{ transactie.details.uitgevoerdOp }}</dd>
+                      @if (transactie.bron.omschrijving; as omschrijving) {
+                        <dt>Omschrijving</dt>
+                        <dd>{{ omschrijving }}</dd>
+                      }
+                      @if (transactie.bron.betalingskenmerk; as betalingskenmerk) {
+                        <dt>Betalingskenmerk</dt>
+                        <dd>{{ betalingskenmerk }}</dd>
+                      }
                     </dl>
                   }
                 </li>
