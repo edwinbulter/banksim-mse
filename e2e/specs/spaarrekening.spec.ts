@@ -34,4 +34,20 @@ test.describe('Spaarrekening en rente', { tag: '@simulatiedatum' }, () => {
     await bank.als('Jan de spaarrekening opent', () => jan.opentSpaarrekening());
     await bank.dan('ziet Jan een lopende rente van € 12,36', () => jan.verwachtLopendeRente('12.36'));
   });
+
+  // FO: "Bij de overgang naar een vorig jaar staat een tussenregel met het jaartal." De maandafsluiting schrijft rente bij
+  // op 30 november 2025, 31 december 2025 en 31 januari 2026.
+  test('Jaartal-tussenregel', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.gegeven('Jan heeft sinds 1 november 2025 € 10.000,00 op de spaarrekening', () =>
+      jan.heeftSpaarrekening({ geopendOp: '2025-11-01', saldo: '10000.00' }),
+    );
+    await bank.en('de beheerder zet de simulatiedatum op 1 februari 2026', () =>
+      bank.beheerder().zetSimulatiedatum('2026-02-01'),
+    );
+    await bank.als('Jan de spaarrekening opent', () => jan.opentSpaarrekening());
+    await bank.dan('staat er een tussenregel "2025" tussen 31 januari 2026 en 31 december 2025', () =>
+      jan.verwachtJaartalregel({ jaar: 2025, na: '2026-01-31', voor: '2025-12-31' }),
+    );
+  });
 });

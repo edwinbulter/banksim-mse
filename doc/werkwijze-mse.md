@@ -356,6 +356,10 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | MFA instelbaar, standaard uit; geen transactielimiet naast "nooit rood" | TO §17 | 6 Inloggen / 7 Betalen |
 | Supply chain: vaste versies, SBOM, Trivy, Renovate | TO §16 | CFR Supply chain |
 | Mutation testing met PIT in de commit stage | — (ontbrak in het origineel) | Afschaffen van de handmatige controle per slice (ADR 0018) |
+| Spaarrekeningscherm: saldo in de kop, met de lopende rente eronder (FO); nu staat de lopende rente los | S8.1 vroeg alleen om de lopende rente; het saldo staat in het overzicht (S8.2) | Eigen scenario in `spaarrekening.spec.ts`, uiterlijk slice 9 (Inleggen/Opnemen) |
+| Spaarrekeningscherm: details per mutatie (Datum, Tegenrekening, Type) en "Toon meer" (FO) | Geen scenario van S8.1 vroeg erom; het scherm laadt nu alleen de eerste 50 | Eigen scenario's in `spaarrekening.spec.ts`, uiterlijk slice 9 |
+| Lopende rente op de laatste dag van de maand: dezelfde rente staat dan als mutatie en als lopende rente | Letterlijk volgens het FO ("t/m D"); geen scenario vroeg om iets anders | Een scenario zodra de mens kiest wat de klant dan ziet |
+| Lopende rente mislukt: het scherm toont dan geen rente en geen melding | Geen scenario vroeg om foutafhandeling op dit scherm | Samen met de foutafhandeling van het spaarrekeningscherm |
 | Mutation testing van de frontend met Stryker | — | Zodra de frontend meer logica krijgt (betalen, slice 7) |
 | Firefox en webkit alleen voor `@ui` en `@rook` | — (het origineel draaide alles in drie browsers) | Snellere acceptance stage, bij S6.1 (ADR 0019) |
 
@@ -1005,6 +1009,8 @@ Werk deze scenario's **één voor één** af; de rest staat op `@wip`. Het vierd
 // heeftSpaarrekening zelf een klant met lege betaalrekening. De rente boekt een maandafsluiting (ADR 0028).
 // "Lopende rente wordt apart getoond" kreeg een bedrag (€ 12,36 op 15 februari, de simulatiedatum telt mee, FO) en
 // opent de spaarrekening; de API rekent hem uit bij GET /api/rekeningen/{iban}/lopende-rente, zonder te boeken.
+// "Jaartal-tussenregel" krijgt zijn mutaties van de maandafsluiting (geopend 1 november 2025, simulatiedatum
+// 1 februari 2026) in plaats van een eigen seed; de frontend maakt de regel, de REST-driver leidt hem af.
 test.describe('Spaarrekening en rente', { tag: '@simulatiedatum' }, () => {
   test('Rente wordt maandelijks bijgeschreven', async ({ bank }) => {
     const jan = bank.klant('Jan');

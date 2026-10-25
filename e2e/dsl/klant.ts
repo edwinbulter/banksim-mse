@@ -116,6 +116,14 @@ export class Klant {
     expect(await (await this.sessie()).lopendeRente(), `lopende rente van ${this.alias}`).toBe(bedrag);
   }
 
+  /** Op de geopende spaarrekening staat de jaartalregel direct tussen de datumregels `na` en `voor` (S8.1, FO). */
+  async verwachtJaartalregel({ jaar, na, voor }: { jaar: number; na: string; voor: string }): Promise<void> {
+    const koppen = await (await this.sessie()).spaarkoppen();
+    const plek = koppen.indexOf(String(jaar));
+    expect(plek, `jaartalregel ${jaar} in ${koppen.join(', ')}`).toBeGreaterThan(0);
+    expect(koppen.slice(plek - 1, plek + 2), `regels rond ${jaar}`).toEqual([na, String(jaar), voor]);
+  }
+
   /** De naam van de rekeninghouder: de alias (zie heeftBetaalrekening). */
   naam(): string {
     return this.alias;

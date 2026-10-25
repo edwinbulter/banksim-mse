@@ -25,11 +25,27 @@ export class SpaarrekeningPagina {
     return delen[1].replace(/\./g, '').replace(',', '.');
   }
 
+  /** Een dag heeft een kop en een lijst mutaties; een regel zonder lijst is een jaartalregel ("2025"). */
+  async koppen(): Promise<string[]> {
+    const lijst = this.page.getByRole('list', { name: 'Mutaties' });
+    await expect(lijst).toBeVisible();
+    const koppen: string[] = [];
+    for (const regel of await lijst.locator(':scope > li').all()) {
+      if ((await regel.getByRole('list').count()) === 0) {
+        koppen.push(((await regel.textContent()) ?? '').trim());
+      } else {
+        koppen.push(datumUitKop((await regel.getByRole('heading').textContent()) ?? ''));
+      }
+    }
+    return koppen;
+  }
+
   async mutaties(): Promise<Spaarmutatie[]> {
     const lijst = this.page.getByRole('list', { name: 'Mutaties' });
     await expect(lijst).toBeVisible();
     const mutaties: Spaarmutatie[] = [];
     for (const dag of await lijst.locator(':scope > li').all()) {
+      if ((await dag.getByRole('list').count()) === 0) continue; // jaartalregel
       const datum = datumUitKop((await dag.getByRole('heading').textContent()) ?? '');
       for (const regel of await dag.getByRole('listitem').all()) {
         const { tegenpartij: omschrijving, bedrag } = transactieUitRegel((await regel.textContent()) ?? '');

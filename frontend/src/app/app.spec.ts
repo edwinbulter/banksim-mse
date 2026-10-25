@@ -597,4 +597,25 @@ describe('App', () => {
     const term = [...pagina.querySelectorAll('dt')].find((dt) => dt.textContent?.trim() === 'Lopende rente');
     expect(term?.nextElementSibling?.textContent?.trim()).toBe('€ 1.234,56');
   });
+  /** S8.1 (FO): bij de overgang naar een vorig jaar een tussenregel met het jaartal; boven de eerste dag niet. */
+  it('zet een jaartalregel bij elke overgang naar een ouder jaar (S8.1)', async () => {
+    const pagina = await start('/spaarrekeningen/NL67SIMB0000000002');
+    const rente = (datum: string) => ({ ...api(datum, 'BankSim', '1.00'), omschrijving: 'Rente', betalingskenmerk: null });
+    await transacties('/api/rekeningen/NL67SIMB0000000002/transacties', {
+      transacties: [rente('2026-01-31'), rente('2025-12-31'), rente('2025-11-30'), rente('2024-12-31')],
+      volgende: null,
+    });
+
+    const regels = [...(pagina.querySelector('ul[aria-label="Mutaties"]')?.children ?? [])].map(
+      (regel) => regel.querySelector('h3')?.textContent ?? regel.textContent?.trim(),
+    );
+    expect(regels).toEqual([
+      'Zaterdag 31 januari 2026',
+      '2025',
+      'Woensdag 31 december 2025',
+      'Zondag 30 november 2025',
+      '2024',
+      'Dinsdag 31 december 2024',
+    ]);
+  });
 });

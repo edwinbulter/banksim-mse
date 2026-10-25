@@ -8,7 +8,8 @@ import { bedragMetTeken, bedragVoorWeergave } from './geld/bedrag';
 /**
  * Route `/spaarrekeningen/:iban` (S8.1, FO "Spaarrekening scherm"): de mutaties per datum, nieuw naar oud, met
  * omschrijving en bedrag, zoals "Rente januari +25,48". Zonder omschrijving staat er de tegenpartij. Bovenaan staat de
- * lopende rente: opgebouwd deze maand, nog niet bijgeschreven.
+ * lopende rente: opgebouwd deze maand, nog niet bijgeschreven. Bij de overgang naar een ouder jaar staat een regel met
+ * het jaartal (FO).
  */
 @Component({
   selector: 'app-spaarrekening-scherm',
@@ -24,6 +25,9 @@ import { bedragMetTeken, bedragVoorWeergave } from './geld/bedrag';
     }
     <ul aria-label="Mutaties">
       @for (dag of dagen(); track dag.datum) {
+        @if (dag.nieuwJaar) {
+          <li>{{ dag.nieuwJaar }}</li>
+        }
         <li>
           <h3>{{ dag.kop }}</h3>
           <ul>
@@ -48,10 +52,18 @@ export class SpaarrekeningScherm {
   protected readonly lopendeRente = signal<string | undefined>(undefined);
 
   protected readonly dagen = computed(() => {
-    const dagen: { datum: string; kop: string; mutaties: { omschrijving: string; bedrag: string }[] }[] = [];
+    const dagen: {
+      datum: string;
+      kop: string;
+      nieuwJaar?: string;
+      mutaties: { omschrijving: string; bedrag: string }[];
+    }[] = [];
     for (const transactie of this.transacties()) {
-      if (dagen.at(-1)?.datum !== transactie.datum) {
-        dagen.push({ datum: transactie.datum, kop: datumregel(transactie.datum), mutaties: [] });
+      const vorige = dagen.at(-1)?.datum;
+      if (vorige !== transactie.datum) {
+        const jaar = transactie.datum.slice(0, 4);
+        const nieuwJaar = vorige && vorige.slice(0, 4) !== jaar ? jaar : undefined;
+        dagen.push({ datum: transactie.datum, kop: datumregel(transactie.datum), nieuwJaar, mutaties: [] });
       }
       dagen.at(-1)?.mutaties.push({
         omschrijving: transactie.omschrijving ?? transactie.tegenpartij,

@@ -181,6 +181,10 @@ export class UiDriver implements BankDriver {
     return this.spaarrekening.mutaties();
   }
 
+  async spaarkoppen(): Promise<string[]> {
+    return this.spaarrekening.koppen();
+  }
+
   async lopendeRente(): Promise<string> {
     return this.spaarrekening.lopendeRente();
   }

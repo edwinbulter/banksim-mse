@@ -320,6 +320,19 @@ export class RestDriver implements BankDriver {
     this.lopend = ((await antwoord.json()) as { bedrag: string }).bedrag;
   }
 
+  /** De frontend maakt de regels (TO); hier afgeleid uit de volgorde van de API: een jaartal bij elk ouder jaar. */
+  async spaarkoppen(): Promise<string[]> {
+    const koppen: string[] = [];
+    let vorige: string | undefined;
+    for (const { datum } of this.geladen) {
+      if (datum === vorige) continue;
+      if (vorige && datum.slice(0, 4) !== vorige.slice(0, 4)) koppen.push(datum.slice(0, 4));
+      koppen.push(datum);
+      vorige = datum;
+    }
+    return koppen;
+  }
+
   async lopendeRente(): Promise<string> {
     if (this.lopend === undefined) throw new Error('Open eerst een spaarrekening');
     return this.lopend;

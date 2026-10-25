@@ -180,6 +180,10 @@ export interface BankDriver {
   openSpaarrekening(iban: string): Promise<void>;
   /** De mutaties van de geopende spaarrekening, nieuw naar oud. */
   spaarmutaties(): Promise<Spaarmutatie[]>;
+  /**
+   * De datumregels ("2026-01-31") en jaartalregels ("2025") van de geopende spaarrekening, van boven naar beneden.
+   */
+  spaarkoppen(): Promise<string[]>;
   /** De lopende rente van de geopende spaarrekening, in domeinnotatie ("12.36"). */
   lopendeRente(): Promise<string>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */
