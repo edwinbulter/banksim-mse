@@ -65,6 +65,22 @@ test('Rood staan is niet toegestaan', async ({ bank }) => {
   await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
 });
 
+// CFR in deze slice: een herhaald verzoek (dubbele klik, of opnieuw na een storing) boekt niet nog een keer.
+test('Dubbel verzonden betaling wordt één keer geboekt', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await bank.en('Sanne is een contact met een betaalrekening', () =>
+    sanne.heeftBetaalrekening({ contact: true }),
+  );
+  await bank.als('Jan € 25,00 aan Sanne betaalt en de bevestiging twee keer verstuurt', () =>
+    jan.betaaltDubbel({ bedrag: '25.00', aan: sanne }),
+  );
+  await bank.dan('is het saldo van Jan € 475,00', () => jan.verwachtSaldo('475.00'));
+  await bank.en('ziet Sanne precies één bijschrijving van +25,00 van Jan', () =>
+    sanne.verwachtAlleenTransactie('Jan', '25.00'),
+  );
+});
+
 // De simulatiedatum geldt voor de hele bank: dit scenario draait na de andere, één voor één (ADR 0014).
 test('Een betaling mag een latere boeking niet rood laten staan', { tag: '@simulatiedatum' }, async ({ bank }) => {
   const jan = bank.klant('Jan');

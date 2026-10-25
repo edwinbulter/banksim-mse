@@ -390,4 +390,56 @@ describe('App', () => {
     expect(TestBed.inject(Location).path()).toBe('/rekeningen/NL94SIMB0000000001');
     await transacties('/api/rekeningen/NL94SIMB0000000001/transacties', TWEE_DAGEN);
   });
+  /** ADR 0027: één sleutel per controlescherm; een dubbelklik stuurt hem twee keer, de server boekt één keer. */
+  it('stuurt bij twee klikken op "Bevestigen" twee keer dezelfde Idempotency-Key (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+    vulIn(pagina, 'Bedrag (€)', '25,00');
+    vulIn(pagina, 'Naam ontvanger', 'Sanne');
+    vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL67SIMB0000000002');
+    knop(pagina, 'Volgende')?.click();
+    await ververs();
+
+    knop(pagina, 'Bevestigen')?.click();
+    knop(pagina, 'Bevestigen')?.click();
+    await ververs();
+
+    const verzoeken = http.match('/api/betalingen');
+    expect(verzoeken).toHaveLength(2);
+    const sleutels = verzoeken.map((v) => v.request.headers.get('Idempotency-Key'));
+    expect(sleutels[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(sleutels[1]).toBe(sleutels[0]);
+    verzoeken.forEach((v) => v.flush(null, { status: 201, statusText: 'Created' }));
+  });
+
+  it('maakt voor elk nieuw controlescherm een nieuwe Idempotency-Key (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+    vulIn(pagina, 'Bedrag (€)', '25,00');
+    vulIn(pagina, 'Naam ontvanger', 'Sanne');
+    vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL67SIMB0000000002');
+    const sleutels: (string | null)[] = [];
+    for (let keer = 0; keer < 2; keer++) {
+      knop(pagina, 'Volgende')?.click();
+      await ververs();
+      knop(pagina, 'Bevestigen')?.click();
+      await ververs();
+      const verzoek = http.expectOne('/api/betalingen');
+      sleutels.push(verzoek.request.headers.get('Idempotency-Key'));
+      verzoek.flush(
+        { type: 'urn:banksim:probleem:saldo-ontoereikend', detail: 'Saldo ontoereikend.' },
+        { status: 422, statusText: 'Unprocessable Content' },
+      );
+      await ververs();
+      link(pagina, 'Betaalrekening')?.click();
+      await ververs();
+      http.expectOne('/api/rekeningen/NL94SIMB0000000001/transacties').flush(TWEE_DAGEN);
+      await ververs();
+      link(pagina, 'Betalen')?.click();
+      await ververs();
+      vulIn(pagina, 'Bedrag (€)', '25,00');
+      vulIn(pagina, 'Naam ontvanger', 'Sanne');
+      vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL67SIMB0000000002');
+    }
+    expect(sleutels[0]).toBeTruthy();
+    expect(sleutels[1]).not.toBe(sleutels[0]);
+  });
 });

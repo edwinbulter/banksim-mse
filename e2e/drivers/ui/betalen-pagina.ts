@@ -18,6 +18,13 @@ export class BetalenPagina {
     await expect(this.page.getByRole('heading', { name: 'Betaalrekening' })).toBeVisible();
   }
 
+  /** Een dubbelklik op "Bevestigen", zoals een ongeduldige klant; daarna terug op de betaalrekening. */
+  async betaalDubbel({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
+    await this.vulInEnGaNaarControle({ bedrag, naam, iban });
+    await this.page.getByRole('button', { name: 'Bevestigen' }).dblclick();
+    await expect(this.page.getByRole('heading', { name: 'Betaalrekening' })).toBeVisible();
+  }
+
   /** Na "Bevestigen": terug op de betaalrekening, of een melding op het controlescherm. */
   async probeer(opdracht: Betaalopdracht): Promise<void> {
     await this.bevestig(opdracht);
@@ -31,14 +38,18 @@ export class BetalenPagina {
     return WEIGERINGEN[tekst] ?? `onbekende melding: ${tekst}`;
   }
 
-  private async bevestig({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
+  private async bevestig(opdracht: Betaalopdracht): Promise<void> {
+    await this.vulInEnGaNaarControle(opdracht);
+    await this.page.getByRole('button', { name: 'Bevestigen' }).click();
+  }
+
+  private async vulInEnGaNaarControle({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
     await this.page.getByRole('link', { name: 'Betalen' }).click();
     await this.page.getByLabel('Bedrag (€)').fill(bedrag.replace('.', ','));
     await this.page.getByLabel('Naam ontvanger').fill(naam);
     await this.page.getByLabel('Rekeningnummer (IBAN)').fill(iban);
     await this.page.getByRole('button', { name: 'Volgende' }).click();
     await expect(this.page.getByRole('heading', { name: 'Controleer je betaling' })).toBeVisible();
-    await this.page.getByRole('button', { name: 'Bevestigen' }).click();
   }
 
   private melding() {

@@ -30,7 +30,7 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
       <button type="button" (click)="bevestig()">Bevestigen</button>
     } @else {
       <h2>Betalen</h2>
-      <form aria-label="Betalen" (submit)="$event.preventDefault(); controle.set(true)">
+      <form aria-label="Betalen" (submit)="$event.preventDefault(); naarControle()">
         <label for="betalen-bedrag">Bedrag (€)</label>
         <input id="betalen-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
         <label for="betalen-naam">Naam ontvanger</label>
@@ -56,9 +56,18 @@ export class BetalenScherm {
   /** De melding van de API bij een geweigerde betaling (RFC 9457), zoals "Naar dit rekeningnummer kan niet worden betaald.". */
   protected readonly melding = signal<string | undefined>(undefined);
 
+  /** ADR 0027: één sleutel per controlescherm; elke bevestiging daarvandaan, ook een dubbelklik, stuurt dezelfde. */
+  private sleutel = '';
+
+  protected naarControle(): void {
+    this.sleutel = crypto.randomUUID();
+    this.controle.set(true);
+  }
+
   protected bevestig(): void {
     const betaling = { van: this.iban(), naar: this.ontvanger(), naam: this.naam(), bedrag: bedragUitInvoer(this.bedrag()) };
-    this.http.post('/api/betalingen', betaling).subscribe({
+    const headers = { 'Idempotency-Key': this.sleutel };
+    this.http.post('/api/betalingen', betaling, { headers }).subscribe({
       next: () => void this.router.navigate(['/rekeningen', this.iban()]),
       // Een 422 is een geweigerde betaling met een melding; een 401 meldt de interceptor aan App.
       error: (fout: HttpErrorResponse) => this.melding.set((fout.error as { detail?: string } | null)?.detail),

@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,8 +31,11 @@ class BetalingController {
     @PostMapping("/api/betalingen")
     @PreAuthorize("isAuthenticated()")
     @ResponseStatus(HttpStatus.CREATED)
-    void betaal(@RequestBody BetalingJson json) {
-        betalen.betaal(gebruiker.gebruikersnaam(), Iban.van(json.van()), Iban.van(json.naar()), json.naam(),
+    void betaal(@RequestHeader(name = "Idempotency-Key", required = false) String sleutel, @RequestBody BetalingJson json) {
+        if (sleutel == null) {
+            throw new SleutelOntbreekt();
+        }
+        betalen.betaal(gebruiker.gebruikersnaam(), sleutel, Iban.van(json.van()), Iban.van(json.naar()), json.naam(),
                 Bedrag.van(json.bedrag()));
     }
 
@@ -46,6 +50,14 @@ class BetalingController {
     @ExceptionHandler(SaldoOntoereikend.class)
     ProblemDetail saldoOntoereikend(SaldoOntoereikend fout) {
         return betalingGeweigerd(new BetalingGeweigerd("saldo-ontoereikend", fout.getMessage()));
+    }
+
+    /** ADR 0027: zonder sleutel geen betaling; zo betaalt geen client per ongeluk zonder bescherming. */
+    @ExceptionHandler(SleutelOntbreekt.class)
+    ProblemDetail sleutelOntbreekt() {
+        ProblemDetail probleem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "De header Idempotency-Key ontbreekt.");
+        probleem.setType(URI.create("urn:banksim:probleem:sleutel-ontbreekt"));
+        return probleem;
     }
 
     @ExceptionHandler(RekeningNietGevonden.class)

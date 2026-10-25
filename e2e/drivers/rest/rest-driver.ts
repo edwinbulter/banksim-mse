@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, type APIRequestContext, type APIResponse } from '@playwright/test';
 import type {
   BankDriver,
@@ -224,10 +225,25 @@ export class RestDriver implements BankDriver {
     const van = this.geopend;
     expect(van, 'een geopende rekening om van te betalen').toBeTruthy();
     const antwoord = await this.request.post('/api/betalingen', {
-      headers: await this.csrfHeader(),
+      headers: await this.betaalHeaders(),
       data: { van, naar: iban, naam, bedrag },
     });
     expect(antwoord.status(), `POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+    await this.openRekening(van!);
+  }
+
+  /** Twee keer dezelfde POST met dezelfde sleutel, zoals de app na een storing opnieuw verstuurt; allebei 201. */
+  async betaalDubbel({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
+    const van = this.geopend;
+    expect(van, 'een geopende rekening om van te betalen').toBeTruthy();
+    const verzoek = {
+      headers: await this.betaalHeaders(),
+      data: { van, naar: iban, naam, bedrag },
+    };
+    for (const keer of ['eerste', 'tweede']) {
+      const antwoord = await this.request.post('/api/betalingen', verzoek);
+      expect(antwoord.status(), `${keer} POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+    }
     await this.openRekening(van!);
   }
 
@@ -237,7 +253,7 @@ export class RestDriver implements BankDriver {
     expect(van, 'een geopende rekening om van te betalen').toBeTruthy();
     this.probleem = undefined;
     const antwoord = await this.request.post('/api/betalingen', {
-      headers: await this.csrfHeader(),
+      headers: await this.betaalHeaders(),
       data: { van, naar: iban, naam, bedrag },
     });
     if (antwoord.status() === 422) {
@@ -247,6 +263,11 @@ export class RestDriver implements BankDriver {
     }
     expect(antwoord.status(), `POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
     await this.openRekening(van!);
+  }
+
+  /** Het CSRF-token en, zoals de app per controlescherm, een nieuwe Idempotency-Key (ADR 0027). */
+  private async betaalHeaders(): Promise<Record<string, string>> {
+    return { ...(await this.csrfHeader()), 'Idempotency-Key': randomUUID() };
   }
 
   /** Het CSRF-token uit het cookie XSRF-TOKEN (ADR 0016); zonder cookie haalt een GET via de BFF het eerst op. */

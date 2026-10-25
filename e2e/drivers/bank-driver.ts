@@ -139,6 +139,11 @@ export interface BankDriver {
   herlaad(): Promise<void>;
   /** Vanaf de geopende rekening betalen en op het controlescherm bevestigen (S7.1); daarna staat de rekening weer open. */
   betaal(opdracht: Betaalopdracht): Promise<void>;
+  /**
+   * Betalen zoals betaal, maar de bevestiging gaat twee keer de deur uit: in de API twee keer hetzelfde verzoek, in de
+   * browser een dubbelklik op "Bevestigen" (S7.1, CFR).
+   */
+  betaalDubbel(opdracht: Betaalopdracht): Promise<void>;
   /** Hetzelfde, zonder te verwachten dat het lukt; daarna geeft weigering() het probleemtype ("onbekend-contact"). */
   probeerTeBetalen(opdracht: Betaalopdracht): Promise<void>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */

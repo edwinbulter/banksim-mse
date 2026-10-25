@@ -918,6 +918,8 @@ test('Uitloggen', { tag: '@rook' }, async ({ bank }) => {
 // uitvoerdatum (LedgerService). Het vierde scenario dwong daarna ADR 0025 af: het laagste lopende saldo vanaf de
 // uitvoerdatum; melding "Saldo ontoereikend: deze betaling zou het saldo onder € 0,00 brengen, nu of op een latere datum.".
 // In het vierde scenario zet de beheerder de datum (`bank.beheerder().zetSimulatiedatum`) en heeft de incasso een tegenpartij.
+// "Dubbel verzonden betaling wordt één keer geboekt": in domeintaal ("de bevestiging twee keer verstuurt", `betaaltDubbel`),
+// met als Dan het saldo van Jan en precies één bijschrijving bij Sanne (ADR 0027).
 test.beforeEach(async ({ bank }) => {
   await bank.gegeven('Jan heeft een betaalrekening met saldo € 500,00',
     () => bank.klant('Jan').heeftBetaalrekening({ saldo: '500.00' }));
@@ -1186,6 +1188,8 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Rotatie van de cursorsleutel (ADR 0011) | Geen test: een cursor van vóór de rotatie geeft 400, en dat is nooit gecontroleerd | Een installatiescenario met `--rotate`, of CFR Resilience |
 | Webkit in CI: twee scenario's van `betaalrekening.spec.ts` liepen in de time-out van 30 s (één bij de klik op `#kc-login` van Keycloak) en slaagden bij de herkansing (run 40021127418) | Eén keer gezien; lokaal nooit | Komt het terug, dan onderzoeken met de trace uit het Playwright-rapport |
 | Contract-first OpenAPI | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend de API vaker aanroept |
+| Opruimen van oude Idempotency-Keys (tabel `idempotency_sleutel`, ADR 0027) | De tabel groeit met elke betaling; bij de huidige omvang klein | Slice 11 (generator, realistische data) of een prestatie-eis |
+| Ongeldig bedrag of IBAN bij `POST /api/betalingen` geeft 500 in plaats van een melding | Geen scenario in S7.1 vroeg erom; de UI valideert het formulier nog niet | Een scenario "ongeldig bedrag wordt in het formulier al tegengehouden" (origineel) |
 | Integratietest van de realm met Testcontainers | Zie hoofdstuk 9.1 | Bij de volgende realm-wijziging (slice 6 of 10) |
 | Herstart van PostgreSQL en Keycloak behoudt de data | Zie hoofdstuk 9.4 | CFR Resilience |
 | Mutation testing van de frontend met Stryker | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend meer logica krijgt (slice 7) |

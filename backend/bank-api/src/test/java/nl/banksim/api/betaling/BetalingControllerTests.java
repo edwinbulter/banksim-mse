@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.UUID;
 
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
@@ -35,6 +36,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /** S7.1: een betaling is één overboeking van de eigen rekening naar de ontvanger (ADR 0024). */
@@ -55,6 +57,9 @@ class BetalingControllerTests {
     @Autowired
     GeheugenContacten contacten;
 
+    @Autowired
+    GeheugenIdempotentie idempotentie;
+
     @MockitoBean
     JwtDecoder jwtDecoder;
 
@@ -64,12 +69,13 @@ class BetalingControllerTests {
         grootboek.rekening("jan-a1-1", VAN_JAN, "Jan", Bedrag.van("500.00"));
         contacten.leeg();
         contacten.voegToe(new Contact(VAN_SANNE, "Sanne"));
+        idempotentie.leeg();
     }
 
     /** FO: op de simulatiedatum (5 oktober) met de huidige tijd (14:00 in Europe/Amsterdam), type Online bankieren. */
     @Test
     void boektDeBetalingAlsOverboekingOpVandaagVoorDeBankMetDeHuidigeTijd() throws Exception {
-        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON).content(betaling(VAN_JAN)))
+        mvc.perform(betaalverzoek().content(betaling(VAN_JAN)))
                 .andExpect(status().isCreated());
 
         assertThat(grootboek.geschreven()).containsExactly(new Overboeking(
@@ -82,7 +88,7 @@ class BetalingControllerTests {
     void vanEenRekeningVanEenAnderGeeft404EnBoektNiets() throws Exception {
         grootboek.rekening("piet-a1-2", Iban.simBank(3L), "Piet", Bedrag.van("500.00"));
 
-        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(betaalverzoek()
                         .content(betaling(Iban.simBank(3L))))
                 .andExpect(status().isNotFound());
 
@@ -94,7 +100,7 @@ class BetalingControllerTests {
     void naarEenIbanDatGeenContactIsGeeft422EnBoektNiets() throws Exception {
         contacten.leeg();
 
-        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON).content(betaling(VAN_JAN)))
+        mvc.perform(betaalverzoek().content(betaling(VAN_JAN)))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.type").value("urn:banksim:probleem:onbekend-contact"))
                 .andExpect(jsonPath("$.detail").value("Naar dit rekeningnummer kan niet worden betaald."));
@@ -105,7 +111,7 @@ class BetalingControllerTests {
     /** FO: de naam moet bij het contact passen; RFC 9457 met het probleemtype. */
     @Test
     void eenNaamDieNietBijHetContactPastGeeft422EnBoektNiets() throws Exception {
-        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(betaalverzoek()
                         .content(betaling(VAN_JAN, "Piet")))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.type").value("urn:banksim:probleem:naam-past-niet"))
@@ -117,7 +123,7 @@ class BetalingControllerTests {
     /** Jan ziet de naam van het contact als tegenpartij, niet wat hij typte. */
     @Test
     void boektMetDeNaamVanHetContactOokAlsDeKlantHemAndersSchreef() throws Exception {
-        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(betaalverzoek()
                         .content(betaling(VAN_JAN, "  sanne ")))
                 .andExpect(status().isCreated());
 
@@ -127,7 +133,7 @@ class BetalingControllerTests {
     /** Nooit rood: het saldo op de uitvoerdatum (5 oktober, de simulatiedatum) moet de betaling dekken. */
     @Test
     void meerDanHetSaldoGeeft422EnBoektNiets() throws Exception {
-        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(betaalverzoek()
                         .content(betaling(VAN_JAN, "Sanne", "500.01")))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.type").value("urn:banksim:probleem:saldo-ontoereikend"))
@@ -142,7 +148,7 @@ class BetalingControllerTests {
     void eenLatereAfschrijvingDieRoodZouGevenGeeft422() throws Exception {
         grootboek.latereBewegingen(VAN_JAN, Bedrag.van("-450.00"));
 
-        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(betaalverzoek()
                         .content(betaling(VAN_JAN, "Sanne", "100.00")))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.type").value("urn:banksim:probleem:saldo-ontoereikend"));
@@ -153,11 +159,53 @@ class BetalingControllerTests {
     /** Precies het saldo mag: daarna is het saldo € 0,00, niet onder nul. */
     @Test
     void preciesHetSaldoMag() throws Exception {
-        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(betaalverzoek()
                         .content(betaling(VAN_JAN, "Sanne", "500.00")))
                 .andExpect(status().isCreated());
 
         assertThat(grootboek.geschreven()).hasSize(1);
+    }
+
+    /** ADR 0027: dezelfde sleutel twee keer is één betaling; de herhaling krijgt hetzelfde antwoord. */
+    @Test
+    void tweeKeerDezelfdeSleutelBoektEenKeer() throws Exception {
+        String sleutel = UUID.randomUUID().toString();
+        for (int keer = 0; keer < 2; keer++) {
+            mvc.perform(betaalverzoek(sleutel).content(betaling(VAN_JAN))).andExpect(status().isCreated());
+        }
+
+        assertThat(grootboek.geschreven()).hasSize(1);
+    }
+
+    @Test
+    void zonderSleutelGeeft400EnBoektNiets() throws Exception {
+        mvc.perform(post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON).content(betaling(VAN_JAN)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:sleutel-ontbreekt"));
+
+        assertThat(grootboek.geschreven()).isEmpty();
+    }
+
+    /** Dezelfde sleutel met een ander verzoek is geen herhaling, maar een fout van de client. */
+    @Test
+    void dezelfdeSleutelMetEenAnderBedragGeeft422() throws Exception {
+        String sleutel = UUID.randomUUID().toString();
+        mvc.perform(betaalverzoek(sleutel).content(betaling(VAN_JAN, "Sanne", "25.00"))).andExpect(status().isCreated());
+
+        mvc.perform(betaalverzoek(sleutel).content(betaling(VAN_JAN, "Sanne", "30.00")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:sleutel-al-gebruikt"));
+
+        assertThat(grootboek.geschreven()).hasSize(1);
+    }
+
+    /** Een betaalverzoek van Jan, met een eigen Idempotency-Key (ADR 0027). */
+    private static MockHttpServletRequestBuilder betaalverzoek() {
+        return betaalverzoek(UUID.randomUUID().toString());
+    }
+
+    private static MockHttpServletRequestBuilder betaalverzoek(String sleutel) {
+        return post("/api/betalingen").with(jan()).contentType(MediaType.APPLICATION_JSON).header("Idempotency-Key", sleutel);
     }
 
     private static String betaling(Iban van) {
@@ -188,6 +236,11 @@ class BetalingControllerTests {
         @Bean
         GeheugenContacten contacten() {
             return new GeheugenContacten();
+        }
+
+        @Bean
+        GeheugenIdempotentie idempotentie() {
+            return new GeheugenIdempotentie();
         }
 
         @Bean

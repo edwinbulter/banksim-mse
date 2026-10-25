@@ -232,6 +232,19 @@ export class Klant {
     await (await this.sessie()).probeerTeBetalen({ bedrag, naam, iban: aan.iban() });
   }
 
+  /** S7.1 (CFR): dezelfde betaling, met twee keer dezelfde bevestiging; de bank boekt hem één keer. */
+  async betaaltDubbel({ bedrag, aan }: { bedrag: string; aan: Klant }): Promise<void> {
+    await this.opentBetaalrekening();
+    await (await this.sessie()).betaalDubbel({ bedrag, naam: aan.naam(), iban: aan.iban() });
+  }
+
+  /** De eigen betaalrekening heeft precies deze ene transactie. */
+  async verwachtAlleenTransactie(tegenpartij: string, bedrag: string): Promise<void> {
+    await this.opentBetaalrekening();
+    const alle = (await (await this.sessie()).transacties()).flatMap((dag) => dag.transacties);
+    expect(alle, `transacties van ${this.alias}`).toEqual([{ tegenpartij, bedrag }]);
+  }
+
   /** De eigen betaalrekening heeft geen enkele af- of bijschrijving. */
   async verwachtGeenTransacties(): Promise<void> {
     await this.opentBetaalrekening();
