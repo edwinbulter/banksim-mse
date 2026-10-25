@@ -1000,6 +1000,9 @@ Werk deze scenario's **één voor één** af; de rest staat op `@wip`. Het vierd
 
 ```ts
 // e2e/specs/spaarrekening.spec.ts
+// Zo gebouwd in S8.2: "Klant ziet ook de spaarrekening met saldo in het overzicht" (overzicht.spec.ts). In S8.1 kreeg
+// "Rente wordt maandelijks bijgeschreven" een Als-stap ("Jan de spaarrekening opent"), zet de beheerder de datum, en maakt
+// heeftSpaarrekening zelf een klant met lege betaalrekening. De rente boekt een maandafsluiting (ADR 0028).
 test.describe('Spaarrekening en rente', { tag: '@simulatiedatum' }, () => {
   test('Rente wordt maandelijks bijgeschreven', async ({ bank }) => {
     const jan = bank.klant('Jan');

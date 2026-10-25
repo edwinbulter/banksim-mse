@@ -34,12 +34,45 @@ class SimulatiedatumControllerTests {
     @Autowired
     GeheugenSimulatiedatum opgeslagen;
 
+    @Autowired
+    Opslag.Afsluitingen afgesloten;
+
     @MockitoBean
     JwtDecoder jwtDecoder;
 
     @BeforeEach
     void leeg() {
         opgeslagen.wis();
+        afgesloten.clear();
+    }
+
+    /** ADR 0028: na het zetten sluit de bank de maanden af tot en met de nieuwe datum. */
+    @Test
+    void naHetZettenSluitDeBankDeMaandenAfTotEnMetDeNieuweDatum() throws Exception {
+        mvc.perform(put("/api/beheer/simulatiedatum").with(beheerder())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"datum\": \"2026-02-01\"}"))
+                .andExpect(status().isNoContent());
+
+        assertThat(afgesloten).containsExactly(LocalDate.of(2026, 2, 1));
+    }
+
+    /** Na het wissen draait de bank weer op vandaag, hier 22 oktober 2026 (de vaste klok). */
+    @Test
+    void naHetWissenSluitDeBankDeMaandenAfTotEnMetVandaag() throws Exception {
+        opgeslagen.zet(LocalDate.of(2026, 2, 1));
+
+        mvc.perform(delete("/api/beheer/simulatiedatum").with(beheerder())).andExpect(status().isNoContent());
+
+        assertThat(afgesloten).containsExactly(LocalDate.of(2026, 10, 22));
+    }
+
+    @Test
+    void eenGeweigerdeDatumSluitNietsAf() throws Exception {
+        mvc.perform(put("/api/beheer/simulatiedatum").with(klant())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"datum\": \"2026-02-01\"}"))
+                .andExpect(status().isForbidden());
+
+        assertThat(afgesloten).isEmpty();
     }
 
     @Test
@@ -114,9 +147,29 @@ class SimulatiedatumControllerTests {
     @TestConfiguration
     static class Opslag {
 
+        /** De datums waarop de maandafsluiting is aangeroepen. */
+        static class Afsluitingen extends java.util.concurrent.CopyOnWriteArrayList<LocalDate> {
+        }
+
         @Bean
         GeheugenSimulatiedatum simulatiedatum() {
             return new GeheugenSimulatiedatum();
+        }
+
+        @Bean
+        Afsluitingen afsluitingen() {
+            return new Afsluitingen();
+        }
+
+        @Bean
+        Maandafsluiting maandafsluiting(Afsluitingen afsluitingen) {
+            return afsluitingen::add;
+        }
+
+        @Bean
+        SimulationClock simulationClock(GeheugenSimulatiedatum simulatiedatum) {
+            return new SimulationClock(java.time.Clock.fixed(java.time.Instant.parse("2026-10-22T12:00:00Z"),
+                    java.time.ZoneId.of("UTC")), simulatiedatum);
         }
     }
 }

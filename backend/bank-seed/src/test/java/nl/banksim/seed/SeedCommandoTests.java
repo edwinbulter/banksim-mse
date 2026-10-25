@@ -30,8 +30,8 @@ class SeedCommandoTests {
         return "beheerder-wachtwoord";
     };
     private final Contacten contacten = (iban, naam) -> aanroepen.add("contact " + iban + " " + naam);
-    private final Spaarrekeningen spaarrekeningen = (gebruikersnaam, saldo) -> {
-        aanroepen.add("spaarrekening " + gebruikersnaam + " " + saldo);
+    private final Spaarrekeningen spaarrekeningen = (gebruikersnaam, saldo, geopendOp) -> {
+        aanroepen.add("spaarrekening " + gebruikersnaam + " " + saldo + " " + geopendOp.map(LocalDate::toString).orElse("-"));
         return Iban.simBank(2L);
     };
     private final ByteArrayOutputStream uitvoer = new ByteArrayOutputStream();
@@ -75,10 +75,18 @@ class SeedCommandoTests {
     void opentEenSpaarrekeningVoorEenBestaandeKlantEnSchrijftHetIbanAlsEenJsonRegel() {
         commando.voerUit("spaarrekening", "--gebruikersnaam", "jan-f4de79-1", "--saldo", "12405.63");
 
-        assertThat(aanroepen).containsExactly("spaarrekening jan-f4de79-1 12405.63");
+        assertThat(aanroepen).containsExactly("spaarrekening jan-f4de79-1 12405.63 -");
         assertThat(uitvoer.toString(StandardCharsets.UTF_8)).isEqualTo("""
                 {"iban":"NL67SIMB0000000002"}
                 """);
+    }
+
+    /** S8.1: de rente begint op de dag van openen. */
+    @Test
+    void opentEenSpaarrekeningOpEenGekozenDatum() {
+        commando.voerUit("spaarrekening", "--gebruikersnaam", "jan-f4de79-1", "--saldo", "10000.00", "--geopend-op", "2026-01-01");
+
+        assertThat(aanroepen).containsExactly("spaarrekening jan-f4de79-1 10000.00 2026-01-01");
     }
 
     @Test

@@ -546,4 +546,47 @@ describe('App', () => {
 
     expect(http.expectOne('/api/betalingen').request.body.extraOmschrijving).toBe('Voor de pizza');
   });
+  /** S8.1 (FO "Spaarrekening scherm"): klik in het overzicht, dan de mutaties per datum met omschrijving en bedrag. */
+  it('opent de spaarrekening vanuit het overzicht en toont de mutaties per datum (S8.1)', async () => {
+    const pagina = await start('/');
+    await rekeningen({
+      status: 200,
+      body: [...JAN, { soort: 'spaar', iban: 'NL67SIMB0000000002', saldo: '10025.48' }],
+    });
+
+    knop(pagina, 'NL67SIMB0000000002')?.click();
+    await ververs();
+    expect(TestBed.inject(Location).path()).toBe('/spaarrekeningen/NL67SIMB0000000002');
+    await transacties('/api/rekeningen/NL67SIMB0000000002/transacties', {
+      transacties: [
+        {
+          ...api('2026-01-31', 'BankSim', '25.48'),
+          type: 'RENTE',
+          omschrijving: 'Rente januari',
+          betalingskenmerk: null,
+        },
+      ],
+      volgende: null,
+    });
+
+    expect(pagina.querySelector('h2')?.textContent).toBe('Spaarrekening');
+    const lijst = pagina.querySelector('ul[aria-label="Mutaties"]');
+    expect([...(lijst?.children ?? [])].map((dag) => dag.querySelector('h3')?.textContent)).toEqual([
+      'Zaterdag 31 januari 2026',
+    ]);
+    expect([...(lijst?.querySelectorAll('li li') ?? [])].map((li) => li.textContent?.replace(/\s+/g, ' ').trim())).toEqual(
+      ['Rente januari +25,48'],
+    );
+  });
+  it('toont bij een mutatie zonder omschrijving de tegenpartij (S8.1)', async () => {
+    const pagina = await start('/spaarrekeningen/NL67SIMB0000000002');
+    await transacties('/api/rekeningen/NL67SIMB0000000002/transacties', {
+      transacties: [{ ...api('2026-01-02', 'Jan', '500.00'), omschrijving: null, betalingskenmerk: null }],
+      volgende: null,
+    });
+
+    expect(pagina.querySelector('ul[aria-label="Mutaties"] li li')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Jan +500,00',
+    );
+  });
 });

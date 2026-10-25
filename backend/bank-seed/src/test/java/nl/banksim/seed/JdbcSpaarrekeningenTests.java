@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Map;
+import java.util.Optional;
 
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
@@ -36,7 +38,7 @@ class JdbcSpaarrekeningenTests {
 
     @Test
     void opentEenSpaarrekeningMetBeginsaldoBijDeRekeninghouder() {
-        Iban iban = new JdbcSpaarrekeningen(jdbc, () -> Iban.simBank(7L)).open("jan-a1-1", Bedrag.van("12405.63"));
+        Iban iban = new JdbcSpaarrekeningen(jdbc, () -> Iban.simBank(7L)).open("jan-a1-1", Bedrag.van("12405.63"), Optional.empty());
 
         assertThat(iban).isEqualTo(Iban.simBank(7L));
         Map<String, Object> rij = jdbc.sql("""
@@ -48,9 +50,19 @@ class JdbcSpaarrekeningenTests {
                 .containsEntry("openingssaldo", new BigDecimal("12405.63"));
     }
 
+    /** S8.1: de rente begint op de dag van openen. */
+    @Test
+    void bewaartDeDatumVanOpenen() {
+        Iban iban = new JdbcSpaarrekeningen(jdbc, () -> Iban.simBank(9L))
+                .open("jan-a1-1", Bedrag.van("10000.00"), Optional.of(LocalDate.of(2026, 1, 1)));
+
+        assertThat(jdbc.sql("SELECT geopend_op FROM rekening WHERE iban = :iban").param("iban", iban.toString())
+                .query(LocalDate.class).single()).isEqualTo(LocalDate.of(2026, 1, 1));
+    }
+
     @Test
     void zonderRekeninghouderGeeftHetEenFout() {
-        assertThatThrownBy(() -> new JdbcSpaarrekeningen(jdbc, () -> Iban.simBank(8L)).open("bestaat-niet", Bedrag.van("1.00")))
+        assertThatThrownBy(() -> new JdbcSpaarrekeningen(jdbc, () -> Iban.simBank(8L)).open("bestaat-niet", Bedrag.van("1.00"), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("bestaat-niet");
     }

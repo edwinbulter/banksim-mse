@@ -21,6 +21,7 @@ public class GeheugenGrootboek implements Grootboek {
     private final Map<Iban, List<Bedrag>> latereBewegingen = new HashMap<>();
     private final List<Overboeking> geschreven = new ArrayList<>();
     private final List<String> saldoGevraagd = new ArrayList<>();
+    private final java.util.Set<Iban> magRoodStaan = new java.util.HashSet<>();
 
     /** Een rekening met een vast saldo; geschreven overboekingen veranderen het niet. */
     public void rekening(String gebruikersnaam, Iban iban, String naam, Bedrag saldo) {
@@ -36,6 +37,7 @@ public class GeheugenGrootboek implements Grootboek {
         latereBewegingen.clear();
         geschreven.clear();
         saldoGevraagd.clear();
+        magRoodStaan.clear();
     }
 
     public List<Overboeking> geschreven() {
@@ -61,6 +63,16 @@ public class GeheugenGrootboek implements Grootboek {
     public SaldoVerloop saldoVerloop(Iban iban, LocalDate datum) {
         saldoGevraagd.add(iban + " " + datum);
         return new SaldoVerloop(saldi.get(iban), latereBewegingen.getOrDefault(iban, List.of()));
+    }
+
+    /** Een interne rekening van BankSim (ADR 0028). */
+    public void mogenRoodStaan(Iban iban) {
+        magRoodStaan.add(iban);
+    }
+
+    @Override
+    public boolean magRoodStaan(Iban iban) {
+        return magRoodStaan.contains(iban);
     }
 
     /** Eén test-thread: vergrendelen is niet nodig. */

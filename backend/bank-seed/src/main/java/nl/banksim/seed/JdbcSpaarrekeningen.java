@@ -1,5 +1,7 @@
 package nl.banksim.seed;
 
+import java.time.LocalDate;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import nl.banksim.domain.geld.Bedrag;
@@ -18,12 +20,14 @@ class JdbcSpaarrekeningen implements Spaarrekeningen {
     }
 
     @Override
-    public Iban open(String gebruikersnaam, Bedrag saldo) {
+    public Iban open(String gebruikersnaam, Bedrag saldo, Optional<LocalDate> geopendOp) {
         Iban iban = nieuweIban.get();
         int geopend = jdbc.sql("""
-                        INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
-                        SELECT :iban, id, 'spaar', :openingssaldo FROM rekeninghouder WHERE gebruikersnaam = :gebruikersnaam""")
+                        INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo, geopend_op)
+                        SELECT :iban, id, 'spaar', :openingssaldo, :geopendOp FROM rekeninghouder
+                        WHERE gebruikersnaam = :gebruikersnaam""")
                 .param("iban", iban.toString())
+                .param("geopendOp", geopendOp.orElse(null), java.sql.Types.DATE)
                 .param("openingssaldo", saldo.waarde())
                 .param("gebruikersnaam", gebruikersnaam)
                 .update();

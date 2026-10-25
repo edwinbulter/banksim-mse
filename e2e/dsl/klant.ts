@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 import type {
   BankDriver,
   MaximaleLengtes,
+  Spaarmutatie,
   Soort,
   TransactieDetails,
   TransactieType,
@@ -85,9 +86,29 @@ export class Klant {
     await this.seed.boekingen(this.vereisGegevens().iban, boekingen);
   }
 
-  /** S8.2: naast de betaalrekening uit "Gegeven" een spaarrekening, vandaag geopend. */
-  async heeftSpaarrekening({ saldo }: { saldo: string }): Promise<void> {
-    this.spaarIban = (await this.seed.spaarrekening(this.vereisGegevens().gebruikersnaam, saldo)).iban;
+  /**
+   * S8.2: een spaarrekening, vandaag geopend of op `geopendOp` (S8.1). Zonder betaalrekening uit "Gegeven" maakt de DSL
+   * eerst een klant met een lege betaalrekening: daaraan hangt de login.
+   */
+  async heeftSpaarrekening({ saldo, geopendOp }: { saldo: string; geopendOp?: string }): Promise<void> {
+    if (!this.gegevens) await this.heeftBetaalrekening();
+    this.spaarIban = (await this.seed.spaarrekening(this.vereisGegevens().gebruikersnaam, saldo, geopendOp)).iban;
+  }
+
+  /** S8.1: vanuit het overzicht. */
+  async opentSpaarrekening(): Promise<void> {
+    if (!this.spaarIban) throw new Error(`${this.alias} heeft geen spaarrekening: begin met heeftSpaarrekening`);
+    await this.opentOverzicht();
+    await (await this.sessie()).openSpaarrekening(this.spaarIban);
+  }
+
+  /** Op de geopende spaarrekening staat deze mutatie (de andere mutaties doen niet mee). */
+  async verwachtSpaarmutatie({ op, type, bedrag }: { op: string } & Omit<Spaarmutatie, 'datum'>): Promise<void> {
+    expect(await (await this.sessie()).spaarmutaties(), `spaarmutaties van ${this.alias}`).toContainEqual({
+      datum: op,
+      type,
+      bedrag,
+    });
   }
 
   /** De naam van de rekeninghouder: de alias (zie heeftBetaalrekening). */

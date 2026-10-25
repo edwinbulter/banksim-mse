@@ -10,7 +10,7 @@ export interface Rekening {
 
 /**
  * Het overzicht van de ingelogde klant: de betaalrekeningen met IBAN en saldo (S1.1); het IBAN opent de rekening (S2.1).
- * S8.2: daaronder de spaarrekeningen; het spaarrekeningscherm komt met S8.1, dus nog zonder knop.
+ * S8.2: daaronder de spaarrekeningen; het IBAN opent het spaarrekeningscherm (S8.1).
  */
 @Component({
   selector: 'app-overzicht',
@@ -27,7 +27,9 @@ export interface Rekening {
       <ul aria-label="Spaarrekeningen">
         @for (rekening of spaarrekeningen(); track rekening.iban) {
           <li>
-            <span>{{ rekening.iban }}</span>&ngsp;<span>{{ rekening.saldo }}</span>
+            <button type="button" (click)="openSpaar.emit(rekening.iban)">{{ rekening.iban }}</button>&ngsp;<span>{{
+              rekening.saldo
+            }}</span>
           </li>
         }
       </ul>
@@ -37,6 +39,8 @@ export interface Rekening {
 export class Overzicht {
   readonly rekeningen = input.required<Rekening[]>();
   readonly open = output<string>();
+  /** S8.1: een klik op een spaarrekening. */
+  readonly openSpaar = output<string>();
 
   protected readonly betaalrekeningen = computed(() => this.vanSoort('betaal'));
   protected readonly spaarrekeningen = computed(() => this.vanSoort('spaar'));

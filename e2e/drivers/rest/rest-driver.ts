@@ -4,6 +4,7 @@ import type {
   BankDriver,
   Betaalopdracht,
   MaximaleLengtes,
+  Spaarmutatie,
   Partij,
   RekeningInOverzicht,
   TransactieDetails,
@@ -305,6 +306,15 @@ export class RestDriver implements BankDriver {
     return token ? { 'X-XSRF-TOKEN': token } : undefined;
   }
 
+  /** Dezelfde route als de betaalrekening; de mutaties zijn de transacties van de spaarrekening. */
+  async openSpaarrekening(iban: string): Promise<void> {
+    await this.openRekening(iban);
+  }
+
+  async spaarmutaties(): Promise<Spaarmutatie[]> {
+    return this.geladen.map(({ datum, type, bedrag }) => ({ datum, type: SPAARTYPEN[type], bedrag }));
+  }
+
   async zetSimulatiedatum(datum: string): Promise<Uitkomst> {
     return wijzigSimulatiedatum(this.request, async () => (await this.request.storageState()).cookies, datum);
   }
@@ -328,6 +338,9 @@ export class RestDriver implements BankDriver {
     this.volgende = pagina.volgende;
   }
 }
+
+/** Het type van de API → het soort spaarmutatie (S8.1). */
+const SPAARTYPEN: Record<string, Spaarmutatie['type']> = { RENTE: 'Rente', INLEG: 'Inleg', OPNAME: 'Opname' };
 
 /** Een pagina transacties van bank-api; `volgende` is de cursor voor "Toon meer", of null aan het eind. */
 interface Pagina {

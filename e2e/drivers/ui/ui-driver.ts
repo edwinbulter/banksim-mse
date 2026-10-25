@@ -3,6 +3,7 @@ import type {
   BankDriver,
   Betaalopdracht,
   MaximaleLengtes,
+  Spaarmutatie,
   RekeningInOverzicht,
   TransactieDetails,
   TransactiesOpDatum,
@@ -15,6 +16,7 @@ import { BetaalrekeningPagina } from './betaalrekening-pagina';
 import { BetalenPagina } from './betalen-pagina';
 import { InlogPagina } from './inlog-pagina';
 import { OverzichtPagina } from './overzicht-pagina';
+import { SpaarrekeningPagina } from './spaarrekening-pagina';
 import { StartPagina } from './start-pagina';
 import { ZoekenPagina } from './zoeken-pagina';
 
@@ -26,6 +28,7 @@ export class UiDriver implements BankDriver {
   private readonly betaalrekening: BetaalrekeningPagina;
   private readonly zoeken: ZoekenPagina;
   private readonly betalen: BetalenPagina;
+  private readonly spaarrekening: SpaarrekeningPagina;
   private laatsteFormulier: 'zoeken' | 'betalen' = 'zoeken';
 
   constructor(private readonly page: Page) {
@@ -35,6 +38,7 @@ export class UiDriver implements BankDriver {
     this.betaalrekening = new BetaalrekeningPagina(page);
     this.zoeken = new ZoekenPagina(page);
     this.betalen = new BetalenPagina(page);
+    this.spaarrekening = new SpaarrekeningPagina(page);
   }
 
   async openStartpagina(): Promise<void> {
@@ -167,6 +171,14 @@ export class UiDriver implements BankDriver {
   async probeerTeBetalen(opdracht: Betaalopdracht): Promise<void> {
     this.laatsteFormulier = 'betalen';
     await this.betalen.probeer(opdracht);
+  }
+
+  async openSpaarrekening(iban: string): Promise<void> {
+    await this.spaarrekening.open(iban);
+  }
+
+  async spaarmutaties(): Promise<Spaarmutatie[]> {
+    return this.spaarrekening.mutaties();
   }
 
   async naarOverzicht(): Promise<void> {

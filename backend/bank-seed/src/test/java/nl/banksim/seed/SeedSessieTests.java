@@ -28,7 +28,7 @@ class SeedSessieTests {
         return "beheerder-wachtwoord";
     };
     private final Contacten contacten = (iban, naam) -> aanroepen.add("contact " + iban);
-    private final Spaarrekeningen spaarrekeningen = (gebruikersnaam, saldo) -> Iban.simBank(2L);
+    private final Spaarrekeningen spaarrekeningen = (gebruikersnaam, saldo, geopendOp) -> Iban.simBank(2L);
     private final JsonMapper json = JsonMapper.builder().build();
     private final ByteArrayOutputStream uitvoer = new ByteArrayOutputStream();
 

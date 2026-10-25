@@ -178,6 +178,13 @@ class JdbcGrootboekTests {
                 .containsExactly("Etentje ETEN-2026 Voor de pizza", "Etentje ETEN-2026 Voor de pizza");
     }
 
+    /** ADR 0028: de renterekening van BankSim (V11) mag negatief worden, een betaalrekening niet. */
+    @Test
+    void alleenEenInterneRekeningMagRoodStaan() {
+        assertThat(grootboek.magRoodStaan(Iban.van("NL24SIMB0000000000"))).isTrue();
+        assertThat(grootboek.magRoodStaan(JAN)).isFalse();
+    }
+
     /** De trigger is de laatste verdedigingslinie: ook SQL buiten LedgerService om komt er niet door. */
     @Test
     void eenOverboekingMetMaarEenTransactieFaaltBijCommit() {

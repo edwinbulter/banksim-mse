@@ -94,6 +94,13 @@ export interface MaximaleLengtes {
   extraOmschrijving: number;
 }
 
+/** Een mutatie op de spaarrekening (S8.1): de uitvoerdatum, het soort en het bedrag met teken in domeinnotatie. */
+export interface Spaarmutatie {
+  datum: string;
+  type: 'Rente' | 'Inleg' | 'Opname';
+  bedrag: string;
+}
+
 /** Of een verzoek dat iets verandert, is uitgevoerd of door de rechten geweigerd (403). */
 export type Uitkomst = 'gelukt' | 'geweigerd';
 
@@ -169,6 +176,10 @@ export interface BankDriver {
   ontvangerInFormulier(): Promise<{ naam: string; iban: string }>;
   /** Hetzelfde, zonder te verwachten dat het lukt; daarna geeft weigering() het probleemtype ("onbekend-contact"). */
   probeerTeBetalen(opdracht: Betaalopdracht): Promise<void>;
+  /** Vanuit het overzicht de spaarrekening met dit IBAN openen (S8.1). */
+  openSpaarrekening(iban: string): Promise<void>;
+  /** De mutaties van de geopende spaarrekening, nieuw naar oud. */
+  spaarmutaties(): Promise<Spaarmutatie[]>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */
   zetSimulatiedatum(datum: string): Promise<Uitkomst>;
   /** De simulatiedatum wissen: de bank draait weer op vandaag. */

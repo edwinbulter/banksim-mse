@@ -11,7 +11,7 @@ import { Overzicht, type Rekening } from './overzicht';
   imports: [Overzicht],
   template: `
     @if (rekeningen(); as rekeningen) {
-      <app-overzicht [rekeningen]="rekeningen" (open)="open($event)" />
+      <app-overzicht [rekeningen]="rekeningen" (open)="open($event)" (openSpaar)="openSpaar($event)" />
     }
   `,
 })
@@ -25,5 +25,9 @@ export class OverzichtScherm {
 
   protected open(iban: string): void {
     void this.router.navigate(['/rekeningen', iban]);
+  }
+
+  protected openSpaar(iban: string): void {
+    void this.router.navigate(['/spaarrekeningen', iban]);
   }
 }

@@ -21,7 +21,7 @@ import tools.jackson.databind.json.JsonMapper;
  * Veel transacties in één keer: {@code transacties --iban … --transactie "2026-10-01,-812.40,Woningstichting Thuis" …}.
  * Een beheerder (ADR 0015): {@code beheerder --alias beheerder-f4de79-1}. Een contact (S7.1):
  * {@code contact --iban NL94SIMB0000000001 --naam Sanne}. Een spaarrekening (S8.2):
- * {@code spaarrekening --gebruikersnaam jan-f4de79-1 --saldo 12405.63}. Het
+ * {@code spaarrekening --gebruikersnaam jan-f4de79-1 --saldo 12405.63 [--geopend-op 2026-01-01]}. Het
  * resultaat komt als één JSON-regel op stdout; de shell-driver leest de laatste regel (ADR 0003).
  */
 class SeedCommando {
@@ -95,7 +95,8 @@ class SeedCommando {
     private GeopendeSpaarrekening spaarrekening(Map<String, String> opties) {
         String gebruikersnaam = verplicht(opties, "--gebruikersnaam");
         Bedrag saldo = Bedrag.van(verplicht(opties, "--saldo"));
-        return new GeopendeSpaarrekening(spaarrekeningen.open(gebruikersnaam, saldo).toString());
+        Optional<LocalDate> geopendOp = Optional.ofNullable(opties.get("--geopend-op")).map(LocalDate::parse);
+        return new GeopendeSpaarrekening(spaarrekeningen.open(gebruikersnaam, saldo, geopendOp).toString());
     }
 
     record GeopendeSpaarrekening(String iban) {

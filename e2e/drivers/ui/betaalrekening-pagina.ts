@@ -122,7 +122,7 @@ export class BetaalrekeningPagina {
 }
 
 /** "Vrijdag 2 oktober 2026" → "2026-10-02". */
-function datumUitKop(kop: string): string {
+export function datumUitKop(kop: string): string {
   return datumUitTekst(kop.trim().replace(/^\S+\s+/, ''));
 }
 
@@ -152,7 +152,7 @@ function escape(tekst: string): string {
 }
 
 /** "Werkgever B.V. +3.215,00" → { tegenpartij: "Werkgever B.V.", bedrag: "3215.00" }; − is het echte minteken. */
-function transactieUitRegel(regel: string): Transactie {
+export function transactieUitRegel(regel: string): Transactie {
   const delen = /^(.*\S)\s+([+−])([\d.]+,\d{2})$/.exec(regel.replace(/\s+/g, ' ').trim());
   if (!delen) throw new Error(`Geen transactieregel: "${regel}"`);
   const bedrag = delen[3].replace(/\./g, '').replace(',', '.');
