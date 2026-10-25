@@ -238,6 +238,20 @@ export class Klant {
     await (await this.sessie()).betaalDubbel({ bedrag, naam: aan.naam(), iban: aan.iban() });
   }
 
+  /** FO: op het betaalscherm het begin van het IBAN van de ontvanger typen, en de suggestie met dat IBAN kiezen. */
+  async kiestSuggestie(aan: Klant): Promise<void> {
+    await this.opentBetaalrekening();
+    await (await this.sessie()).kiesSuggestie(aan.iban().slice(0, 16), aan.iban());
+  }
+
+  /** De naam en het IBAN van de ontvanger staan zo in het formulier. */
+  async verwachtOntvangerIngevuld(aan: Klant): Promise<void> {
+    expect(await (await this.sessie()).ontvangerInFormulier(), `ontvanger bij ${this.alias}`).toEqual({
+      naam: aan.naam(),
+      iban: aan.iban(),
+    });
+  }
+
   /** De eigen betaalrekening heeft precies deze ene transactie. */
   async verwachtAlleenTransactie(tegenpartij: string, bedrag: string): Promise<void> {
     await this.opentBetaalrekening();

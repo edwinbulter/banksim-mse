@@ -247,6 +247,14 @@ export class RestDriver implements BankDriver {
     await this.openRekening(van!);
   }
 
+  async kiesSuggestie(): Promise<void> {
+    throw new Error('Een suggestie kiezen bestaat alleen in de browser (@ui)');
+  }
+
+  async ontvangerInFormulier(): Promise<{ naam: string; iban: string }> {
+    throw new Error('Het betaalformulier bestaat alleen in de browser (@ui)');
+  }
+
   /** Een weigering is een 422 met een probleemtype (RFC 9457); een gelukte betaling laadt de rekening opnieuw. */
   async probeerTeBetalen({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
     const van = this.geopend;

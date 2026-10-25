@@ -65,6 +65,22 @@ test('Rood staan is niet toegestaan', async ({ bank }) => {
   await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
 });
 
+// FO: bij typen verschijnen suggesties uit de contactenlijst; kiezen vult naam en IBAN. Jan typt het begin van het
+// IBAN: de contactenlijst is van de hele bank, en daarin staan veel contacten met de naam Sanne.
+test('Een suggestie uit de contactenlijst vult naam en rekeningnummer in', { tag: '@ui' }, async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await bank.en('Sanne is een contact met een betaalrekening', () =>
+    sanne.heeftBetaalrekening({ contact: true }),
+  );
+  await bank.als('Jan bij Betalen het begin van het rekeningnummer van Sanne typt en haar suggestie kiest', () =>
+    jan.kiestSuggestie(sanne),
+  );
+  await bank.dan('staan de naam en het rekeningnummer van Sanne ingevuld', () =>
+    jan.verwachtOntvangerIngevuld(sanne),
+  );
+});
+
 // CFR in deze slice: een herhaald verzoek (dubbele klik, of opnieuw na een storing) boekt niet nog een keer.
 test('Dubbel verzonden betaling wordt één keer geboekt', async ({ bank }) => {
   const jan = bank.klant('Jan');

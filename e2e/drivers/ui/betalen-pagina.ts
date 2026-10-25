@@ -25,6 +25,23 @@ export class BetalenPagina {
     await expect(this.page.getByRole('heading', { name: 'Betaalrekening' })).toBeVisible();
   }
 
+  /** Vanaf de geopende betaalrekening: typen in het IBAN-veld, en de suggestie met dit IBAN kiezen. */
+  async kiesSuggestie(tekst: string, iban: string): Promise<void> {
+    await this.page.getByRole('link', { name: 'Betalen' }).click();
+    await this.page.getByLabel('Rekeningnummer (IBAN)').fill(tekst);
+    const suggesties = this.page.getByRole('list', { name: 'Suggesties' });
+    await suggesties.getByRole('button', { name: new RegExp(iban) }).click();
+    // Angular vult de velden en sluit de lijst in dezelfde verwerking; pas daarna staan beide velden goed.
+    await expect(suggesties).toBeHidden();
+  }
+
+  async ontvanger(): Promise<{ naam: string; iban: string }> {
+    return {
+      naam: await this.page.getByLabel('Naam ontvanger').inputValue(),
+      iban: await this.page.getByLabel('Rekeningnummer (IBAN)').inputValue(),
+    };
+  }
+
   /** Na "Bevestigen": terug op de betaalrekening, of een melding op het controlescherm. */
   async probeer(opdracht: Betaalopdracht): Promise<void> {
     await this.bevestig(opdracht);

@@ -147,6 +147,14 @@ export class UiDriver implements BankDriver {
     await this.betalen.betaalDubbel(opdracht);
   }
 
+  async kiesSuggestie(tekst: string, iban: string): Promise<void> {
+    await this.betalen.kiesSuggestie(tekst, iban);
+  }
+
+  async ontvangerInFormulier(): Promise<{ naam: string; iban: string }> {
+    return this.betalen.ontvanger();
+  }
+
   async probeerTeBetalen(opdracht: Betaalopdracht): Promise<void> {
     this.laatsteFormulier = 'betalen';
     await this.betalen.probeer(opdracht);

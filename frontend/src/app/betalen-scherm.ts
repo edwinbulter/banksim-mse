@@ -7,7 +7,8 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
  * Route `/rekeningen/:iban/betalen` (S7.1, FO "Betalen scherm"): bedrag, naam en IBAN van de ontvanger; "Volgende"
  * toont het controlescherm, "Bevestigen" boekt de betaling en keert terug naar de betaalrekening. De controle of de
  * ontvanger een contact is en of het saldo toereikend is, doet de API; een weigering (422) toont haar melding.
- * De link "Betaalrekening" is "< Betaalrekening" uit het FO.
+ * De link "Betaalrekening" is "< Betaalrekening" uit het FO. Bij typen in naam of IBAN verschijnen suggesties uit de
+ * contactenlijst; kiezen vult beide velden.
  */
 @Component({
   selector: 'app-betalen-scherm',
@@ -34,9 +35,18 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
         <label for="betalen-bedrag">Bedrag (€)</label>
         <input id="betalen-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
         <label for="betalen-naam">Naam ontvanger</label>
-        <input id="betalen-naam" [value]="naam()" (input)="naam.set(waarde($event))" />
+        <input id="betalen-naam" [value]="naam()" (input)="naam.set(waarde($event)); zoekContacten(naam())" />
         <label for="betalen-iban">Rekeningnummer (IBAN)</label>
-        <input id="betalen-iban" [value]="ontvanger()" (input)="ontvanger.set(waarde($event))" />
+        <input id="betalen-iban" [value]="ontvanger()" (input)="ontvanger.set(waarde($event)); zoekContacten(ontvanger())" />
+        @if (suggesties().length > 0) {
+          <ul aria-label="Suggesties">
+            @for (contact of suggesties(); track contact.iban) {
+              <li>
+                <button type="button" (click)="kies(contact)">{{ contact.naam }} {{ contact.iban }}</button>
+              </li>
+            }
+          </ul>
+        }
         <button type="submit">Volgende</button>
       </form>
     }
@@ -55,6 +65,20 @@ export class BetalenScherm {
   protected readonly controle = signal(false);
   /** De melding van de API bij een geweigerde betaling (RFC 9457), zoals "Naar dit rekeningnummer kan niet worden betaald.". */
   protected readonly melding = signal<string | undefined>(undefined);
+
+  /** FO: suggesties uit de contactenlijst bij typen in naam of IBAN; de API geeft er hoogstens 10. */
+  protected readonly suggesties = signal<Contact[]>([]);
+
+  protected zoekContacten(tekst: string): void {
+    this.http.get<Contact[]>('/api/contacten', { params: { q: tekst } }).subscribe((contacten) => this.suggesties.set(contacten));
+  }
+
+  /** Kiezen vult naam en IBAN in één keer, en sluit de suggesties. */
+  protected kies(contact: Contact): void {
+    this.naam.set(contact.naam);
+    this.ontvanger.set(contact.iban);
+    this.suggesties.set([]);
+  }
 
   /** ADR 0027: één sleutel per controlescherm; elke bevestiging daarvandaan, ook een dubbelklik, stuurt dezelfde. */
   private sleutel = '';
@@ -81,4 +105,10 @@ export class BetalenScherm {
   protected waarde(event: Event): string {
     return (event.target as HTMLInputElement).value;
   }
+}
+
+/** Een contact uit de contactenlijst van de bank, zoals `GET /api/contacten` het levert. */
+interface Contact {
+  naam: string;
+  iban: string;
 }

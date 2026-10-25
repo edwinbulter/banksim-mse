@@ -442,4 +442,31 @@ describe('App', () => {
     expect(sleutels[0]).toBeTruthy();
     expect(sleutels[1]).not.toBe(sleutels[0]);
   });
+  /** FO: bij typen in Naam ontvanger of IBAN verschijnen suggesties uit de contactenlijst; kiezen vult beide velden. */
+  it('vraagt bij typen in het IBAN suggesties op en vult na een keuze naam en IBAN in (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+
+    vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL67SIMB00');
+    await ververs();
+    http.expectOne('/api/contacten?q=NL67SIMB00').flush([{ naam: 'Sanne', iban: 'NL67SIMB0000000002' }]);
+    await ververs();
+    const suggestie = [...(pagina.querySelector('ul[aria-label="Suggesties"]')?.querySelectorAll('button') ?? [])][0];
+    expect(suggestie?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Sanne NL67SIMB0000000002');
+
+    suggestie?.click();
+    await ververs();
+
+    expect(pagina.querySelector<HTMLInputElement>('#betalen-naam')?.value).toBe('Sanne');
+    expect(pagina.querySelector<HTMLInputElement>('#betalen-iban')?.value).toBe('NL67SIMB0000000002');
+    expect(pagina.querySelector('ul[aria-label="Suggesties"]')).toBeNull();
+  });
+
+  it('vraagt ook bij typen in de naam suggesties op (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+
+    vulIn(pagina, 'Naam ontvanger', 'San');
+    await ververs();
+
+    http.expectOne('/api/contacten?q=San').flush([]);
+  });
 });

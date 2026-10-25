@@ -144,6 +144,10 @@ export interface BankDriver {
    * browser een dubbelklik op "Bevestigen" (S7.1, CFR).
    */
   betaalDubbel(opdracht: Betaalopdracht): Promise<void>;
+  /** Alleen in de UI-driver (@ui): op het betaalscherm `tekst` typen en de suggestie met dit IBAN kiezen. */
+  kiesSuggestie(tekst: string, iban: string): Promise<void>;
+  /** Alleen in de UI-driver (@ui): de naam en het IBAN van de ontvanger zoals ze in het formulier staan. */
+  ontvangerInFormulier(): Promise<{ naam: string; iban: string }>;
   /** Hetzelfde, zonder te verwachten dat het lukt; daarna geeft weigering() het probleemtype ("onbekend-contact"). */
   probeerTeBetalen(opdracht: Betaalopdracht): Promise<void>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */

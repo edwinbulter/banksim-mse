@@ -1190,6 +1190,9 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Contract-first OpenAPI | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend de API vaker aanroept |
 | Opruimen van oude Idempotency-Keys (tabel `idempotency_sleutel`, ADR 0027) | De tabel groeit met elke betaling; bij de huidige omvang klein | Slice 11 (generator, realistische data) of een prestatie-eis |
 | Ongeldig bedrag of IBAN bij `POST /api/betalingen` geeft 500 in plaats van een melding | Geen scenario in S7.1 vroeg erom; de UI valideert het formulier nog niet | Een scenario "ongeldig bedrag wordt in het formulier al tegengehouden" (origineel) |
+| Suggesties bij een leeg veld: de app vraagt dan op met een lege tekst en krijgt 10 willekeurige contacten | Geen test vroeg erom (S7.1, suggesties) | Een `@ui`-scenario of frontendtest: een leeg veld toont geen suggesties |
+| Suggesties zonder vertraging (debounce): elk teken is een verzoek, en een ouder antwoord kan een nieuwer overschrijven | Lokaal en in CI niet gezien; de driver typt in één keer | Eerste melding van verkeerde suggesties, of CFR Performance |
+| Het onschadelijk maken van `%`, `_` en `\` in LIKE staat dubbel (`Zoekfilter`, `JdbcContacten`) | Twee plekken; een gedeelde helper is een refactorstap | De volgende query met LIKE |
 | Integratietest van de realm met Testcontainers | Zie hoofdstuk 9.1 | Bij de volgende realm-wijziging (slice 6 of 10) |
 | Herstart van PostgreSQL en Keycloak behoudt de data | Zie hoofdstuk 9.4 | CFR Resilience |
 | Mutation testing van de frontend met Stryker | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend meer logica krijgt (slice 7) |
