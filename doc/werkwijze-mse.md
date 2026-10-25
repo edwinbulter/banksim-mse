@@ -1055,6 +1055,9 @@ De bedragen in de voorbeelden bereken je vooraf met de hand of met een spreadshe
 
 ```ts
 // e2e/specs/overschrijven.spec.ts
+// Zo gebouwd in S9.1: "Inleggen" controleert de Inleg op de spaarrekening, de Overschrijving met de eigen spaarrekening als
+// Naar op de betaalrekening, en beide saldi. Een overboeking heeft een type per kant (ADR 0029); POST
+// /api/overschrijvingen vraagt een Idempotency-Key zoals betalen (ADR 0027).
 test.beforeEach(async ({ bank }) => {
   const jan = bank.klant('Jan');
   await bank.gegeven('Jan heeft € 1.000,00 op de betaalrekening en € 5.000,00 op de spaarrekening', async () => {

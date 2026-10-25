@@ -1,9 +1,5 @@
 package nl.banksim.api.betaling;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.Optional;
 
 import nl.banksim.api.grootboek.Grootboek;
@@ -46,8 +42,8 @@ class BetaalService {
     @Transactional
     void betaal(String gebruikersnaam, String sleutel, Iban van, Iban naar, String naam, Bedrag bedrag, String omschrijving,
             String betalingskenmerk, String extraOmschrijving) {
-        String verzoek = hash(String.join("|", van.toString(), naar.toString(), naam, bedrag.toString(),
-                String.valueOf(omschrijving), String.valueOf(betalingskenmerk), String.valueOf(extraOmschrijving)));
+        String verzoek = VerzoekHash.van(van.toString(), naar.toString(), naam, bedrag.toString(),
+                String.valueOf(omschrijving), String.valueOf(betalingskenmerk), String.valueOf(extraOmschrijving));
         Optional<String> eerder = idempotentie.claim(sleutel, gebruikersnaam, verzoek);
         if (eerder.isPresent()) {
             if (!eerder.get().equals(verzoek)) {
@@ -64,14 +60,5 @@ class BetaalService {
         // De tegenpartij is de naam van het contact, niet de schrijfwijze van de klant.
         ledger.boek(new Overboeking(new Partij(van, eigenNaam), new Partij(naar, contact.naam()), bedrag,
                 TransactieType.ONLINE_BANKIEREN, klok.nu(), omschrijving, betalingskenmerk, extraOmschrijving));
-    }
-
-    /** SHA-256 in hex: genoeg om een ander verzoek met dezelfde sleutel te herkennen. */
-    private static String hash(String tekst) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(tekst.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

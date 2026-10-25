@@ -618,4 +618,41 @@ describe('App', () => {
       'Dinsdag 31 december 2024',
     ]);
   });
+  /**
+   * S9.1 (FO "Overschrijven scherm"): "Inleggen" opent Overschrijven met Van = betaalrekening en Naar = spaarrekening;
+   * "Overschrijven" boekt met een Idempotency-Key (ADR 0027) en keert terug naar de spaarrekening.
+   */
+  it('legt in vanaf de spaarrekening en keert daarna terug naar de spaarrekening (S9.1)', async () => {
+    const pagina = await start('/spaarrekeningen/NL67SIMB0000000002');
+    await transacties('/api/rekeningen/NL67SIMB0000000002/transacties', { transacties: [], volgende: null });
+    await transacties('/api/rekeningen/NL67SIMB0000000002/lopende-rente', { bedrag: '0.00' });
+
+    link(pagina, 'Inleggen')?.click();
+    await ververs();
+    expect(TestBed.inject(Location).path()).toBe('/spaarrekeningen/NL67SIMB0000000002/inleggen');
+    await rekeningen({
+      status: 200,
+      body: [...JAN, { soort: 'spaar', iban: 'NL67SIMB0000000002', saldo: '5000.00' }],
+    });
+
+    expect(pagina.querySelector('h2')?.textContent).toBe('Overschrijven');
+    expect(pagina.querySelector('[aria-label="Van"]')?.textContent).toContain('NL94SIMB0000000001');
+    expect(pagina.querySelector('[aria-label="Naar"]')?.textContent).toContain('NL67SIMB0000000002');
+    vulIn(pagina, 'Bedrag (€)', '250,00');
+    knop(pagina, 'Overschrijven')?.click();
+    await ververs();
+
+    const overschrijving = http.expectOne('/api/overschrijvingen');
+    expect(overschrijving.request.method).toBe('POST');
+    expect(overschrijving.request.body).toEqual({
+      van: 'NL94SIMB0000000001',
+      naar: 'NL67SIMB0000000002',
+      bedrag: '250.00',
+    });
+    expect(overschrijving.request.headers.get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/);
+    overschrijving.flush(null, { status: 201, statusText: 'Created' });
+    await ververs();
+
+    expect(TestBed.inject(Location).path()).toBe('/spaarrekeningen/NL67SIMB0000000002');
+  });
 });

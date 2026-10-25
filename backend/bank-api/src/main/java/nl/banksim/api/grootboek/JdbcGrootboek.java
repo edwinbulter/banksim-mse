@@ -95,7 +95,7 @@ class JdbcGrootboek implements Grootboek {
                     .param("datum", overboeking.datum())
                     .param("bedrag", boeking.bedrag().waarde())
                     .param("tegenpartij", boeking.tegenpartij().naam())
-                    .param("type", overboeking.type().name())
+                    .param("type", boeking.type().name())
                     .param("tijdstip", tijdstip)
                     .param("tegenIban", boeking.tegenpartij().iban().toString())
                     .param("overboeking", id)

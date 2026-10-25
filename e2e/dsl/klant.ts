@@ -102,10 +102,19 @@ export class Klant {
     await (await this.sessie()).openSpaarrekening(this.spaarIban);
   }
 
-  /** Op de geopende spaarrekening staat deze mutatie (de andere mutaties doen niet mee). */
+  /** S9.1: vanaf de spaarrekening met "Inleggen"; Van en Naar staan dan al goed. Daarna weer op de spaarrekening. */
+  async legtIn(bedrag: string): Promise<void> {
+    await this.opentSpaarrekening();
+    await (await this.sessie()).legIn({ van: this.iban(), naar: this.spaarIban!, bedrag });
+  }
+
+  /**
+   * Op de geopende spaarrekening staat deze mutatie (de andere mutaties doen niet mee). `op` is een datum, of
+   * "vandaag": de datum in Europe/Amsterdam, voor een scenario zonder simulatiedatum.
+   */
   async verwachtSpaarmutatie({ op, type, bedrag }: { op: string } & Omit<Spaarmutatie, 'datum'>): Promise<void> {
     expect(await (await this.sessie()).spaarmutaties(), `spaarmutaties van ${this.alias}`).toContainEqual({
-      datum: op,
+      datum: op === 'vandaag' ? vandaagInAmsterdam() : op,
       type,
       bedrag,
     });
@@ -335,6 +344,23 @@ export class Klant {
     expect(bovenste, `bovenste transactie van ${this.alias}`).toEqual({ tegenpartij, bedrag });
   }
 
+  /**
+   * S9.1: bovenaan de eigen betaalrekening staat de overschrijving, met Jan zelf als tegenpartij; de details tonen het
+   * type en als Naar de eigen spaarrekening.
+   */
+  async verwachtOverschrijvingNaarSpaarrekening(bedrag: string): Promise<void> {
+    await this.verwachtBovensteTransactie(this.alias, bedrag);
+    await (await this.sessie()).klapUit(this.alias);
+    await this.verwachtDetails({ transactietype: 'OVERSCHRIJVING', naar: { naam: this.alias, iban: this.spaarIban! } });
+  }
+
+  /** Beide saldi, zoals het overzicht ze toont. */
+  async verwachtSaldi({ betaal, spaar }: { betaal: string; spaar: string }): Promise<void> {
+    await this.opentOverzicht();
+    await this.verwachtRekeningInOverzicht('betaal', betaal);
+    await this.verwachtRekeningInOverzicht('spaar', spaar);
+  }
+
   /** Het saldo van de betaalrekening, zoals het overzicht het toont. */
   async verwachtSaldo(saldo: string): Promise<void> {
     await this.opentOverzicht();
@@ -398,4 +424,9 @@ function dagNa(datum: string, dagen: number): string {
   const dag = new Date(`${datum}T00:00:00Z`);
   dag.setUTCDate(dag.getUTCDate() + dagen);
   return dag.toISOString().slice(0, 10);
+}
+
+/** De datum van vandaag in Europe/Amsterdam, als "2026-10-25": "vandaag" voor de bank zonder simulatiedatum. */
+function vandaagInAmsterdam(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(new Date());
 }

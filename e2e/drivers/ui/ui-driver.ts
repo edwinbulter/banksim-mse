@@ -3,6 +3,7 @@ import type {
   BankDriver,
   Betaalopdracht,
   MaximaleLengtes,
+  Overschrijfopdracht,
   Spaarmutatie,
   RekeningInOverzicht,
   TransactieDetails,
@@ -183,6 +184,10 @@ export class UiDriver implements BankDriver {
 
   async spaarkoppen(): Promise<string[]> {
     return this.spaarrekening.koppen();
+  }
+
+  async legIn({ bedrag }: Overschrijfopdracht): Promise<void> {
+    await this.spaarrekening.legIn(bedrag);
   }
 
   async lopendeRente(): Promise<string> {

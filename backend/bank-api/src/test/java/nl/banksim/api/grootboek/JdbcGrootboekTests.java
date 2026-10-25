@@ -178,6 +178,22 @@ class JdbcGrootboekTests {
                 .containsExactly("Etentje ETEN-2026 Voor de pizza", "Etentje ETEN-2026 Voor de pizza");
     }
 
+    /** ADR 0029: elke transactie krijgt het type van haar eigen kant; de overboeking is een Overschrijving. */
+    @Test
+    void schrijftBijElkeKantHaarEigenType() {
+        var overboeking = Overboeking.overschrijving(new Partij(PIET, "Piet"), new Partij(SANNE, "Sanne"), Bedrag.van("2.00"),
+                TransactieType.INLEG, LocalDateTime.of(2026, 10, 7, 9, 0), "Inleg");
+
+        transactie.executeWithoutResult(status -> grootboek.schrijf(overboeking));
+
+        assertThat(jdbc.sql("""
+                        SELECT t.iban, t.type, o.type AS overboeking FROM transactie t JOIN overboeking o ON o.id = t.overboeking_id
+                        WHERE t.datum = '2026-10-07' ORDER BY t.bedrag""")
+                .query((rij, nummer) -> rij.getString("iban") + " " + rij.getString("type") + " " + rij.getString("overboeking"))
+                .list())
+                .containsExactly(PIET + " OVERSCHRIJVING OVERSCHRIJVING", SANNE + " INLEG OVERSCHRIJVING");
+    }
+
     /** ADR 0028: de renterekening van BankSim (V11) mag negatief worden, een betaalrekening niet. */
     @Test
     void alleenEenInterneRekeningMagRoodStaan() {

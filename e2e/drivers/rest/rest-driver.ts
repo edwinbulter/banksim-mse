@@ -4,6 +4,7 @@ import type {
   BankDriver,
   Betaalopdracht,
   MaximaleLengtes,
+  Overschrijfopdracht,
   Spaarmutatie,
   Partij,
   RekeningInOverzicht,
@@ -331,6 +332,16 @@ export class RestDriver implements BankDriver {
       vorige = datum;
     }
     return koppen;
+  }
+
+  /** Zoals de app: met CSRF-token en een eigen Idempotency-Key (ADR 0027); daarna de spaarrekening opnieuw openen. */
+  async legIn({ van, naar, bedrag }: Overschrijfopdracht): Promise<void> {
+    const antwoord = await this.request.post('/api/overschrijvingen', {
+      headers: await this.betaalHeaders(),
+      data: { van, naar, bedrag },
+    });
+    expect(antwoord.status(), `POST /api/overschrijvingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+    await this.openSpaarrekening(naar);
   }
 
   async lopendeRente(): Promise<string> {

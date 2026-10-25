@@ -101,6 +101,13 @@ export interface Spaarmutatie {
   bedrag: string;
 }
 
+/** Een overschrijving tussen de eigen rekeningen (S9.1): van en naar zijn IBAN's, het bedrag in domeinnotatie. */
+export interface Overschrijfopdracht {
+  van: string;
+  naar: string;
+  bedrag: string;
+}
+
 /** Of een verzoek dat iets verandert, is uitgevoerd of door de rechten geweigerd (403). */
 export type Uitkomst = 'gelukt' | 'geweigerd';
 
@@ -184,6 +191,8 @@ export interface BankDriver {
    * De datumregels ("2026-01-31") en jaartalregels ("2025") van de geopende spaarrekening, van boven naar beneden.
    */
   spaarkoppen(): Promise<string[]>;
+  /** Vanaf de geopende spaarrekening geld inleggen (S9.1); daarna staat de spaarrekening weer open. */
+  legIn(opdracht: Overschrijfopdracht): Promise<void>;
   /** De lopende rente van de geopende spaarrekening, in domeinnotatie ("12.36"). */
   lopendeRente(): Promise<string>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */

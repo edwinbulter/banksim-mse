@@ -28,8 +28,21 @@ class OverboekingTests {
         var overboeking = new Overboeking(JAN, SANNE, Bedrag.van("25.00"), TransactieType.ONLINE_BANKIEREN, TIJDSTIP);
 
         assertThat(overboeking.boekingen()).containsExactly(
-                new Boeking(JAN.iban(), Bedrag.van("-25.00"), SANNE),
-                new Boeking(SANNE.iban(), Bedrag.van("25.00"), JAN));
+                new Boeking(JAN.iban(), Bedrag.van("-25.00"), SANNE, TransactieType.ONLINE_BANKIEREN),
+                new Boeking(SANNE.iban(), Bedrag.van("25.00"), JAN, TransactieType.ONLINE_BANKIEREN));
+    }
+
+    /** ADR 0029: een overschrijving heeft een type per kant; de overboeking zelf is een Overschrijving. */
+    @Test
+    void eenOverschrijvingGeeftElkeKantZijnEigenType() {
+        var spaar = new Partij(Iban.simBank(3L), "Jan");
+        var overboeking = Overboeking.overschrijving(JAN, spaar, Bedrag.van("250.00"), TransactieType.INLEG, TIJDSTIP, "Inleg");
+
+        assertThat(overboeking.type()).isEqualTo(TransactieType.OVERSCHRIJVING);
+        assertThat(overboeking.omschrijving()).isEqualTo("Inleg");
+        assertThat(overboeking.boekingen()).containsExactly(
+                new Boeking(JAN.iban(), Bedrag.van("-250.00"), spaar, TransactieType.OVERSCHRIJVING),
+                new Boeking(spaar.iban(), Bedrag.van("250.00"), JAN, TransactieType.INLEG));
     }
 
     @Property
