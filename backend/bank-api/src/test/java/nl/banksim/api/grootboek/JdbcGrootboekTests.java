@@ -9,6 +9,9 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.Overboeking;
@@ -127,6 +130,36 @@ class JdbcGrootboekTests {
         OffsetDateTime tijdstip = jdbc.sql("SELECT tijdstip FROM transactie WHERE iban = 'NL94SIMB0000000001'")
                 .query(OffsetDateTime.class).single();
         assertThat(tijdstip.toInstant()).isEqualTo(OffsetDateTime.parse("2026-10-05T14:00+02:00").toInstant());
+    }
+
+    /** ADR 0026: een tweede transactie op dezelfde rekening wacht tot de eerste klaar is. */
+    @Test
+    void vergrendelHoudtEenTweedeTransactieOpDezelfdeRekeningTegenTotDeEersteKlaarIs() throws Exception {
+        var eersteHeeftDeRekening = new CountDownLatch(1);
+        var eersteMagStoppen = new CountDownLatch(1);
+        CompletableFuture<Void> eerste = CompletableFuture.runAsync(() -> transactie.executeWithoutResult(status -> {
+            grootboek.vergrendel(PIET, SANNE);
+            eersteHeeftDeRekening.countDown();
+            wacht(eersteMagStoppen);
+        }));
+        assertThat(eersteHeeftDeRekening.await(10, TimeUnit.SECONDS)).isTrue();
+
+        CompletableFuture<Void> tweede = CompletableFuture.runAsync(() ->
+                transactie.executeWithoutResult(status -> grootboek.vergrendel(PIET)));
+        Thread.sleep(500);
+        assertThat(tweede).as("tweede wacht op de eerste").isNotDone();
+
+        eersteMagStoppen.countDown();
+        eerste.get(10, TimeUnit.SECONDS);
+        tweede.get(10, TimeUnit.SECONDS);
+    }
+
+    private static void wacht(CountDownLatch latch) {
+        try {
+            latch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** De trigger is de laatste verdedigingslinie: ook SQL buiten LedgerService om komt er niet door. */

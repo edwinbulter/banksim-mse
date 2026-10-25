@@ -18,10 +18,12 @@ public class LedgerService {
 
     /**
      * Beide kanten in één databasetransactie; de trigger controleert ze bij commit. Nooit rood (ADR 0025): het laagste
-     * lopende saldo van de betalende rekening vanaf de uitvoerdatum moet de overboeking dekken.
+     * lopende saldo van de betalende rekening vanaf de uitvoerdatum moet de overboeking dekken. Eerst beide rekeningen
+     * vergrendelen (ADR 0026), anders lezen gelijktijdige boekingen hetzelfde saldo.
      */
     @Transactional
     public void boek(Overboeking overboeking) {
+        grootboek.vergrendel(overboeking.van().iban(), overboeking.naar().iban());
         SaldoVerloop verloop = grootboek.saldoVerloop(overboeking.van().iban(), overboeking.datum());
         if (!NooitRoodRegel.staatToe(verloop, overboeking.bedrag())) {
             throw new SaldoOntoereikend();

@@ -19,6 +19,9 @@ public interface Grootboek {
      */
     SaldoVerloop saldoVerloop(Iban iban, LocalDate datum);
 
+    /** Vergrendelt de rekeningen tot het einde van de databasetransactie, altijd in IBAN-volgorde (ADR 0026). */
+    void vergrendel(Iban... rekeningen);
+
     /** De overboeking met haar twee transacties, in één databasetransactie. */
     void schrijf(Overboeking overboeking);
 }

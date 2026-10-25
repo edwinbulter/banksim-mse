@@ -3,6 +3,7 @@ package nl.banksim.api.grootboek;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,6 +35,15 @@ class JdbcGrootboek implements Grootboek {
                 .param("gebruikersnaam", gebruikersnaam)
                 .query(String.class)
                 .optional();
+    }
+
+    /** De volgorde ligt hier, in de query: twee transacties wachten zo nooit in een kring op elkaar (ADR 0026). */
+    @Override
+    public void vergrendel(Iban... rekeningen) {
+        jdbc.sql("SELECT iban FROM rekening WHERE iban IN (:ibans) ORDER BY iban FOR UPDATE")
+                .param("ibans", Arrays.stream(rekeningen).map(Iban::toString).toList())
+                .query(String.class)
+                .list();
     }
 
     @Override

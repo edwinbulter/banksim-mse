@@ -54,7 +54,10 @@ class LedgerServiceTests {
         ledger.boek(new Overboeking(new Partij(JAN, "Jan"), new Partij(SANNE, "Sanne"), Bedrag.van("25.00"),
                 TransactieType.ONLINE_BANKIEREN, LocalDateTime.of(2026, 10, 5, 14, 0)));
 
-        assertThat(jdbc.sql("SELECT iban, bedrag FROM transactie ORDER BY bedrag").query().listOfRows())
+        // Alleen de eigen rekeningen: andere tests met dezelfde Spring-context delen de database.
+        assertThat(jdbc.sql("""
+                        SELECT iban, bedrag FROM transactie
+                        WHERE iban IN ('NL94SIMB0000000001', 'NL67SIMB0000000002') ORDER BY bedrag""").query().listOfRows())
                 .extracting(rij -> rij.get("iban") + " " + rij.get("bedrag"))
                 .containsExactly(JAN + " " + new BigDecimal("-25.00"), SANNE + " " + new BigDecimal("25.00"));
     }

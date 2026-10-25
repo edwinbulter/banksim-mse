@@ -63,6 +63,11 @@ public class GeheugenGrootboek implements Grootboek {
         return new SaldoVerloop(saldi.get(iban), latereBewegingen.getOrDefault(iban, List.of()));
     }
 
+    /** Eén test-thread: vergrendelen is niet nodig. */
+    @Override
+    public void vergrendel(Iban... rekeningen) {
+    }
+
     @Override
     public void schrijf(Overboeking overboeking) {
         geschreven.add(overboeking);
