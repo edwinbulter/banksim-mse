@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { bedragUitInvoer } from './geld/bedrag';
@@ -28,6 +28,9 @@ interface Rekening {
       <input id="overschrijven-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
       <button type="submit">Overschrijven</button>
     </form>
+    @if (melding(); as melding) {
+      <p role="alert">{{ melding }}</p>
+    }
   `,
 })
 export class OverschrijvenScherm {
@@ -50,6 +53,9 @@ export class OverschrijvenScherm {
   protected readonly naar = computed(() => (this.richting() === 'inleggen' ? this.spaar() : this.betaal()));
   protected readonly bedrag = signal('');
 
+  /** De melding van de API bij een geweigerde overschrijving (RFC 9457), zoals "Saldo ontoereikend: …". */
+  protected readonly melding = signal<string | undefined>(undefined);
+
   /** ADR 0027: één sleutel per scherm; een dubbelklik stuurt dezelfde. */
   private readonly sleutel = crypto.randomUUID();
 
@@ -60,9 +66,11 @@ export class OverschrijvenScherm {
   protected schrijfOver(): void {
     const opdracht = { van: this.van().iban, naar: this.naar().iban, bedrag: bedragUitInvoer(this.bedrag()) };
     const headers = { 'Idempotency-Key': this.sleutel };
-    this.http
-      .post('/api/overschrijvingen', opdracht, { headers })
-      .subscribe(() => void this.router.navigate(['/spaarrekeningen', this.iban()]));
+    this.http.post('/api/overschrijvingen', opdracht, { headers }).subscribe({
+      next: () => void this.router.navigate(['/spaarrekeningen', this.iban()]),
+      // Een 422 is een geweigerde overschrijving met een melding; een 401 meldt de interceptor aan App.
+      error: (fout: HttpErrorResponse) => this.melding.set((fout.error as { detail?: string } | null)?.detail),
+    });
   }
 
   protected waarde(event: Event): string {

@@ -93,6 +93,19 @@ class OverschrijvingControllerTests {
                 LocalDateTime.of(2026, 10, 5, 14, 0), "Opname"));
     }
 
+    /** ADR 0025, net als bij betalen: de spaarrekening komt niet onder € 0,00; RFC 9457 met de melding van de bank. */
+    @Test
+    void opnemenMeerDanHetSpaarsaldoWordtGeweigerd() throws Exception {
+        mvc.perform(verzoek(UUID.randomUUID().toString()).content("""
+                        {"van": "%s", "naar": "%s", "bedrag": "5000.01"}""".formatted(SPAAR_JAN, BETAAL_JAN)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:saldo-ontoereikend"))
+                .andExpect(jsonPath("$.detail").value(
+                        "Saldo ontoereikend: deze betaling zou het saldo onder € 0,00 brengen, nu of op een latere datum."));
+
+        assertThat(grootboek.geschreven()).isEmpty();
+    }
+
     /** ADR 0023: andermans spaarrekening bestaat voor Jan niet. */
     @Test
     void naarAndermansSpaarrekeningIs404() throws Exception {

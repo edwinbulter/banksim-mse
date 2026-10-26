@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import type { Spaarmutatie } from '../bank-driver';
 import { datumUitKop, transactieUitRegel } from './betaalrekening-pagina';
+import { WEIGERINGEN } from './betalen-pagina';
 
 const TYPEN: Spaarmutatie['type'][] = ['Rente', 'Inleg', 'Opname'];
 
@@ -21,11 +22,32 @@ export class SpaarrekeningPagina {
    * ingevuld. Het bedrag zoals de klant het typt, met komma; na "Overschrijven" weer op de spaarrekening.
    */
   async schrijfOver(knop: 'Inleggen' | 'Opnemen', bedrag: string): Promise<void> {
+    await this.vulInEnSchrijfOver(knop, bedrag);
+    await expect(this.page.getByRole('heading', { name: 'Spaarrekening' })).toBeVisible();
+  }
+
+  /** Na "Overschrijven": terug op de spaarrekening, of een melding op het scherm Overschrijven. */
+  async probeerOver(knop: 'Inleggen' | 'Opnemen', bedrag: string): Promise<void> {
+    await this.vulInEnSchrijfOver(knop, bedrag);
+    await expect(this.page.getByRole('heading', { name: 'Spaarrekening' }).or(this.melding())).toBeVisible();
+  }
+
+  /** De melding na "Overschrijven", terug naar het probleemtype van de API; undefined zonder melding. */
+  async weigering(): Promise<string | undefined> {
+    if (!(await this.melding().isVisible())) return undefined;
+    const tekst = ((await this.melding().textContent()) ?? '').trim();
+    return WEIGERINGEN[tekst] ?? `onbekende melding: ${tekst}`;
+  }
+
+  private async vulInEnSchrijfOver(knop: 'Inleggen' | 'Opnemen', bedrag: string): Promise<void> {
     await this.page.getByRole('link', { name: knop }).click();
     await expect(this.page.getByRole('heading', { name: 'Overschrijven' })).toBeVisible();
     await this.page.getByLabel('Bedrag (€)').fill(bedrag.replace('.', ','));
     await this.page.getByRole('button', { name: 'Overschrijven' }).click();
-    await expect(this.page.getByRole('heading', { name: 'Spaarrekening' })).toBeVisible();
+  }
+
+  private melding() {
+    return this.page.getByRole('alert');
   }
 
   /** In de kop: "Lopende rente € 12,36", terug naar domeinnotatie. */

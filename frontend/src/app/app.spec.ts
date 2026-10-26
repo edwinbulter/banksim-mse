@@ -686,4 +686,25 @@ describe('App', () => {
 
     expect(TestBed.inject(Location).path()).toBe('/spaarrekeningen/NL67SIMB0000000002');
   });
+  /** S9.1: een weigering van de API (RFC 9457) toont de melding op het scherm Overschrijven; de klant blijft daar. */
+  it('toont de melding van de API als de overschrijving geweigerd wordt (S9.1)', async () => {
+    const pagina = await start('/spaarrekeningen/NL67SIMB0000000002/opnemen');
+    await rekeningen({
+      status: 200,
+      body: [...JAN, { soort: 'spaar', iban: 'NL67SIMB0000000002', saldo: '5000.00' }],
+    });
+    vulIn(pagina, 'Bedrag (€)', '5000,01');
+    knop(pagina, 'Overschrijven')?.click();
+    await ververs();
+
+    http.expectOne('/api/overschrijvingen').flush(
+      { type: 'urn:banksim:probleem:saldo-ontoereikend', detail: 'Saldo ontoereikend.' },
+      { status: 422, statusText: 'Unprocessable Content' },
+    );
+    await ververs();
+
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Saldo ontoereikend.');
+    expect(TestBed.inject(Location).path()).toBe('/spaarrekeningen/NL67SIMB0000000002/opnemen');
+    expect(pagina.querySelector('h2')?.textContent).toBe('Overschrijven');
+  });
 });

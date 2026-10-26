@@ -13,14 +13,16 @@ export class OverzichtPagina {
 
   /**
    * Na het inloggen staat het overzicht er al. Vanaf een ander scherm via de links, zoals een gebruiker: vanaf het
-   * betaalscherm eerst "Betaalrekening", dan "Overzicht".
+   * betaalscherm eerst "Betaalrekening", vanaf Overschrijven eerst "Spaarrekening", dan "Overzicht".
    */
   async open(): Promise<void> {
     const overzicht = this.page.getByRole('link', { name: 'Overzicht' });
-    const betaalrekening = this.page.getByRole('link', { name: 'Betaalrekening' });
-    await expect(this.welkom().or(overzicht).or(betaalrekening).first()).toBeVisible();
+    const terug = this.page
+      .getByRole('link', { name: 'Betaalrekening' })
+      .or(this.page.getByRole('link', { name: 'Spaarrekening' }));
+    await expect(this.welkom().or(overzicht).or(terug).first()).toBeVisible();
     if (await this.welkom().isVisible()) return;
-    if (!(await overzicht.isVisible())) await betaalrekening.click();
+    if (!(await overzicht.isVisible())) await terug.click();
     await overzicht.click();
     await this.wachtTotGeladen();
   }

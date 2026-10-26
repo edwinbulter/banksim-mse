@@ -344,13 +344,30 @@ export class RestDriver implements BankDriver {
     await this.openSpaarrekening(opdracht.van);
   }
 
+  /** Een weigering is een 422 met een probleemtype (RFC 9457); een gelukte opname opent de spaarrekening opnieuw. */
+  async probeerOpTeNemen(opdracht: Overschrijfopdracht): Promise<void> {
+    this.probleem = undefined;
+    const antwoord = await this.postOverschrijving(opdracht);
+    if (antwoord.status() === 422) {
+      const { type } = (await antwoord.json()) as { type?: string };
+      this.probleem = type?.split(':').at(-1);
+      return;
+    }
+    expect(antwoord.status(), `POST /api/overschrijvingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+    await this.openSpaarrekening(opdracht.van);
+  }
+
+  private async schrijfOver(opdracht: Overschrijfopdracht): Promise<void> {
+    const antwoord = await this.postOverschrijving(opdracht);
+    expect(antwoord.status(), `POST /api/overschrijvingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+  }
+
   /** Zoals de app: met CSRF-token en een eigen Idempotency-Key (ADR 0027). */
-  private async schrijfOver({ van, naar, bedrag }: Overschrijfopdracht): Promise<void> {
-    const antwoord = await this.request.post('/api/overschrijvingen', {
+  private async postOverschrijving({ van, naar, bedrag }: Overschrijfopdracht): Promise<APIResponse> {
+    return this.request.post('/api/overschrijvingen', {
       headers: await this.betaalHeaders(),
       data: { van, naar, bedrag },
     });
-    expect(antwoord.status(), `POST /api/overschrijvingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
   }
 
   async lopendeRente(): Promise<string> {

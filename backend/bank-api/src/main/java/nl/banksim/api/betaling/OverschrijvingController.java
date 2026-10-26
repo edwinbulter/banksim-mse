@@ -3,6 +3,7 @@ package nl.banksim.api.betaling;
 import java.net.URI;
 
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
+import nl.banksim.api.grootboek.SaldoOntoereikend;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.http.HttpStatus;
@@ -45,6 +46,12 @@ class OverschrijvingController {
         ProblemDetail probleem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, fout.getMessage());
         probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem()));
         return probleem;
+    }
+
+    /** ADR 0025: ook een spaarrekening komt nooit onder € 0,00. */
+    @ExceptionHandler(SaldoOntoereikend.class)
+    ProblemDetail saldoOntoereikend(SaldoOntoereikend fout) {
+        return geweigerd(new BetalingGeweigerd("saldo-ontoereikend", fout.getMessage()));
     }
 
     /** ADR 0027: zonder sleutel geen overschrijving. */

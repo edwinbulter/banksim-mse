@@ -30,7 +30,7 @@ export class UiDriver implements BankDriver {
   private readonly zoeken: ZoekenPagina;
   private readonly betalen: BetalenPagina;
   private readonly spaarrekening: SpaarrekeningPagina;
-  private laatsteFormulier: 'zoeken' | 'betalen' = 'zoeken';
+  private laatsteFormulier: 'zoeken' | 'betalen' | 'overschrijven' = 'zoeken';
 
   constructor(private readonly page: Page) {
     this.start = new StartPagina(page);
@@ -122,7 +122,9 @@ export class UiDriver implements BankDriver {
 
   /** De melding van het formulier dat het laatst is verstuurd. */
   async weigering(): Promise<string | undefined> {
-    return this.laatsteFormulier === 'betalen' ? this.betalen.weigering() : this.zoeken.weigering();
+    if (this.laatsteFormulier === 'betalen') return this.betalen.weigering();
+    if (this.laatsteFormulier === 'overschrijven') return this.spaarrekening.weigering();
+    return this.zoeken.weigering();
   }
 
   async openZoeken(): Promise<void> {
@@ -192,6 +194,11 @@ export class UiDriver implements BankDriver {
 
   async neemOp({ bedrag }: Overschrijfopdracht): Promise<void> {
     await this.spaarrekening.schrijfOver('Opnemen', bedrag);
+  }
+
+  async probeerOpTeNemen({ bedrag }: Overschrijfopdracht): Promise<void> {
+    this.laatsteFormulier = 'overschrijven';
+    await this.spaarrekening.probeerOver('Opnemen', bedrag);
   }
 
   async lopendeRente(): Promise<string> {

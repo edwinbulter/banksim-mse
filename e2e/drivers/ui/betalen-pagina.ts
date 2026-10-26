@@ -1,8 +1,8 @@
 import { expect, type Page } from '@playwright/test';
 import type { Betaalopdracht, MaximaleLengtes } from '../bank-driver';
 
-/** De meldingen na "Bevestigen", terug naar het probleemtype van de API (S7.1). */
-const WEIGERINGEN: Record<string, string> = {
+/** De meldingen na "Bevestigen" (S7.1) en "Overschrijven" (S9.1), terug naar het probleemtype van de API. */
+export const WEIGERINGEN: Record<string, string> = {
   'Naar dit rekeningnummer kan niet worden betaald.': 'onbekend-contact',
   'De naam van de ontvanger hoort niet bij dit rekeningnummer.': 'naam-past-niet',
   'Saldo ontoereikend: deze betaling zou het saldo onder € 0,00 brengen, nu of op een latere datum.': 'saldo-ontoereikend',

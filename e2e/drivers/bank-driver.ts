@@ -149,8 +149,8 @@ export interface BankDriver {
   /** Zoeken in de transacties van de geopende rekening; de lijst toont daarna wat gevonden is (S5.1). */
   zoek(opdracht: Zoekopdracht): Promise<void>;
   /**
-   * Het probleemtype ("ongeldig-bedragbereik", "onbekend-contact") als de laatste zoekopdracht of betaling geweigerd
-   * werd, anders undefined.
+   * Het probleemtype ("ongeldig-bedragbereik", "onbekend-contact") als de laatste zoekopdracht, betaling of
+   * overschrijving geweigerd werd, anders undefined.
    */
   weigering(): Promise<string | undefined>;
   /** Alleen in de UI-driver (@ui): het zoekformulier openen, de tekst van de knop, wissen en de inhoud lezen. */
@@ -195,6 +195,8 @@ export interface BankDriver {
   legIn(opdracht: Overschrijfopdracht): Promise<void>;
   /** Vanaf de geopende spaarrekening geld opnemen (S9.1); daarna staat de spaarrekening weer open. */
   neemOp(opdracht: Overschrijfopdracht): Promise<void>;
+  /** Hetzelfde, zonder te verwachten dat het lukt; daarna geeft weigering() het probleemtype ("saldo-ontoereikend"). */
+  probeerOpTeNemen(opdracht: Overschrijfopdracht): Promise<void>;
   /** De lopende rente van de geopende spaarrekening, in domeinnotatie ("12.36"). */
   lopendeRente(): Promise<string>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */

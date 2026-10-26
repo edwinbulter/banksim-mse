@@ -1060,6 +1060,8 @@ De bedragen in de voorbeelden bereken je vooraf met de hand of met een spreadshe
 // /api/overschrijvingen vraagt een Idempotency-Key zoals betalen (ADR 0027).
 // "Opnemen" (€ 500,00, Opname op de spaarrekening) kwam erbij vóór het weigerscenario, zodat dat niet groen is als
 // opnemen helemaal niet werkt.
+// "Opnemen kan niet meer dan het spaarsaldo" controleert ook dat beide saldi ongewijzigd blijven; de melding is die van
+// betalen (ADR 0025), en het scherm Overschrijven toont haar zoals het betaalscherm.
 test.beforeEach(async ({ bank }) => {
   const jan = bank.klant('Jan');
   await bank.gegeven('Jan heeft € 1.000,00 op de betaalrekening en € 5.000,00 op de spaarrekening', async () => {

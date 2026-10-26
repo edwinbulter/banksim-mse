@@ -40,4 +40,13 @@ test.describe('Overschrijven', () => {
       jan.verwachtSaldi({ betaal: '1500.00', spaar: '4500.00' }),
     );
   });
+
+  test('Opnemen kan niet meer dan het spaarsaldo', async ({ bank }) => {
+    const jan = bank.klant('Jan');
+    await bank.als('Jan € 5.000,01 probeert op te nemen', () => jan.probeertOpTeNemen('5000.01'));
+    await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
+    await bank.en('is in het overzicht het betaalsaldo € 1.000,00 en het spaarsaldo € 5.000,00', () =>
+      jan.verwachtSaldi({ betaal: '1000.00', spaar: '5000.00' }),
+    );
+  });
 });

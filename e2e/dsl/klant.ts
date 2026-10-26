@@ -114,6 +114,12 @@ export class Klant {
     await (await this.sessie()).neemOp({ van: this.spaarIban!, naar: this.iban(), bedrag });
   }
 
+  /** Zoals neemtOp, maar de bank mag weigeren; de weigering volgt uit verwachtWeigering. */
+  async probeertOpTeNemen(bedrag: string): Promise<void> {
+    await this.opentSpaarrekening();
+    await (await this.sessie()).probeerOpTeNemen({ van: this.spaarIban!, naar: this.iban(), bedrag });
+  }
+
   /**
    * Op de geopende spaarrekening staat deze mutatie (de andere mutaties doen niet mee). `op` is een datum, of
    * "vandaag": de datum in Europe/Amsterdam, voor een scenario zonder simulatiedatum.
