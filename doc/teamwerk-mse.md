@@ -38,7 +38,7 @@ Farley zou dit om drie redenen afraden:
 | 4 | **Integreer minstens dagelijks op `main`.** Geen feature branches die langer dan een dag leven. Wat nog niet af is, blijft onzichtbaar achter `@wip`, een feature toggle of branch-by-abstraction. | *Continuous Delivery*, hoofdstuk 3, 13 en 14; Farley, "Continuous Integration and Feature Branching"; *Accelerate* |
 | 5 | **Een rode pipeline stopt het team.** Repareer hem direct. Check niet in op een rode build. | *Continuous Delivery*, hoofdstuk 3 ("Essential Practices") |
 | 6 | **Werk samen in plaats van over te dragen.** Pair programming is de standaard. Ensemble programming kan bij werk dat iedereen raakt. | Pair programming: Farley beveelt het op zijn kanaal en in *The Engineering Room* vaak aan. Ensemble/mob: Woody Zuill. De keuze per moment is **interpretatie** |
-| 7 | **De eenheid van werk is één falend scenario, niet een taak.** Een pair neemt een scenario en loopt het outside-in door alle lagen. Taken zijn hooguit het kladblok van het pair. | **Interpretatie** van 1–6 en van de regel "één falend scenario tegelijk" ([werkwijze, hoofdstuk 4](werkwijze-mse.md#4-de-double-loop)) |
+| 7 | **De eenheid van werk is één falend scenario, niet een taak.** Een pair neemt een scenario en bouwt het outside-in, door alle lagen heen. Taken zijn hooguit het kladblok van het pair. | **Interpretatie** van 1–6 en van de regel "één falend scenario tegelijk" ([werkwijze, hoofdstuk 4](werkwijze-mse.md#4-de-double-loop)) |
 | 8 | **Beperk het onderhanden werk.** Maak liever één story samen af dan drie stories half. De voortgang meet je in groene scenario's in de pipeline. | **Interpretatie**, in lijn met de nadruk op kleine batches en flow in *Continuous Delivery* en *Accelerate* |
 
 ## 3. Van epic naar scenario
@@ -236,16 +236,16 @@ Bij klassiek pair programming typt de *driver* en denkt de *navigator* vooruit. 
 
 | Rol | Wie | Doet | Doet niet |
 | --- | --- | --- | --- |
-| **Bestuurder** | Mens 1 | Zit achter het toetsenbord en typt de opdrachten (prompts) aan Claude. Elke opdracht is één stap, bijvoorbeeld "schrijf een falende unittest voor de controller" of "maak deze test groen met zo min mogelijk code". Beantwoordt de vragen van Claude Code om een bestand te wijzigen of een commando uit te voeren: ja of nee | Eén grote opdracht geven, zoals "bouw de transactielijst" |
+| **Bestuurder** | Mens 1 | Zit achter het toetsenbord en stuurt Claude aan. Start een iteratie van de skill `atdd`, bijvoorbeeld met "volgende stap" of "neem scenario X". Claude leidt de unittests zelf af uit het scenario. De bestuurder beantwoordt elke vraag van Claude Code om een bestand te wijzigen of een commando uit te voeren met ja of nee. Hij stuurt bij als een stap te groot is, bijvoorbeeld met "doe eerst alleen de falende test" | Wijzigingen goedkeuren zonder dat de navigator ze gelezen heeft, of Claude een hele slice laten bouwen en pas aan het eind kijken |
 | **Navigator** | Mens 2 | Leest elke wijziging die Claude voorstelt, voordat de bestuurder "ja" zegt. Let daarbij op vier dingen: <ul><li>faalt een nieuwe test om de goede reden, bijvoorbeeld een 404 en geen typefout?</li><li>verandert Claude niet tegelijk de test en de code?</li><li>komt er geen nieuwe library of tool bij zonder ADR?</li><li>verandert Claude niet ongemerkt iets in de DSL die ook andere pairs gebruiken?</li></ul>Schrijft op wat nog moet (het kladblok van het pair) en denkt na over het volgende scenario | Meelezen op een tweede scherm terwijl hij iets anders doet |
 | **Claude** | – | Stelt voor en typt: scenario, test, code, ADR-concept | Beslissen. De stoppunten (⛔) zijn van de mensen |
 
-Dit lijkt op *strong-style pairing* van Llewellyn Falco: "een idee gaat de computer in via de handen van een ander". Hier zijn dat de handen van Claude. De bestuurder moet de opdracht dus zo goed onder woorden brengen dat de navigator hem ook begrijpt. Zo blijft het denken hardop en gedeeld.
+Dit lijkt op *strong-style pairing* van Llewellyn Falco: "een idee gaat de computer in via de handen van een ander". Hier zijn dat de handen van Claude. De bestuurder zegt dus hardop waarom hij een wijziging goedkeurt, afwijst of bijstuurt, zodat de navigator kan meedenken. Zo blijft het denken hardop en gedeeld.
 
 **Het ritme: wisselen op de lus.** De iteratie van de skill `atdd` geeft het ritme:
 
 - **⛔ 1, het scenario:** het hele pair keurt het scenario goed, samen met de PO bij moment 2.
-- **De binnenste lus, als ping-pong:** de ene mens keurt de falende unittest en de foutmelding goed. De ander stuurt daarna Claude aan voor de implementatie. Zo is "nooit test en implementatie tegelijk veranderen" ([werkwijze, hoofdstuk 10](werkwijze-mse.md#10-werken-met-ai-in-deze-lus)) een afspraak tussen twee mensen, en niet alleen een instructie aan Claude.
+- **De binnenste lus, als ping-pong:** de ene mens keurt de falende unittest en de foutmelding goed. De ander keurt daarna de implementatie goed die Claude voorstelt. Zo is "nooit test en implementatie tegelijk veranderen" ([werkwijze, hoofdstuk 10](werkwijze-mse.md#10-werken-met-ai-in-deze-lus)) een afspraak tussen twee mensen, en niet alleen een instructie aan Claude.
 - **Na elke refactor:** de rollen wisselen. Bestuurder wordt navigator, en andersom.
 - **⛔ 5, een ADR, en ⛔ 7, commit en push:** beide mensen stemmen in.
 
@@ -253,7 +253,7 @@ Dit lijkt op *strong-style pairing* van Llewellyn Falco: "een idee gaat de compu
 
 **Het tempo van de mens is leidend.** Claude schrijft sneller dan je kunt lezen. Daarom:
 
-- kleine opdrachten, en één diff tegelijk beoordelen;
+- kleine stappen, en één diff tegelijk beoordelen;
 - de navigator mag altijd "stop" zeggen;
 - niets gaat naar `main` wat niet *beide* mensen kunnen uitleggen.
 
@@ -286,7 +286,7 @@ Solo valt ook de kennisdeling weg: niemand vraagt je uit te leggen wat er staat.
 | Gedeelde DSL in één grote commit omgooien | Andere pairs breken | Kleine refactorstappen op groen, eerst aankondigen |
 | Twee developers, elk met een eigen Claude-sessie, noemen zich een pair | Twee solo's; niemand leest de code van de ander | Eén sessie op één scherm, met bestuurder en navigator ([7.1](#71-pairen-met-claude-code)) |
 | Diffs van Claude goedkeuren zonder ze te lezen | Code die niemand begrijpt, en blinde vlekken die blijven | De navigator leest elke diff; niets naar `main` wat niet beide mensen kunnen uitleggen |
-| Claude past de test aan tot hij groen is | De test bewijst niets meer | Ping-pong: de een keurt de falende test goed, de ander stuurt de implementatie; test en code nooit in één stap |
+| Claude past de test aan tot hij groen is | De test bewijst niets meer | Ping-pong: de een keurt de falende test goed, de ander keurt de implementatie goed; test en code nooit in één stap |
 
 ## 9. Bronnen
 
