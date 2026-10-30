@@ -4,11 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import nl.banksim.api.PostgresTestDatabase;
+import nl.banksim.api.grootboek.LedgerService;
 import nl.banksim.domain.geld.Bedrag;
+import nl.banksim.domain.grootboek.Overboeking;
+import nl.banksim.domain.grootboek.Partij;
 import nl.banksim.domain.rekening.Iban;
+import nl.banksim.domain.transactie.TransactieType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,6 +41,9 @@ class RenteServiceTests {
 
     @Autowired
     JdbcClient jdbc;
+
+    @Autowired
+    LedgerService ledger;
 
     @MockitoBean
     JwtDecoder jwtDecoder;
@@ -173,6 +181,94 @@ class RenteServiceTests {
         String betaal = rekening("rente-13", 3013L, "betaal", "10000.00", "2026-01-01");
 
         assertThat(rente.van("rente-13", Iban.van(betaal), LocalDate.of(2026, 2, 15))).isEmpty();
+    }
+
+    /**
+     * ADR 0030, de voorbeelden van het scenario: € 5.000,00 vanaf 1 januari, rente t/m maart bijgeschreven (12,74, 11,54
+     * en 12,80). Een opname van € 1.000,00 op 15 februari maakt februari 10,39 en maart 10,25: correcties −1,15 en −2,55.
+     */
+    @Test
+    void eenOpnameInEenAfgeslotenMaandCorrigeertDieMaandEnDeMaandenErna() {
+        String spaar = spaarrekening("rente-20", 3020L, "5000.00", "2026-01-01");
+        String betaal = rekening("rente-20b", 3021L, "betaal", "0.00", null);
+        rente.sluitAf(LocalDate.of(2026, 3, 31));
+
+        ledger.boek(Overboeking.opname(new Partij(Iban.van(spaar), "Jan"), new Partij(Iban.van(betaal), "Jan"),
+                Bedrag.van("1000.00"), LocalDateTime.of(2026, 2, 15, 10, 0), "Opname"));
+
+        assertThat(mutaties(spaar)).filteredOn(mutatie -> mutatie.contains("Rentecorrectie")).containsExactly(
+                "2026-02-28 -1.15 RENTE BankSim Rentecorrectie februari",
+                "2026-03-31 -2.55 RENTE BankSim Rentecorrectie maart");
+    }
+
+    /** Hetzelfde voorbeeld met een inleg: februari 12,69 en maart 15,35, correcties +1,15 en +2,55, van BankSim. */
+    @Test
+    void eenInlegInEenAfgeslotenMaandGeeftExtraRente() {
+        String spaar = spaarrekening("rente-21", 3022L, "5000.00", "2026-01-01");
+        String betaal = rekening("rente-21b", 3023L, "betaal", "1000.00", null);
+        rente.sluitAf(LocalDate.of(2026, 3, 31));
+
+        ledger.boek(Overboeking.inleg(new Partij(Iban.van(betaal), "Jan"), new Partij(Iban.van(spaar), "Jan"),
+                Bedrag.van("1000.00"), LocalDateTime.of(2026, 2, 15, 10, 0), "Inleg"));
+
+        assertThat(mutaties(spaar)).filteredOn(mutatie -> mutatie.contains("Rentecorrectie")).containsExactly(
+                "2026-02-28 1.15 RENTE BankSim Rentecorrectie februari",
+                "2026-03-31 2.55 RENTE BankSim Rentecorrectie maart");
+    }
+
+    /**
+     * De rente van februari zelf (€ 692,17, geboekt op 28 februari) telt niet mee in de herberekening van februari. Met
+     * € 300.000,00 scheelt dat zes cent: februari wordt 691,02, de correctie −1,15 (met de rente erin −1,09).
+     */
+    @Test
+    void deRenteVanDeMaandZelfTeltNietMeeInDeHerberekening() {
+        String spaar = spaarrekening("rente-25", 3029L, "300000.00", "2026-01-01");
+        String betaal = rekening("rente-25b", 3030L, "betaal", "0.00", null);
+        rente.sluitAf(LocalDate.of(2026, 2, 28));
+
+        ledger.boek(Overboeking.opname(new Partij(Iban.van(spaar), "Jan"), new Partij(Iban.van(betaal), "Jan"),
+                Bedrag.van("1000.00"), LocalDateTime.of(2026, 2, 15, 10, 0), "Opname"));
+
+        assertThat(mutaties(spaar)).filteredOn(mutatie -> mutatie.contains("Rentecorrectie"))
+                .containsExactly("2026-02-28 -1.15 RENTE BankSim Rentecorrectie februari");
+    }
+
+    /** Februari is nog niet afgesloten: die krijgt bij de afsluiting meteen de goede rente, zonder correctie. */
+    @Test
+    void eenMaandZonderBijschrijvingKrijgtGeenCorrectie() {
+        String spaar = spaarrekening("rente-22", 3024L, "5000.00", "2026-01-01");
+        String betaal = rekening("rente-22b", 3025L, "betaal", "0.00", null);
+        rente.sluitAf(LocalDate.of(2026, 2, 1));
+
+        ledger.boek(Overboeking.opname(new Partij(Iban.van(spaar), "Jan"), new Partij(Iban.van(betaal), "Jan"),
+                Bedrag.van("1000.00"), LocalDateTime.of(2026, 2, 15, 10, 0), "Opname"));
+
+        assertThat(mutaties(spaar)).noneMatch(mutatie -> mutatie.contains("Rentecorrectie"));
+    }
+
+    /** € 0,01 veertien dagen in februari en heel maart: minder dan een halve cent rente, dus geen correctie. */
+    @Test
+    void zonderVerschilWordtErNietsGeboekt() {
+        String spaar = spaarrekening("rente-23", 3026L, "5000.00", "2026-01-01");
+        String betaal = rekening("rente-23b", 3027L, "betaal", "0.00", null);
+        rente.sluitAf(LocalDate.of(2026, 3, 31));
+
+        ledger.boek(Overboeking.opname(new Partij(Iban.van(spaar), "Jan"), new Partij(Iban.van(betaal), "Jan"),
+                Bedrag.van("0.01"), LocalDateTime.of(2026, 2, 15, 10, 0), "Opname"));
+
+        assertThat(mutaties(spaar)).noneMatch(mutatie -> mutatie.contains("Rentecorrectie"));
+    }
+
+    /** Rente en correcties zijn zelf van het type RENTE: daarop volgt geen herberekening, anders corrigeert hij zichzelf. */
+    @Test
+    void opRenteVolgtGeenHerberekening() {
+        String spaar = spaarrekening("rente-24", 3028L, "5000.00", "2026-01-01");
+        rente.sluitAf(LocalDate.of(2026, 3, 31));
+
+        ledger.boek(new Overboeking(MaandRente.BANKSIM, new Partij(Iban.van(spaar), "Jan"), Bedrag.van("1000.00"),
+                TransactieType.RENTE, LocalDateTime.of(2026, 2, 15, 10, 0)));
+
+        assertThat(mutaties(spaar)).noneMatch(mutatie -> mutatie.contains("Rentecorrectie"));
     }
 
     private String spaarrekening(String gebruiker, long nummer, String saldo, String geopendOp) {

@@ -37,16 +37,12 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 
 ## Fase 0: eerst S9.1 afmaken
 
-1. ⛔ **Review van de losser gemaakte asserties** in het onafgemaakte S9.1-werk (geen luie quick-fixes):
-   - `e2e/dsl/klant.ts`, `verwachtSpaarmutatie`: `toContainEqual({…})` is `toContainEqual(expect.objectContaining({…}))` geworden;
-   - `e2e/drivers/ui/spaarrekening-pagina.ts`: `=== t` is `startsWith(t)` geworden, waardoor "Rentecorrectie" als "Rente" telt;
-   - `e2e/drivers/rest/rest-driver.ts`: de terugval `omschrijving ?? tegenpartij`.
-
-   Kies tussen twee wegen. Maak de asserties exact, met `omschrijving` in de verwachting en een eigen type voor de rentecorrectie. Of verantwoord de versoepeling in het commitbericht.
-2. **S9.1 afmaken:**
-   - het scenario "Opname in het verleden corrigeert de latere rente";
-   - ADR 0030;
-   - de rij over de Idempotency-Key na een weigering in de losse backlogpunten.
+1. **Klaar: de losser gemaakte asserties zijn weer exact.**
+   - `verwachtSpaarmutatie` vergelijkt weer de hele mutatie, nu met de omschrijving: "Rente januari" voor de rente van de maand van de datum, anders "Inleg" of "Opname".
+   - De UI-driver leidt het soort af uit een vaste tabel (`Rentecorrectie` → Rente) in plaats van `startsWith`.
+   - De terugval `omschrijving ?? tegenpartij` in de REST-driver blijft. Hij volgt dezelfde regel als het scherm (`spaarrekening-scherm.ts`).
+   - Sabotage: met de verwachte omschrijving "Overschrijving" in plaats van "Inleg" werd "Inleggen" rood.
+2. **Klaar: S9.1 af**, met de rentecorrectie volgens ADR 0030 (geaccepteerd), en de nieuwe vangrail `GrootboekKentRenteNietTests`, rood gezien met sabotage. Twee open punten uit ADR 0030 staan in de losse backlogpunten: nooit rood ná de correcties, en een mogelijke deadlock met de nachtelijke afsluiting.
 
 ## Fase 1: bestaande vangrails bewijzen
 

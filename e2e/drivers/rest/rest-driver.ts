@@ -376,7 +376,13 @@ export class RestDriver implements BankDriver {
   }
 
   async spaarmutaties(): Promise<Spaarmutatie[]> {
-    return this.geladen.map(({ datum, type, bedrag }) => ({ datum, type: SPAARTYPEN[type], bedrag }));
+    return this.geladen.map(({ datum, type, omschrijving, tegenpartij, bedrag }) => ({
+      datum,
+      type: SPAARTYPEN[type],
+      // Dezelfde regel als het scherm (spaarrekening-scherm.ts): zonder omschrijving de tegenpartij.
+      omschrijving: omschrijving ?? tegenpartij,
+      bedrag,
+    }));
   }
 
   async zetSimulatiedatum(datum: string): Promise<Uitkomst> {

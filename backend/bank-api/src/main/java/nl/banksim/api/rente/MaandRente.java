@@ -1,5 +1,6 @@
 package nl.banksim.api.rente;
 
+import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.Locale;
@@ -38,9 +39,30 @@ class MaandRente {
         Bedrag rente = RenteCalculator.rente(
                 opslag.dagsaldi(rekening.iban(), rekening.eersteRentedag(maand), maand.atEndOfMonth()));
         if (rente.waarde().signum() > 0) {
-            String omschrijving = "Rente " + maand.getMonth().getDisplayName(TextStyle.FULL, Locale.of("nl"));
             ledger.boek(new Overboeking(BANKSIM, new Partij(rekening.iban(), rekening.naam()), rente, TransactieType.RENTE,
-                    maand.atEndOfMonth().atTime(23, 59), omschrijving, null, null));
+                    maand.atEndOfMonth().atTime(23, 59), "Rente " + naam(maand), null, null));
         }
+    }
+
+    /**
+     * ADR 0030: de rente van een bijgeschreven maand opnieuw uitrekenen, en het verschil met wat er al geboekt is als
+     * "Rentecorrectie februari" boeken op de laatste dag van de maand. Minder rente gaat van de spaarrekening terug naar
+     * BankSim. Bestaande boekingen blijven staan.
+     */
+    public void corrigeer(Spaarrekening rekening, YearMonth maand) {
+        BigDecimal opnieuw = RenteCalculator.rente(
+                opslag.dagsaldi(rekening.iban(), rekening.eersteRentedag(maand), maand.atEndOfMonth())).waarde();
+        BigDecimal verschil = opnieuw.subtract(opslag.geboekteRente(rekening.iban(), maand).waarde());
+        if (verschil.signum() == 0) {
+            return;
+        }
+        Partij spaar = new Partij(rekening.iban(), rekening.naam());
+        ledger.boek(new Overboeking(verschil.signum() > 0 ? BANKSIM : spaar, verschil.signum() > 0 ? spaar : BANKSIM,
+                new Bedrag(verschil.abs()), TransactieType.RENTE, maand.atEndOfMonth().atTime(23, 59),
+                "Rentecorrectie " + naam(maand), null, null));
+    }
+
+    private static String naam(YearMonth maand) {
+        return maand.getMonth().getDisplayName(TextStyle.FULL, Locale.of("nl"));
     }
 }

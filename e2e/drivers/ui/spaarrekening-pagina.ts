@@ -3,7 +3,16 @@ import type { Spaarmutatie } from '../bank-driver';
 import { datumUitKop, transactieUitRegel } from './betaalrekening-pagina';
 import { WEIGERINGEN } from './betalen-pagina';
 
-const TYPEN: Spaarmutatie['type'][] = ['Rente', 'Inleg', 'Opname'];
+/**
+ * Het eerste woord van de omschrijving → het soort mutatie. Het scherm toont geen type; een rentecorrectie
+ * ("Rentecorrectie februari") is van het soort Rente (TO §7, ADR 0030).
+ */
+const TYPEN: Record<string, Spaarmutatie['type']> = {
+  Rente: 'Rente',
+  Rentecorrectie: 'Rente',
+  Inleg: 'Inleg',
+  Opname: 'Opname',
+};
 
 /**
  * Het spaarrekeningscherm (S8.1, FO): de mutaties per datum, nieuw naar oud. Een regel is de omschrijving en het
@@ -83,9 +92,9 @@ export class SpaarrekeningPagina {
       const datum = datumUitKop((await dag.getByRole('heading').textContent()) ?? '');
       for (const regel of await dag.getByRole('listitem').all()) {
         const { tegenpartij: omschrijving, bedrag } = transactieUitRegel((await regel.textContent()) ?? '');
-        const type = TYPEN.find((t) => omschrijving.split(' ')[0] === t);
+        const type = TYPEN[omschrijving.split(' ')[0]];
         if (!type) throw new Error(`Onbekende spaarmutatie: "${omschrijving}"`);
-        mutaties.push({ datum, type, bedrag });
+        mutaties.push({ datum, type, omschrijving, bedrag });
       }
     }
     return mutaties;

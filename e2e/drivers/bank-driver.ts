@@ -98,6 +98,8 @@ export interface MaximaleLengtes {
 export interface Spaarmutatie {
   datum: string;
   type: 'Rente' | 'Inleg' | 'Opname';
+  /** Zoals op het scherm: "Rente januari", "Rentecorrectie februari", "Inleg". */
+  omschrijving: string;
   bedrag: string;
 }
 

@@ -4,10 +4,14 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Optional;
 
+import nl.banksim.api.grootboek.OverboekingGeboekt;
 import nl.banksim.api.simulatie.Maandafsluiting;
 import nl.banksim.domain.geld.Bedrag;
+import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.rekening.Iban;
 import nl.banksim.domain.rente.RenteCalculator;
+import nl.banksim.domain.transactie.TransactieType;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 /**
@@ -34,6 +38,27 @@ class RenteService implements Maandafsluiting, LopendeRente {
             for (YearMonth maand = YearMonth.from(rekening.geopendOp()); !maand.atEndOfMonth().isAfter(totEnMet);
                     maand = maand.plusMonths(1)) {
                 maandRente.boek(rekening, maand);
+            }
+        }
+    }
+
+    /**
+     * ADR 0030: na elke boeking op een spaarrekening de rente van die maand en de latere bijgeschreven maanden opnieuw
+     * uitrekenen, maand voor maand, zodat een correctie meetelt in de maanden erna. Synchroon, in de transactie van de
+     * boeking. Rente en correcties zelf (type RENTE) leiden niet tot een herberekening.
+     */
+    @EventListener
+    void opBoeking(OverboekingGeboekt gebeurtenis) {
+        Overboeking overboeking = gebeurtenis.overboeking();
+        if (overboeking.type() == TransactieType.RENTE) {
+            return;
+        }
+        for (Spaarrekening rekening : opslag.spaarrekeningen()) {
+            if (rekening.iban().equals(overboeking.van().iban()) || rekening.iban().equals(overboeking.naar().iban())) {
+                for (YearMonth maand = YearMonth.from(overboeking.datum()); opslag.isBijgeschreven(rekening.iban(), maand);
+                        maand = maand.plusMonths(1)) {
+                    maandRente.corrigeer(rekening, maand);
+                }
             }
         }
     }

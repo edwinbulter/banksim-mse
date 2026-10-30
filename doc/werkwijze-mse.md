@@ -1062,6 +1062,10 @@ De bedragen in de voorbeelden bereken je vooraf met de hand of met een spreadshe
 // opnemen helemaal niet werkt.
 // "Opnemen kan niet meer dan het spaarsaldo" controleert ook dat beide saldi ongewijzigd blijven; de melding is die van
 // betalen (ADR 0025), en het scherm Overschrijven toont haar zoals het betaalscherm.
+// "Opname in het verleden corrigeert de latere rente" zet de rente t/m maart bij via de simulatiedatum (1 april), zet
+// hem terug naar 15 februari voor de opname en weer vooruit, en verwacht de correcties −1,15 (februari) en −2,55
+// (maart) en het spaarsaldo. LedgerService publiceert OverboekingGeboekt; RenteService luistert synchroon, in dezelfde
+// transactie, zonder Spring Modulith (ADR 0030).
 test.beforeEach(async ({ bank }) => {
   const jan = bank.klant('Jan');
   await bank.gegeven('Jan heeft € 1.000,00 op de betaalrekening en € 5.000,00 op de spaarrekening', async () => {
@@ -1098,7 +1102,7 @@ test('Opname in het verleden corrigeert de latere rente', { tag: '@simulatiedatu
 
 - **Binnenste lus:** overschrijfopdracht via dezelfde `LedgerService`; event `OverboekingGeboekt`; `RenteService` luistert en boekt correcties; frontend `Overschrijven` met wisselknop.
 - **ADR's:** rentecorrectie via een domeinevent, zodat `ledger` niet van `savings` afhangt (Spring Modulith).
-- **Fitness functions:** Spring Modulith `verify()`: modules praten alleen via hun publieke API.
+- **Fitness functions:** Spring Modulith `verify()`: modules praten alleen via hun publieke API. Gebouwd: ArchUnit `GrootboekKentRenteNietTests` (ADR 0030); Modulith blijft een eigen ADR-kandidaat.
 - **Origineel:** `ledger/OverboekingGeboekt`, `savings/*`, `frontend/klant/overschrijven`.
 
 ### Slice 10 – Admin
@@ -1216,6 +1220,9 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Integratietest van de realm met Testcontainers | Zie hoofdstuk 9.1 | Bij de volgende realm-wijziging (slice 6 of 10) |
 | Herstart van PostgreSQL en Keycloak behoudt de data | Zie hoofdstuk 9.4 | CFR Resilience |
 | Mutation testing van de frontend met Stryker | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend meer logica krijgt (slice 7) |
+| Na een geweigerde overschrijving opnieuw versturen vanaf hetzelfde scherm, met een ander bedrag: dan gaat dezelfde Idempotency-Key mee (ADR 0027). Naar verwachting werkt dat, omdat de weigering de hele transactie terugdraait, ook de claim op de sleutel; geen test bewijst het | De controllertest gebruikt een idempotentieopslag in het geheugen, zonder transactie (S9.1, commit 1935fc3) | Een repositorytest met Testcontainers op `OverschrijfService`, of een `@ui`-scenario "na de melding een lager bedrag overschrijven" |
+| Nooit rood ná de rentecorrecties (TO §6): `LedgerService` controleert de opname vóór de correcties, dus minder rente kan een latere opname alsnog onder nul brengen | ADR 0030, Gevolgen; het scenario van S9.1 gaat er niet over | Een eigen scenario: opname in het verleden van bijna het hele saldo, met een latere opname |
+| Een rentecorrectie vergrendelt de renterekening van BankSim pas ná de spaarrekening. Sluit de nachtelijke afsluiting tegelijk dezelfde spaarrekening af, en ligt de IBAN van BankSim daarvoor in de volgorde (ADR 0026), dan kan PostgreSQL een deadlock melden en één van beide terugdraaien | Zeldzaam: de afsluiting draait om 00:05 en slaat afgesloten maanden over; geen test (S9.1) | Een gelijktijdigheidstest zoals `GelijktijdigeOverboekingenTests`, met opnames in het verleden en de afsluiting tegelijk |
 
 ## 8. Eén iteratie in de praktijk
 

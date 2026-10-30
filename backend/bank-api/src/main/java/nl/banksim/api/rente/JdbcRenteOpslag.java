@@ -57,6 +57,28 @@ class JdbcRenteOpslag implements RenteOpslag {
     }
 
     @Override
+    public boolean isBijgeschreven(Iban iban, YearMonth maand) {
+        return jdbc.sql("SELECT count(*) FROM rentebijschrijving WHERE iban = :iban AND maand = :maand")
+                .param("iban", iban.toString())
+                .param("maand", maand.atDay(1))
+                .query(Long.class)
+                .single() > 0;
+    }
+
+    @Override
+    public Bedrag geboekteRente(Iban iban, YearMonth maand) {
+        BigDecimal som = jdbc.sql("""
+                        SELECT coalesce(sum(bedrag), 0) FROM transactie
+                        WHERE iban = :iban AND type = 'RENTE' AND datum BETWEEN :van AND :tm""")
+                .param("iban", iban.toString())
+                .param("van", maand.atDay(1))
+                .param("tm", maand.atEndOfMonth())
+                .query(BigDecimal.class)
+                .single();
+        return new Bedrag(som.setScale(2));
+    }
+
+    @Override
     public List<DagSaldo> dagsaldi(Iban iban, LocalDate van, LocalDate totEnMet) {
         BigDecimal saldo = jdbc.sql("""
                         SELECT r.openingssaldo + coalesce((SELECT sum(t.bedrag) FROM transactie t
@@ -68,7 +90,7 @@ class JdbcRenteOpslag implements RenteOpslag {
                 .single();
         Map<LocalDate, BigDecimal> perDag = jdbc.sql("""
                         SELECT datum, sum(bedrag) AS som FROM transactie
-                        WHERE iban = :iban AND datum BETWEEN :van AND :tm GROUP BY datum""")
+                        WHERE iban = :iban AND type <> 'RENTE' AND datum BETWEEN :van AND :tm GROUP BY datum""")
                 .param("iban", iban.toString())
                 .param("van", van)
                 .param("tm", totEnMet)

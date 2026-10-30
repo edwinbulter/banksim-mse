@@ -44,6 +44,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Vangrail | Test | Rood gezien |
 | --- | --- | --- |
 | Alleen `LedgerService` boekt (ADR 0024) | `AlleenLedgerServiceBoektTests` | ja, sabotage in 7e52e79 |
+| Het grootboek kent de rente-code niet; die luistert naar `OverboekingGeboekt` (ADR 0030) | `GrootboekKentRenteNietTests` | ja, sabotage (S9.1, rentecorrectie) |
 | Elk endpoint heeft `@PreAuthorize`; zonder token 401, als klant 403 op beheer (ADR 0022) | `ToegangPerEndpointTests`, `AlleEndpointsTests` | ja, e0cddec |
 | Gelijktijdige overboekingen: geen deadlock, totaal behouden, nooit onder nul (ADR 0026) | `grootboek/GelijktijdigeOverboekingenTests` | ja, sabotage in 54eac60 |
 | Een betaling met dezelfde Idempotency-Key boekt één keer; de sleutel geldt per gebruiker (ADR 0027) | `BetalingControllerTests`, `JdbcIdempotentieTests` | ja, sabotage in 8140ffd |

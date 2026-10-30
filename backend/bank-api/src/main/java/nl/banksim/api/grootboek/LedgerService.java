@@ -3,6 +3,7 @@ package nl.banksim.api.grootboek;
 import nl.banksim.domain.grootboek.NooitRoodRegel;
 import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.rekening.Iban;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,16 +12,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class LedgerService {
 
     private final Grootboek grootboek;
+    private final ApplicationEventPublisher gebeurtenissen;
 
-    LedgerService(Grootboek grootboek) {
+    LedgerService(Grootboek grootboek, ApplicationEventPublisher gebeurtenissen) {
         this.grootboek = grootboek;
+        this.gebeurtenissen = gebeurtenissen;
     }
 
     /**
      * Beide kanten in één databasetransactie; de trigger controleert ze bij commit. Nooit rood (ADR 0025): het laagste
      * lopende saldo van de betalende rekening vanaf de uitvoerdatum moet de overboeking dekken. Eerst beide rekeningen
      * vergrendelen (ADR 0026), anders lezen gelijktijdige boekingen hetzelfde saldo. Een interne rekening van BankSim,
-     * zoals de renterekening, mag negatief worden (ADR 0028).
+     * zoals de renterekening, mag negatief worden (ADR 0028). Na het schrijven volgt {@link OverboekingGeboekt}, in
+     * deze transactie: de rente-code boekt daarop een rentecorrectie (ADR 0030).
      */
     @Transactional
     public void boek(Overboeking overboeking) {
@@ -31,5 +35,6 @@ public class LedgerService {
             throw new SaldoOntoereikend();
         }
         grootboek.schrijf(overboeking);
+        gebeurtenissen.publishEvent(new OverboekingGeboekt(overboeking));
     }
 }

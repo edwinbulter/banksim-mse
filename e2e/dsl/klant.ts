@@ -122,12 +122,26 @@ export class Klant {
 
   /**
    * Op de geopende spaarrekening staat deze mutatie (de andere mutaties doen niet mee). `op` is een datum, of
-   * "vandaag": de datum in Europe/Amsterdam, voor een scenario zonder simulatiedatum.
+   * "vandaag": de datum in Europe/Amsterdam, voor een scenario zonder simulatiedatum. De omschrijving volgt uit het
+   * type: "Rente januari" voor de rente van de maand van `op` (S8.1), anders "Inleg" of "Opname" (S9.1).
    */
-  async verwachtSpaarmutatie({ op, type, bedrag }: { op: string } & Omit<Spaarmutatie, 'datum'>): Promise<void> {
+  async verwachtSpaarmutatie({ op, type, bedrag }: { op: string } & Omit<Spaarmutatie, 'datum' | 'omschrijving'>): Promise<void> {
+    const datum = op === 'vandaag' ? vandaagInAmsterdam() : op;
     expect(await (await this.sessie()).spaarmutaties(), `spaarmutaties van ${this.alias}`).toContainEqual({
-      datum: op === 'vandaag' ? vandaagInAmsterdam() : op,
+      datum,
       type,
+      omschrijving: type === 'Rente' ? `Rente ${maandnaam(datum)}` : type,
+      bedrag,
+    });
+  }
+
+  /** TO §7: op de spaarrekening een correctie op de rente van `maand`, geboekt op de laatste dag van die maand. */
+  async verwachtRentecorrectie({ op, maand, bedrag }: { op: string; maand: string; bedrag: string }): Promise<void> {
+    await this.opentSpaarrekening();
+    expect(await (await this.sessie()).spaarmutaties(), `spaarmutaties van ${this.alias}`).toContainEqual({
+      datum: op,
+      type: 'Rente',
+      omschrijving: `Rentecorrectie ${maand}`,
       bedrag,
     });
   }
@@ -448,4 +462,9 @@ function dagNa(datum: string, dagen: number): string {
 /** De datum van vandaag in Europe/Amsterdam, als "2026-10-25": "vandaag" voor de bank zonder simulatiedatum. */
 function vandaagInAmsterdam(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(new Date());
+}
+
+/** "2026-01-31" → "januari": de maand in de omschrijving van de rente (S8.1). */
+function maandnaam(datum: string): string {
+  return new Intl.DateTimeFormat('nl-NL', { month: 'long', timeZone: 'UTC' }).format(new Date(`${datum}T00:00:00Z`));
 }
