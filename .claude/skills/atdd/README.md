@@ -5,6 +5,7 @@ Deze map is een [Claude Code-skill](https://docs.claude.com/en/docs/claude-code/
 - double-loop outside-in TDD;
 - het vierlaagse acceptatietestmodel;
 - ADR's met bewaking;
+- geautomatiseerde kwaliteitsvangrails (fitness functions en anti-AI-slop-regels);
 - de deployment pipeline als scheidsrechter.
 
 De skill is ontstaan in BankSim-MSE. Hij is zo opgezet dat je hem ongewijzigd in andere projecten kunt gebruiken.
@@ -39,6 +40,7 @@ De skill is algemeen. Alles wat per project verschilt, staat in een kort **ATDD-
 | In de skill (algemeen) | In het profiel (per project) |
 | --- | --- |
 | De iteratie, de stoppunten, de harde regels | De stack en de toegestane tools |
+| Hoe vangrails werken en de anti-AI-slop-regels | Welke vangrails gelden, en met welke test |
 | Het vierlaagse model | De commando's: commit stage, installeren + accepteren, één scenario, de pipeline volgen |
 | Het ADR-sjabloon en de ADR-regels | Paden: specs, DSL, drivers, unittests, infra-tests, ADR's |
 | Walking skeleton (stap 0) | Doelomgeving en wat daar verboden is |
@@ -51,7 +53,7 @@ Voorbeeld: [`CLAUDE.md` van BankSim-MSE](../../../CLAUDE.md).
 
 ```text
 atdd/
-├── SKILL.md                     de instructie die Claude laadt (procedure, regels, model, DoD)
+├── SKILL.md                     de instructie die Claude laadt (procedure, regels, model, vangrails, DoD)
 ├── README.md                    dit document
 └── references/                  alleen geladen als het nodig is
     ├── profiel-sjabloon.md      velden van een profiel, met een ingevuld voorbeeld

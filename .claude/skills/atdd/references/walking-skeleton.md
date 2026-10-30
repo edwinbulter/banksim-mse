@@ -4,6 +4,8 @@ Een walking skeleton is de dunste versie van het systeem die van begin tot eind 
 
 ## Volgorde
 
+0. **Vangrails eerst** (SKILL.md §4). Zet de modulestructuur neer, met lege pakketten per laag. Schrijf daarna de architectuurtests: de laagindeling, een domein zonder framework en de verboden uit het profiel. Laat elke regel één keer rood zien met een tijdelijke sabotageklasse, en haal die weer weg. Leg de keuze voor de tool vast in een ADR.
+   ⛔ Commit, en vraag goedkeuring voordat je aan het eerste acceptatiescenario begint.
 1. **Buitenste lus: één scenario.** Schrijf het eerste acceptatiescenario, bijvoorbeeld "De startpagina toont de versie", in de vier lagen: spec, DSL en drivers. Draai het tegen de doelomgeving. Het faalt, en in deze fase is dat de goede reden: er ís nog niets geïnstalleerd. Laat de foutmelding zien, bijvoorbeeld een 404 van de ingress of een connection refused.
 2. **Binnenste lussen: elk onderdeel eerst een falende test.**
    - De API geeft de versie terug: een unit- of slicetest.
@@ -12,7 +14,7 @@ Een walking skeleton is de dunste versie van het systeem die van begin tot eind 
    - Het installatiescript weigert een verkeerde doelomgeving: een scripttest met nepcommando's.
 3. **Buitenste lus groen.** Installeer lokaal met hetzelfde script dat CI gebruikt. Het scenario slaagt in alle drivers.
 4. **De pipeline.**
-   - **Commit stage:** alle snelle tests, zonder omgeving. Hier worden de artefacten één keer gebouwd.
+   - **Commit stage:** alle snelle tests en de vangrails, zonder omgeving. Hier worden de artefacten één keer gebouwd.
    - **Acceptance stage:** start alleen als de commit stage groen is. Installeert precies de artefacten uit de commit stage in een wegwerpomgeving en draait de acceptatietests.
 
 ## De pipeline zelf controleren
@@ -26,6 +28,7 @@ De pipeline is het testharnas en kan zichzelf niet test-first testen. Controleer
 ## Eerste ADR's
 
 - ADR's vastleggen: het proces zelf.
+- De tool voor de fitness functions (de vangrails), met de regels die hij bewaakt.
 - De deployment pipeline en de doelomgeving: één keer bouwen, en lokaal en in CI dezelfde scripts.
 - De keuze voor de acceptatietesttool en de DSL.
 - Eventuele afspraken over de doelomgeving, zoals een eigen namespace naast andere apps.
@@ -36,4 +39,5 @@ De pipeline is het testharnas en kan zichzelf niet test-first testen. Controleer
 - De commit staat op de hoofdbranch, en de commit stage en de acceptance stage zijn groen.
 - De app draait in de doelomgeving en is met de hand te gebruiken.
 - De pipeline is minstens één keer rood geweest en heeft dan niet gedeployed.
+- Elke vangrail is één keer rood gezien en draait groen in de commit stage.
 - Er is een korte instructie waarmee de gebruiker zelf kan nalopen wat er gebouwd is: elke test groen zien en één keer rood zien.

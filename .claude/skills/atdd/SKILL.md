@@ -1,6 +1,6 @@
 ---
 name: atdd
-description: Acceptance test-driven development volgens Dave Farley (Modern Software Engineering) - double-loop outside-in TDD, het vierlaagse acceptatietestmodel (testcase, DSL, protocol drivers, systeem), ADR's met bewaking en de deployment pipeline als scheidsrechter. Gebruik deze skill bij elk bouwwerk in een project dat zo werkt - een scenario of acceptatietest toevoegen, aan een nieuwe slice of feature beginnen, "volgende stap", een ADR opstellen, een walking skeleton opzetten, een rode pipeline onderzoeken - en ook als de gebruiker ATDD, BDD, double loop, outside-in of Farley noemt, of een nieuw project op deze manier wil starten. Leest eerst het ATDD-profiel van het project (CLAUDE.md of doc/atdd-profiel.md).
+description: Acceptance test-driven development volgens Dave Farley (Modern Software Engineering) - double-loop outside-in TDD, het vierlaagse acceptatietestmodel (testcase, DSL, protocol drivers, systeem), ADR's met bewaking, geautomatiseerde kwaliteitsvangrails (fitness functions, anti-AI-slop) en de deployment pipeline als scheidsrechter. Stuurt op hoge cohesie, lage koppeling, idempotente mutaties en meetbare performance. Gebruik deze skill bij elk bouwwerk in een project dat zo werkt - een scenario of acceptatietest toevoegen, aan een nieuwe slice of feature beginnen, "volgende stap", een ADR opstellen, een walking skeleton opzetten, architectuurregels of vangrails afdwingen, een rode pipeline onderzoeken - en ook als de gebruiker ATDD, BDD, double loop, outside-in of Farley noemt, of een nieuw project op deze manier wil starten. Leest eerst het ATDD-profiel van het project (CLAUDE.md of doc/atdd-profiel.md).
 ---
 
 # ATDD volgens Farley
@@ -20,7 +20,7 @@ Deze skill is een werkinstructie. Hij beschrijft *hoe* je bouwt. *Wat* je bouwt 
    - de projectvalkuilen;
    - waar de backlog staat.
 3. **Geen profiel?** Stel het samen met de gebruiker op met [references/profiel-sjabloon.md](references/profiel-sjabloon.md). Neem geen paden of commando's aan die je niet in de repo hebt gezien.
-4. **Nog geen pipeline of acceptatietest?** Begin met stap 0, het walking skeleton: [references/walking-skeleton.md](references/walking-skeleton.md). Bouw geen functionaliteit zonder vangnet.
+4. **Nog geen pipeline of acceptatietest?** Begin met stap 0, het walking skeleton: [references/walking-skeleton.md](references/walking-skeleton.md). Die begint met de kwaliteitsvangrails (§4). Bouw geen functionaliteit zonder vangnet.
 5. **Waar staan we?** Leid de voortgang af uit de repo: bestaande specs, `@wip`-tags, ADR's en de status in de README. Zoek daarna de volgende stap op in de backlog die het profiel noemt.
 
 Laad een stack-referentie (`references/stack-*.md`) pas als je in die laag werkt.
@@ -40,19 +40,19 @@ Eén iteratie is één voorbeeld, van scenario tot groene pipeline. ⛔ markeert
 4. **Binnenste lus, outside-in.** Begin bij de buitenste klasse die het scenario raakt, bijvoorbeeld een controller of een component. Per stap:
    1. **Rood.** Schrijf een unittest en laat zien dat hij faalt, met de melding erbij. Collaborators die nog niet bestaan, vervang je door een test double. Zo ontdek je hun interface vanuit het gebruik.
    2. **Groen.** Schrijf de kleinste code die de test laat slagen.
-   3. **Refactor.** Alleen op groen, als aparte stap. Refactor ook de tests.
+   3. **Refactor.** Alleen op groen, als aparte stap. Refactor ook de tests. De vangrails (§4) draaien mee; een rode vangrail wijst op een ontwerpfout in de code, niet in de vangrail.
 
    Ga zo een laag naar binnen tot alle lagen echt bestaan. Test doubles blijven alleen staan op echte grenzen, zoals tijd, externe systemen of het netwerk.
 5. **Architectuurkeuze nodig?** Schrijf dan een ADR-concept volgens [references/adr-sjabloon.md](references/adr-sjabloon.md), met opties, gevolgen en Bewaking.
    ⛔ De gebruiker beslist en zet de status op Geaccepteerd. Een nieuwe library of tool is altijd een ADR-kandidaat.
 6. **Lokaal verifiëren.**
-   1. Draai het commando voor de commit stage uit het profiel.
+   1. Draai het commando voor de commit stage uit het profiel. Daar horen de vangrails bij.
    2. Installeer de nieuwe versie en draai de acceptatietests. Controleer aan de versie dat je test wat je net gebouwd hebt.
    3. Draai het scenario in alle drivers waarvoor het geldt.
 7. **Commit.**
    ⛔ Vraag toestemming om te committen en te pushen, met de prefix uit het profiel. Commit het scenario, de tests, de code en de eventuele ADR samen. Het commitbericht krijgt de kopjes **Rood gezien** (melding en reden), **Sabotage** (als je die deed) en **Niet geverifieerd**. Zo hoort het bewijs bij precies die versie. Schrijf geen apart controle-document voor de mens; wat de mens nog controleert, staat in het profiel of de werkwijze.
    Volg na de push de pipeline tot het einde. Is hij rood, dan gaat dat voor alles: zoek de oorzaak in de joblog en los die eerst op.
-8. **Rapport.** Gebruik het format in §5.
+8. **Rapport.** Gebruik het format in §6.
 
 Komt er werk bij dat niet bij dit voorbeeld hoort? Zet het als `@wip`-scenario of als backlogpunt neer. Neem het niet mee in deze iteratie.
 
@@ -62,6 +62,7 @@ Komt er werk bij dat niet bij dit voorbeeld hoort? Zet het als `@wip`-scenario o
 - Werk aan **één falend acceptatiescenario tegelijk**. Scenario's voor later krijgen `@wip` en tellen in de pipeline niet mee.
 - Schrijf **geen productiecode zonder falende test.** Laat elke test eerst rood zien.
 - **Verander een test nooit in dezelfde stap als de code die hij test.** Een test die meebeweegt met de code, bewijst niets.
+- **Pas een vangrail nooit aan om groen te worden.** Verzwakken, uitzonderen of weghalen vraagt ⛔ en een ADR, net als bij een goedgekeurd scenario.
 - Schrijf de **kleinste implementatie** die de test groen maakt. Generaliseer pas als een volgende test daarom vraagt.
 - **Refactor alleen op groen**, en altijd als aparte stap.
 - **Ontdek je een regel die niet in het scenario staat?** Dan krijgt die een extra scenario of een expliciete unittest. Er mag nooit ongetest gedrag ontstaan.
@@ -89,7 +90,31 @@ Komt er werk bij dat niet bij dit voorbeeld hoort? Zet het als `@wip`-scenario o
 
 Zie voor de uitwerking in een stack bijvoorbeeld [references/stack-playwright-ts.md](references/stack-playwright-ts.md).
 
-## 4. Werken met AI (jij)
+## 4. Geautomatiseerde kwaliteitsvangrails (AQA)
+
+Kwaliteit controleer je niet achteraf met een review. Je dwingt haar af met fitness functions in de testsuite, en de pipeline bewaakt ze. Zo geldt een ontwerpregel pas als een test hem afdwingt.
+
+- **Vangrails eerst.** Ze staan er vóór de eerste functionaliteit, als eerste deel van stap 0. Minimaal: de laagindeling, een domein zonder framework, en de verboden die het profiel noemt.
+- **Elke vangrail één keer rood.** Sabotage: schrijf tijdelijk code die de regel overtreedt, laat de melding zien en haal de code weer weg. Commit de sabotage niet; noem haar onder **Sabotage** in het commitbericht. Een vangrail die nooit rood was, bewijst niets.
+- **Elke vangrail staat in het profiel,** met de test die hem bewaakt. Een nieuwe vangrail of tool is een ADR-kandidaat.
+- **Draai ze in de commit stage.** Een vangrail die alleen lokaal draait, is een advies.
+
+### Anti-AI-slop
+
+Deze regels gaan tegen de gewoontes in die een AI (jij) snel aanleert. Leg wat te automatiseren is vast als vangrail; de rest is een harde regel.
+
+- **YAGNI en eenvoud.** Kies de eenvoudigste leesbare constructie, bijvoorbeeld een filter over een collectie in het geheugen. Bouw geen slimme algoritmes, caches, indexen of incrementele berekeningen vooraf. Optimaliseren: zie *Meten is weten bij performance*.
+- **Geen luie quick-fixes.** Zet geen test uit, voeg geen suppression of uitzondering toe, vang geen fout weg met een catch-all en maak een assertie niet losser om groen te worden.
+- **Concurrency met de juiste primitieven.** Geen grove locks op service- of controllerniveau. Gebruik de concurrente datastructuren, locks of atomaire types van het platform, zo dicht mogelijk bij de gedeelde toestand.
+- **Moderne taal, weinig boilerplate.** Gebruik de constructies die de taal biedt voor waardeobjecten en gevalsonderscheid, zoals records, sealed types en pattern matching in Java.
+- **Het domein kent geen framework.** Annotaties en types van het framework blijven in de buitenste lagen.
+- **Hoge cohesie, lage koppeling:** Houd gerelateerde logica binnen dezelfde module. De AI (jij) mag business-regels niet verspreiden over controllers, services en databases. Een architectuurtest (in Java: ArchUnit) bewaakt dat modules uitsluitend via expliciete interfaces communiceren en geen interne datastructuren of DTO's delen.
+- **Idempotentie bij mutaties:** State-wijzigingen (zoals registraties en mutaties) moeten veilig herhaald kunnen worden zonder dat er duplicate data, oneindige lussen of ongeldige toestanden ontstaan. Valideer mutaties op unieke business-sleutels, in plaats van blind data toe te voegen.
+- **Meten is weten bij performance:** Optimaliseer nooit op basis van gissingen of complexe theoretische algoritmes vooraf. Bottlenecks moeten objectief aangetoond worden via metrics of profilers in de testsuite voordat de code wordt aangepast (YAGNI).
+
+De uitwerking per stack, met werkende regels, staat in `references/stack-*.md`.
+
+## 5. Werken met AI (jij)
 
 - Neem per stap **één falend scenario** als opdracht, met de relevante ADR's en de bestaande code. Lees niet het hele functionele ontwerp in om alles tegelijk te bouwen.
 - **Stel voor, besluit niet.** Scenario's, verwachte waarden en ADR-beslissingen zijn van de gebruiker.
@@ -100,13 +125,13 @@ Zie voor de uitwerking in een stack bijvoorbeeld [references/stack-playwright-ts
   - een projectvalkuil gaat naar het profiel;
   - een valkuil van een tool gaat naar de stack-referentie.
 
-## 5. Definition of Done en rapport
+## 6. Definition of Done en rapport
 
 Een slice of feature is klaar als:
 - de scenario's groen zijn in de acceptance stage van de pipeline, in elke relevante driver;
 - alle code test-first is ontstaan en de unittests groen zijn;
 - elke wijziging aan infrastructuur een template- of scripttest heeft, en bij gedrag in de omgeving ook een installatiescenario;
-- nieuwe fitness functions groen zijn;
+- de vangrails groen zijn in de commit stage, en elke nieuwe vangrail één keer rood is gezien;
 - elke architectuurbeslissing een ADR met Bewaking heeft;
 - er geen `@wip`-scenario's van deze slice meer zijn;
 - de specs de actuele beschrijving van het gedrag zijn.
@@ -121,6 +146,7 @@ Een slice of feature is klaar als:
 6. **Uitleg:** vijf tot tien regels voor de developer die hier straks verder bouwt:
    - **Route:** hoe het scenario door de lagen loopt, met `bestand:regel` per stap;
    - **Ontwerpkeuze:** waarom de code zo is opgebouwd, met de ADR als die er is;
-   - **Kritische punten:** waar een volgende wijziging het makkelijkst misgaat, en wat de tests níet afdekken.
+   - **Kritische punten:** waar een volgende wijziging het makkelijkst misgaat, en wat de tests níet afdekken;
+   - **Resilience:** waarom de mutaties in deze slice idempotent zijn en hoe de module-grenzen zijn bewaakt.
    Schrijf alleen op wat je in de code hebt gezien. Voor meer diepgang is er de skill `uitleg`.
 7. **Volgende stap:** het volgende voorbeeld uit de backlog, of wat er open staat.

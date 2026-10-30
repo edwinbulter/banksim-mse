@@ -18,6 +18,7 @@ Houd het kort: 40 tot 60 regels. Achtergrond en backlog horen in de projectdocum
 | Paden | Waar staan de specs, DSL, drivers, unittests, infra-tests en ADR's? | `e2e/specs`, `e2e/dsl`, `e2e/drivers/{rest,ui,shell}`, `doc/adr` |
 | Doelomgeving | Waar wordt geïnstalleerd, en wat mag daar níet? | Alleen `kind-single-node`, namespace `banksim-mse`. Destructieve tests alleen in CI |
 | Afspraken | Commitprefix, toestemming, lokale tools | `[ECS-63]`; nooit committen zonder toestemming; Node 24 via PATH |
+| Vangrails | Wat moet automatisch afgedwongen worden, en welk ontwerp is verboden? | Domein zonder Spring (ArchUnit); DTO's blijven in `api`; geen `synchronized` in service of controller; geen `LocalDate.now()` buiten de klok |
 | Projectvalkuilen | Wat ging eerder mis en is niet uit de code af te leiden? | `make e2e` test wat er geïnstalleerd is, dus gebruik `make acceptance` |
 | Backlog | Waar staan de volgende features of voorbeelden? | `doc/werkwijze-mse.md`, hoofdstuk 7 |
 
@@ -45,6 +46,12 @@ Werkwijze: skill `atdd` (`.claude/skills/atdd/`). Dit profiel bevat wat specifie
 | Domein / API / UI | … | … |
 | Infrastructuur | … | … |
 | ADR | … | – |
+
+**Vangrails** (SKILL.md §4; elk één keer rood gezien)
+| Vangrail | Test | Waar |
+| --- | --- | --- |
+| Laagindeling, domein zonder framework | … | … |
+| … | … | … |
 
 **Doelomgeving:** …  Verboden: …
 
