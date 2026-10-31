@@ -39,7 +39,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Pipeline | `.github/workflows/ci.yml` | actionlint |
 | ADR | `doc/adr/NNNN-titel.md` | – |
 
-**Vangrails** (skill §4; elk één keer rood gezien). De ArchUnit-tests staan in `backend/bank-api/src/test/java/nl/banksim/api/architectuur/` en controleren `bank-api` en `bank-domain`, niet `bank-seed` en `bank-bff`. Wat nog ontbreekt of nog geen rood heeft gezien, staat in [doc/backlog.md](doc/backlog.md).
+**Vangrails** (skill §4; elk één keer rood gezien). De ArchUnit-tests staan in `backend/bank-api/src/test/java/nl/banksim/api/architectuur/` en controleren `bank-api` en `bank-domain`. `bank-domain`, `bank-seed` en `bank-bff` hebben daarnaast eigen regels in hun testcode. Wat nog ontbreekt of nog geen rood heeft gezien, staat in [doc/backlog.md](doc/backlog.md).
 
 | Vangrail | Test | Rood gezien |
 | --- | --- | --- |
@@ -51,7 +51,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Een betaling met dezelfde Idempotency-Key boekt één keer; de sleutel geldt per gebruiker (ADR 0027) | `BetalingControllerTests`, `JdbcIdempotentieTests` | ja, sabotage in 8140ffd |
 | Een overboeking heeft twee kanten die samen nul zijn (ADR 0024) | trigger in `db/migration/V6__grootboek.sql`, via `JdbcGrootboekTests` | ja, sabotage (fase 1 van de backlog) |
 | Geen `double`/`float` voor bedragen (ADR 0010) | `GeenDrijvendeKommaTests` | ja, sabotage in bank-api en bank-domain (fase 1) |
-| Geen systeemtijd buiten de klok (ADR 0013) | `GeenSysteemtijdTests` | ja, sabotage in bank-api en bank-domain (fase 1) |
+| Geen systeemtijd buiten de klok (ADR 0013): geen `now()` zonder `Clock`, geen `System.currentTimeMillis()`, de systeemklok alleen in `KlokConfig` | `GeenSysteemtijdTests` in bank-api (ook bank-domain), bank-seed en bank-bff | ja, sabotage in alle vier de modules (fase 1 en 2.4) |
 | Geen `synchronized`, niet op een methode en niet als blok, in alle modules van de backend (concurrency) | `GeenSynchronizedTests` (bronscan) | ja, sabotage in bank-seed en bank-bff (fase 2.3) |
 | Het domein kent geen framework (Spring, Jakarta, Jackson) | `bank-domain/.../architectuur/DomeinKentGeenFrameworkTests`; de pom heeft ook geen Spring | ja, sabotage: Spring in de pom en `@Component` (fase 2.2) |
 | Mutatiescore minimaal 95% per module (ADR 0018) | PIT, `make mutatie` | – |
