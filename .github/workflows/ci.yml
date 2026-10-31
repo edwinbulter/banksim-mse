@@ -1,7 +1,7 @@
 # Deployment pipeline (doc/werkwijze-mse.md, hoofdstuk 3; ADR 0002).
 # Commit stage: snelle tests zonder cluster en de images, één keer gebouwd. Acceptance stage: precies die images
 # installeren in een tijdelijk kind-cluster dat single-node nabootst, in dezelfde namespace banksim-mse, en daar
-# de Playwright-acceptatietests draaien.
+# de Playwright-acceptatietests draaien. De mutatietests (PIT) draaien parallel aan de acceptance stage (ADR 0032).
 # Actions staan op commit-SHA vast.
 name: CI
 
@@ -37,8 +37,9 @@ jobs:
       - run: backend/mvnw -B -ntp -f backend/pom.xml verify
 
   mutatietests:
-    # ADR 0018: PIT herhaalt de sabotage bij elke commit; faalt onder 95% per module.
-    name: Commit stage – mutatietests
+    # ADR 0018: PIT herhaalt de sabotage bij elke commit; faalt onder 95% per module. ADR 0032: de acceptance stage
+    # wacht er niet op, maar een rode PIT-job maakt de pipeline wel rood.
+    name: Mutatietests (PIT)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -115,7 +116,7 @@ jobs:
 
   acceptance:
     name: Acceptance stage – acceptatietests (kind, namespace banksim-mse)
-    needs: [backend, mutatietests, frontend, infrastructuur, images]
+    needs: [backend, frontend, infrastructuur, images]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -170,7 +171,7 @@ jobs:
     # Een eigen runner en cluster, parallel aan de acceptatietests: de installatiescenario's installeren en
     # verwijderen zelf (doc/werkwijze-mse.md, 9.2).
     name: Acceptance stage – installatiescenario's (kind, namespace banksim-mse)
-    needs: [backend, mutatietests, frontend, infrastructuur, images]
+    needs: [backend, frontend, infrastructuur, images]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:

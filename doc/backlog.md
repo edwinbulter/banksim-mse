@@ -136,6 +136,29 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - `BetaalService.betaal` met negen parameters krijgt een command-record.
 3. *(te verifiëren)* **Harde regel (modern Java): één stijl voor ontbrekende waarden.** `Transactie`, `Zoekfilter`, `Partij` en `Boeking` gebruiken `Optional` in records, en `Overboeking` gebruikt nullable strings.
 
+## Fase 6: geautomatiseerde controles vóór productie (Farley)
+
+Uit de vergelijking met Farley (31 oktober): vertrouw niet op mensen die code lezen, maar op linters, typecontrole, architectuurchecks en contracttests in de pipeline. Linters, typecontrole en architectuurchecks zijn er grotendeels (fase 1 en 2). Dit zijn de gaten.
+
+1. **Klaar (ADR 0032): mutatietests parallel aan de acceptance stage.** De acceptatie wachtte op PIT (8:40), terwijl de andere jobs van de commit stage na hooguit 1:24 klaar waren. De pipeline duurde zo ongeveer 15 minuten. Nu wacht de acceptatie alleen op `backend`, `frontend`, `infrastructuur` en `images`, en duurt de pipeline naar verwachting ongeveer 9 minuten. Een rode PIT-job maakt de pipeline nog steeds rood.
+2. ⛔ **Beslissing (vangrail): contracttests op de grenzen tussen services.** Elke kant test nu tegen zijn eigen aanname van de andere kant:
+   - `BffTests` gebruikt een nep-bank-api (JDK-`HttpServer`); niets controleert dat die zich gedraagt als de echte.
+   - De Vitest-tests van de frontend verzinnen zelf de JSON van de API.
+
+   Een breuk ziet nu alleen de acceptance stage. Kies een vorm, bijvoorbeeld:
+   - één OpenAPI-specificatie (contract-first, al op de ADR-backlog in werkwijze hoofdstuk 6), met een test die bank-api ertegen controleert en de nep en de frontendfixtures ertegen valideert;
+   - of een contracttest per consument.
+
+   Nieuwe tool, dus een ADR. Draai de contracttests zonder Spring-context waar het kan, dan maken ze PIT niet trager. Op de doorlooptijd scheelt het verder niets: ze lopen in de jobs `backend` en `frontend`, die ruim binnen PIT klaar zijn.
+3. ⛔ **Beslissing (vangrail): statische analyse van Java.** Er is geen Error Prone, SpotBugs of Checkstyle. Fouten die de compiler niet ziet, zoals een genegeerde returnwaarde of `equals` zonder `hashCode`, vallen alleen op als een test ze toevallig raakt. Kies een tool en de regels. Nieuwe tool, dus een ADR.
+4. **Vangrail: architectuurregels voor bank-bff en bank-seed.** Ze hebben alleen "geen systeemtijd". Bijvoorbeeld: bank-seed boekt alleen via de domeinregels (ADR 0003), net als "alleen `LedgerService` boekt" in bank-api. Elke regel één keer rood gezien.
+5. ⛔ **Beslissing: de skill `atdd` aanvullen.** De skill noemt architectuurchecks expliciet, maar linters en typecontrole alleen per stack en contracttests helemaal niet. Toch staat in §1 stap 4 dat test doubles op echte grenzen blijven. Voorstel:
+   - §4, "Vangrails eerst": ook een linter en een strenge typecontrole per taal, in de commit stage;
+   - §1 stap 4 of §4: elke test double op een grens tussen services heeft een contracttest;
+   - `references/profiel-sjabloon.md`: een vraag naar de grenzen tussen services en het contract dat elke grens bewaakt.
+
+   De skill komt uit atdd-casus-1. Bepaal of de aanvulling daar ook naartoe gaat.
+
 ## Gevonden, maar geen slop
 
 Deze punten vallen niet onder §4. Ze gaan naar de losse backlogpunten in werkwijze hoofdstuk 7.

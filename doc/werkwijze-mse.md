@@ -1473,7 +1473,7 @@ De originele BankSim liet AI het hele systeem in één keer genereren uit het FO
 - **De mens is eigenaar van het voorbeeld.** Jij schrijft of keurt het scenario en de verwachte bedragen goed; de AI mag voorstellen doen, maar een scenario is pas geldig als jij het begrijpt en onderschrijft.
 - **Vraag om de kleinste implementatie** die de falende test groen maakt. Refactoren is een aparte stap met een aparte opdracht.
 - **Laat de AI nooit tegelijk test en implementatie veranderen.** Een test die tegelijk met de code verandert, bewijst niets. Eerst de falende test committen of laten zien, dan de code.
-- **Controleer AI-tests met mutation testing** (PIT, ADR 0018): `make mutatie` lokaal, en de job "Commit stage – mutatietests" in de pipeline. Overleven mutanten, dan testen de tests te weinig.
+- **Controleer AI-tests met mutation testing** (PIT, ADR 0018): `make mutatie` lokaal, en de job "Mutatietests (PIT)" in de pipeline, parallel aan de acceptance stage (ADR 0032). Overleven mutanten, dan testen de tests te weinig.
 - **Laat de AI ADR's opstellen, niet nemen.** Een ADR-concept met opties en gevolgen is nuttig; de beslissing en de status "Geaccepteerd" zijn aan jou.
 - **Houd de AI binnen de stack.** Een voorstel dat een nieuwe library of tool introduceert, is een ADR-kandidaat en geen implementatiedetail.
 - **De pipeline is de scheidsrechter**, niet het oordeel van de AI dat iets "werkt".
