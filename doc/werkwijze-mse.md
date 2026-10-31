@@ -224,9 +224,9 @@ flowchart TB
 
 | Laag | Wat erin staat | Wat er níet in mag |
 | --- | --- | --- |
-| Testcases | Het voorbeeld in domeintaal, als stappen Gegeven / Als / Dan | URL's, selectors, JSON, SQL |
+| Testcases | Het voorbeeld in domeintaal, als stappen Gegeven / Als / Dan | URL's, selectors, JSON, SQL; imports buiten `dsl/`, `page`, `request` en `expect` (bewaakt door `scripts/lagen-check.sh`, ADR 0031) |
 | DSL | Methodes als `heeftBetaalrekening`, `betaalt`, `verwachtSaldo`; aliassen voor testdata; bedragen als string en vergeleken met `big.js` | Hoe het systeem wordt aangestuurd |
-| Protocol drivers | HTTP-calls via `APIRequestContext`, Playwright page objects, inloggen bij Keycloak | Beweringen over gedrag (die zitten in de DSL) |
+| Protocol drivers | HTTP-calls via `APIRequestContext`, Playwright page objects, inloggen bij Keycloak; wachten tot het systeem klaar is en het protocol controleren (status, vorm van het antwoord) | Een uitkomst die per scenario kan verschillen, zoals of een betaling lukt: die geven ze terug, en de DSL beweert erover (ADR 0031) |
 | System under test | De echte, gedeployde applicatie | Test-only endpoints of testcode |
 
 **Hoe een scenario eruitziet**

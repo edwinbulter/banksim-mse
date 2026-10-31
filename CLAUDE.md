@@ -35,7 +35,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Schema | `backend/bank-api/src/main/resources/db/migration` (Flyway) | Via de repositorytests van `bank-api` en `bank-seed` |
 | UI | `frontend/src/app` | Vitest |
 | Helm-chart | `deploy/banksim-mse/templates` | `deploy/banksim-mse/tests/*_test.yaml`, plus de namespacecheck in `scripts/iac-check.sh` |
-| Scripts | `deploy/scripts` | `deploy/scripts/test/*.bats`, shellcheck |
+| Scripts | `deploy/scripts`, `scripts` | `deploy/scripts/test/*.bats`, `scripts/test/*.bats`, shellcheck |
 | Pipeline | `.github/workflows/ci.yml` | actionlint |
 | ADR | `doc/adr/NNNN-titel.md` | – |
 
@@ -44,6 +44,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Vangrail | Test | Rood gezien |
 | --- | --- | --- |
 | Alleen `LedgerService` boekt (ADR 0024) | `AlleenLedgerServiceBoektTests` | ja, sabotage in 7e52e79 |
+| Een spec spreekt alleen de DSL: imports alleen uit `dsl/`, geen `page`, `request` of `expect` (ADR 0031) | `scripts/lagen-check.sh` (commit stage), getest door `scripts/test/lagen-check.bats` | ja, sabotage per onderdeel en op een echte spec (fase 2.5) |
 | Geen kringen tussen de features van `bank-api` en van `bank-domain`; records `*Json` worden alleen door controllers gebruikt (cohesie en koppeling) | `ModulegrenzenTests` | ja, sabotage per regel (fase 2.1) |
 | Het grootboek kent de rente-code niet; die luistert naar `OverboekingGeboekt` (ADR 0030) | `GrootboekKentRenteNietTests` | ja, sabotage (S9.1, rentecorrectie) |
 | Elk endpoint heeft `@PreAuthorize`; zonder token 401, als klant 403 op beheer (ADR 0022) | `ToegangPerEndpointTests`, `AlleEndpointsTests` | ja, e0cddec |

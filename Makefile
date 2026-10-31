@@ -31,6 +31,7 @@ iac: ## Chart-, script- en workflowchecks in containers (ADR 0006)
 
 commit-stage: test mutatie iac ## Alles wat de commit stage in CI draait
 	npm --prefix $(E2E) run typecheck
+	scripts/lagen-check.sh
 
 install: ## BankSim-MSE installeren in namespace banksim-mse van kind-single-node
 	deploy/scripts/install.sh

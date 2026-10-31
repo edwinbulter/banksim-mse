@@ -59,17 +59,14 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 2. **Klaar: `DomeinKentGeenFrameworkTests` (het domein kent geen framework).** Een ArchUnit-regel in `bank-domain`: geen afhankelijkheid van `org.springframework..`, `jakarta..`, `javax..` en `com.fasterxml.jackson..`. De ArchUnit-dependency in die module heeft daarmee een functie. Sabotage: `spring-context` in de pom en `@Component` op een domeinklasse maakte de regel rood.
 3. **Klaar: `GeenSynchronizedTests` (concurrency met de juiste primitieven).** Eén bronscan in bank-api over `src/main/java` van alle modules van de backend vindt het woord `synchronized`, op een methode en als blok. Een aparte ArchUnit-regel voor de modifier is niet nodig, want de scan vindt die ook (YAGNI). Sabotage: een blok in bank-seed en een methode in bank-bff werden allebei gemeld, met bestand en regel.
 4. **Klaar: `GeenSysteemtijdTests` uitgebreid.** Nieuw verboden zijn `LocalTime`, `YearMonth` en `Year.now()` (ook met `ZoneId`) en `System.currentTimeMillis()`. Een tweede regel staat `Clock.system*()` alleen toe in `KlokConfig`. bank-seed en bank-bff hebben een eigen kopie, met ArchUnit als testdependency, en verbieden de systeemklok helemaal. Alles was groen op de bestaande code. Sabotage: de vijf nieuwe vormen in bank-api, `LocalDate.now()` in bank-seed en `Clock.systemUTC()` in bank-bff werden alle zeven gemeld.
-5. **Vangrail (vierlaagse model): specs spreken alleen de DSL.**
-   - Een script in `scripts/` met een bats-test, dus geen nieuwe tool. Zie `FourLayerTests` in atdd-casus-1.
-   - Het controleert dat bestanden in `e2e/specs/` alleen uit `../dsl/` importeren, en geen `page`, `request` of `expect` gebruiken.
-   - Vandaag groen, dus sabotage.
+5. **Klaar: specs spreken alleen de DSL (vierlaagse model), ADR 0031.** `scripts/lagen-check.sh` controleert dat een spec alleen uit `dsl/` importeert en geen `page`, `request` of `expect` gebruikt. Hij draait in `make commit-stage` en in de frontendjob van CI. `scripts/test/lagen-check.bats` test de controle in de bats-stap van `iac-check.sh`. Sabotage: zonder importcontrole, zonder de controle op `page`/`request`/`expect`, zonder de controle op een lege map en met een te ruim patroon werd telkens een bats-test rood. Een `expect` in een echte spec werd gemeld met bestand en regel.
 
-   **Besloten: drivers wachten en controleren het protocol, maar beweren niets over gedrag.** Dit gaat met een ADR mee in de commit van 2.5, en werkwijze hoofdstuk 5 wordt erop aangepast. Van de drie soorten `expect` mogen alleen de eerste twee in een driver.
-   - **Wachten** mag, bijvoorbeeld `toBeVisible()` in een UI-driver. Dat is Playwrights manier om te wachten tot de pagina klaar is.
-   - **Het protocol controleren** mag: een status 200 bij een GET of de vorm van een antwoord. Zo faalt de driver meteen met een duidelijke melding als hij het antwoord niet kan lezen.
-   - **Een uitkomst die per scenario kan verschillen,** zoals of een betaling lukt of geweigerd wordt, beweert de driver niet. Hij geeft haar terug aan de DSL, zoals `zetSimulatiedatum(): Promise<Uitkomst>` al doet.
+   **Besloten (ADR 0031): drivers wachten en controleren het protocol, maar beweren geen uitkomst die per scenario kan verschillen.** Van de drie soorten `expect` in de drivers mogen er twee blijven:
+   - **Wachten** mag, bijvoorbeeld `toBeVisible()` in een UI-driver.
+   - **Het protocol controleren** mag: een status 200 bij een GET of de vorm van een antwoord.
+   - **Een uitkomst,** zoals of een betaling lukt, geeft de driver terug aan de DSL. Dat ruimt fase 3 op.
 
-   Waarom: een driver wordt door veel scenario's gebruikt. Een ingebouwde verwachting dwingt dubbele methodes af (`neemOp` naast `probeerOpTeNemen`), kan per driver verschillen, valt buiten de ⛔-controle op goedgekeurde verwachtingen, en geeft een melding zonder domeintaal. De drivers die nu een uitkomst beweren, ruimt fase 3 op.
+   Werkwijze hoofdstuk 5 is erop aangepast. Dat er geen uitkomst in een driver staat, is niet automatisch te controleren; dat blijft een punt voor de review.
 6. **Vangrail (frontend):** `"strict": true` expliciet zetten in `frontend/tsconfig.json`, en `strictTemplates` in `angularCompilerOptions`.
 
 ## Fase 3: slop opruimen

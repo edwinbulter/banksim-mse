@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Binnenste lus voor de infrastructuur (doc/werkwijze-mse.md, hoofdstuk 9): chart, scripts en CI-workflow
-# testen zonder cluster. De tools draaien in vastgepinde container-images, lokaal en in CI hetzelfde (ADR 0006).
+# testen zonder cluster. De bats-stap test ook scripts/lagen-check.sh. De tools draaien in vastgepinde container-images, lokaal en in CI hetzelfde (ADR 0006).
 #
 #   scripts/iac-check.sh
 set -euo pipefail
@@ -66,7 +66,7 @@ stap "shellcheck"
 in_repo "$SHELLCHECK" -x deploy/scripts/*.sh scripts/*.sh
 
 stap "bats"
-in_repo "$BATS" deploy/scripts/test
+in_repo "$BATS" deploy/scripts/test scripts/test
 
 if [[ -d .github/workflows ]]; then
   stap "actionlint"
