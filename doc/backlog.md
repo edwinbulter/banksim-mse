@@ -67,7 +67,7 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - **Een uitkomst,** zoals of een betaling lukt, geeft de driver terug aan de DSL. Dat ruimt fase 3 op.
 
    Werkwijze hoofdstuk 5 is erop aangepast. Dat er geen uitkomst in een driver staat, is niet automatisch te controleren; dat blijft een punt voor de review.
-6. **Vangrail (frontend):** `"strict": true` expliciet zetten in `frontend/tsconfig.json`, en `strictTemplates` in `angularCompilerOptions`.
+6. **Klaar: strenge typering in de frontend expliciet.** `frontend/tsconfig.json` zet `"strict": true` en `"strictTemplates": true`. Onder TypeScript 6 en Angular 22 zijn beide al de standaard, dus de code was al streng getypeerd en bleef groen. Maar dan hing de vangrail aan een standaardwaarde die bij een upgrade of een gekopieerde instelling stil kan veranderen. Sabotage: `[rekeningen]="42"` in een template, en een parameter zonder type plus `null` in een `string` in een component en in een spec. Alle drie waren rood in de build of in Vitest. Met `strictTemplates: false` of `strict: false` bleven ze groen. Een test op de instelling zelf is er niet: wie hem uitzet, verzwakt een vangrail, en dat vraagt ⛔ en een ADR.
 
 ## Fase 3: slop opruimen
 

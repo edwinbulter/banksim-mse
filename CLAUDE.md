@@ -57,6 +57,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Het domein kent geen framework (Spring, Jakarta, Jackson) | `bank-domain/.../architectuur/DomeinKentGeenFrameworkTests`; de pom heeft ook geen Spring | ja, sabotage: Spring in de pom en `@Component` (fase 2.2) |
 | Mutatiescore minimaal 95% per module (ADR 0018) | PIT, `make mutatie` | – |
 | Alles in namespace `banksim-mse`, geen geheimen in de chart (ADR 0004, 0009) | `scripts/iac-check.sh` (yq) | ja, sabotage: ClusterRole, andere namespace, letterlijk wachtwoord (fase 1) |
+| De frontend is streng getypeerd, ook in de templates | `"strict"` en `"strictTemplates"` in `frontend/tsconfig.json`, via de build en Vitest | ja, sabotage: een verkeerd type in een template, een `any` en een `null` (fase 2.6) |
 | Geen `parseFloat`, `parseInt`, `Number()` of unaire `+` voor bedragen (ADR 0010) | `frontend/eslint.config.js` | ja, sabotage: alle vijf vormen (fase 1) |
 
 **Doelomgeving:** alleen kubectl-context `kind-single-node` en namespace `banksim-mse`, op de hosts `bank-mse.localtest.me` en `auth-mse.localtest.me` (Keycloak) (ADR 0004, 0007). Er komen geen cluster-brede resources. Het origineel in namespace `banksim` blijft onaangeroerd. Daarnaast is verboden:
