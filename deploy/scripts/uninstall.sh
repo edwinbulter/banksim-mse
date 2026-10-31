@@ -50,8 +50,8 @@ if [[ "$purge" == true ]]; then
     images="$(docker exec "$node" crictl images -o json \
       | sed -n 's/.*"\(docker.io\/banksim-mse\/[^"]*\)".*/\1/p' | sort -u)"
     if [[ -n "$images" ]]; then
-      # shellcheck disable=SC2086
-      docker exec "$node" crictl rmi $images >/dev/null
+      mapfile -t lijst <<<"$images"
+      docker exec "$node" crictl rmi "${lijst[@]}" >/dev/null
     fi
     ok "Images verwijderd"
   fi

@@ -91,12 +91,12 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - `TRANSACTIETYPEN` in `transactie/transactietype.ts`: de 7 typen met hun label in de volgorde van het FO, voor de details en het zoekformulier.
    - De interface `Rekening` staat alleen nog in `overzicht.ts`; `overschrijven-scherm.ts` importeert hem.
 5. **Harde regel (geen luie quick-fixes):**
-   - `Cursor.lees` vangt elke `RuntimeException` op. Zo verschijnt ook een fout in de HMAC-configuratie als 400. Vang alleen de parseerfouten.
-   - `SeedCommando` negeert onbekende opties van `transacties` stil. Een tikfout geeft dan stilletjes minder testdata. Laat de opdracht falen.
-   - `AlleEndpointsTests` controleert `isNotEqualTo(401)` voor de `permitAll`-endpoints. Daardoor komt een 500 erdoor.
-   - In `Zoekfilter.bedrag` overleeft de PIT-mutant `>= 0` → `> 0`, omdat geen test een bedrag van 0 gebruikt. In de ene run wordt hij gedood, in de andere niet: 161 en 160 van de 162 bij dezelfde code. Een test met bedrag 0 maakt de score stabiel.
-   - `deploy/scripts/uninstall.sh` heeft een `shellcheck disable=SC2086` zonder reden.
-   - `subscribe` zonder foutafhandeling in `overschrijven-scherm.ts`, `betalen-scherm.ts` en `app.ts`. Een fout blijft dan onzichtbaar. De spaarrekening staat al in de losse backlogpunten.
+   - **Klaar:** `Cursor.lees` vangt alleen nog de parseerfouten (`IllegalArgumentException`, `DateTimeParseException`) en controleert punt en komma zelf. Een fout in de HMAC-configuratie is geen 400 meer. Nieuwe test: een geldig ondertekende inhoud zonder datum, id of komma blijft een `OngeldigeCursor`. Sabotage: zonder `DateTimeParseException` in de catch, of zonder de kommacontrole, was die test rood.
+   - **Klaar:** `SeedCommando` weigert een onbekende optie, bij alle zes de commando's en niet alleen bij `transacties`, voordat er iets geboekt wordt. De test was eerst rood voor alle zes.
+   - **Klaar:** `AlleEndpointsTests` eist voor een `permitAll`-endpoint nu: geen 401 of 403, en ook geen 5xx. Sabotage: een `ResponseStatusException(500)` in `VersieController` was met de oude bewering groen en met de nieuwe rood.
+   - **Klaar:** `ZoekfilterTests.eenBedragVanNulMag` doodt de grensmutant in `Zoekfilter.bedrag`. Met `> 0` in plaats van `>= 0` was de test rood.
+   - **Klaar:** `uninstall.sh --purge` geeft de images als array door, zonder `shellcheck disable`. Nieuwe test `deploy/scripts/test/purge.bats`. Sabotage: alle images als één argument maakte hem rood.
+   - ⛔ **Open:** `subscribe` zonder foutafhandeling in `overschrijven-scherm.ts` (rekeningen laden), `betalen-scherm.ts` (suggesties) en `app.ts` (uitloggen). Daarnaast tonen betalen en overschrijven niets bij een fout zonder `detail`, zoals een 500. Wat de klant dan ziet, is een beslissing. De spaarrekening staat al in de losse backlogpunten.
 6. **Harde regel (vierlaagse model): uitkomsten uit de drivers.** Volgens het besluit bij 2.5 beweert een driver geen uitkomst die per scenario kan verschillen. Zoek de `expect`'s in de drivers die dat wel doen, waarschijnlijk de 201 van betalen en overschrijven. Laat de driver een `Uitkomst` teruggeven en de DSL beweren. Dan kunnen dubbele methodes als `neemOp` en `probeerOpTeNemen` samengaan.
 7. ⛔ **Beslissing (geen luie quick-fixes): de herkansing in CI.** `e2e/playwright.config.ts` heeft `retries: 1` in CI, en daardoor slaagt een flaky scenario stil. Er zijn twee keuzes:
    - `retries: 0`;
