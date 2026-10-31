@@ -56,7 +56,7 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 ## Fase 2: ontbrekende vangrails
 
 1. **Klaar: `ModulegrenzenTests` (hoge cohesie, lage koppeling).** Drie ArchUnit-regels: geen kringen tussen de featurepakketten van `bank-api`, geen kringen tussen die van `bank-domain`, en een record `*Json` wordt alleen door controllers gebruikt. De code is per feature ingedeeld, dus `layeredArchitecture` uit het sjabloon past niet. Alle drie waren groen op de bestaande code. Sabotage maakte elke regel rood: `simulatie` → `rente` (een kring via `grootboek`), `geld` → `grootboek` in het domein, en een klasse in `betaling` die `BetalingJson` gebruikt.
-2. **Vangrail (het domein kent geen framework): een ArchUnit-regel in `bank-domain`.** Geen afhankelijkheid van `org.springframework..` en `jakarta..`. De ArchUnit-dependency in `bank-domain/pom.xml` is nu ongebruikt; deze regel geeft hem een functie. Vandaag groen, dus sabotage.
+2. **Klaar: `DomeinKentGeenFrameworkTests` (het domein kent geen framework).** Een ArchUnit-regel in `bank-domain`: geen afhankelijkheid van `org.springframework..`, `jakarta..`, `javax..` en `com.fasterxml.jackson..`. De ArchUnit-dependency in die module heeft daarmee een functie. Sabotage: `spring-context` in de pom en `@Component` op een domeinklasse maakte de regel rood.
 3. **Vangrail (concurrency met de juiste primitieven): geen `synchronized`.**
    - Een ArchUnit-regel voor de modifier op methodes.
    - Een bronscan voor blokken, want ArchUnit ziet die niet; zie `stack-java-spring.md`.
