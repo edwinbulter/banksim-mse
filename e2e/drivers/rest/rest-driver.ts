@@ -285,7 +285,7 @@ export class RestDriver implements BankDriver {
       headers: await this.betaalHeaders(),
       data: { van, naar: iban, naam, bedrag },
     });
-    if (antwoord.status() === 422) {
+    if (WEIGERING.includes(antwoord.status())) {
       const { type } = (await antwoord.json()) as { type?: string };
       this.probleem = type?.split(':').at(-1);
       return;
@@ -348,7 +348,7 @@ export class RestDriver implements BankDriver {
   async probeerOpTeNemen(opdracht: Overschrijfopdracht): Promise<void> {
     this.probleem = undefined;
     const antwoord = await this.postOverschrijving(opdracht);
-    if (antwoord.status() === 422) {
+    if (WEIGERING.includes(antwoord.status())) {
       const { type } = (await antwoord.json()) as { type?: string };
       this.probleem = type?.split(':').at(-1);
       return;
@@ -408,6 +408,9 @@ export class RestDriver implements BankDriver {
     this.volgende = pagina.volgende;
   }
 }
+
+/** Een weigering met een probleembericht (RFC 9457): 400 bij ongeldige invoer, 422 bij een regel van de bank. */
+const WEIGERING = [400, 422];
 
 /** Het type van de API → het soort spaarmutatie (S8.1). */
 const SPAARTYPEN: Record<string, Spaarmutatie['type']> = { RENTE: 'Rente', INLEG: 'Inleg', OPNAME: 'Opname' };

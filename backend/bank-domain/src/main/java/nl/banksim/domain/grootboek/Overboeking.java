@@ -41,10 +41,10 @@ public record Overboeking(Partij van, Partij naar, Bedrag bedrag, TransactieType
 
     public Overboeking {
         if (bedrag.waarde().signum() <= 0) {
-            throw new IllegalArgumentException("Een overboeking is groter dan 0: " + bedrag);
+            throw new IllegalArgumentException("Het bedrag moet groter zijn dan € 0,00.");
         }
         if (van.iban().equals(naar.iban())) {
-            throw new IllegalArgumentException("Een overboeking gaat naar een andere rekening: " + van.iban());
+            throw new IllegalArgumentException("Van en naar zijn dezelfde rekening.");
         }
     }
 

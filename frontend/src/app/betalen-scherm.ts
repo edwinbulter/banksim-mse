@@ -6,7 +6,7 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
 /**
  * Route `/rekeningen/:iban/betalen` (S7.1, FO "Betalen scherm"): bedrag, naam en IBAN van de ontvanger; "Volgende"
  * toont het controlescherm, "Bevestigen" boekt de betaling en keert terug naar de betaalrekening. De controle of de
- * ontvanger een contact is en of het saldo toereikend is, doet de API; een weigering (422) toont haar melding.
+ * ontvanger een contact is en of het saldo toereikend is, doet de API; een weigering (400 of 422) toont haar melding.
  * De link "Betaalrekening" is "< Betaalrekening" uit het FO. Bij typen in naam of IBAN verschijnen suggesties uit de
  * contactenlijst; kiezen vult beide velden.
  */
@@ -119,7 +119,7 @@ export class BetalenScherm {
     const headers = { 'Idempotency-Key': this.sleutel };
     this.http.post('/api/betalingen', betaling, { headers }).subscribe({
       next: () => void this.router.navigate(['/rekeningen', this.iban()]),
-      // Een 422 is een geweigerde betaling met een melding; een 401 meldt de interceptor aan App.
+      // Een 400 of 422 is een geweigerde betaling met een melding; een 401 meldt de interceptor aan App.
       error: (fout: HttpErrorResponse) => this.melding.set((fout.error as { detail?: string } | null)?.detail),
     });
   }

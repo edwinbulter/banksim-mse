@@ -65,6 +65,21 @@ test('Rood staan is niet toegestaan', async ({ bank }) => {
   await bank.dan('krijgt Jan de melding "Saldo ontoereikend"', () => jan.verwachtWeigering('saldo-ontoereikend'));
 });
 
+// Backlog fase 3.1: een ongeldige opdracht is een weigering met een melding, geen fout van de bank.
+test('Een betaling van € 0,00 wordt geweigerd', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await bank.en('Sanne is een contact met een betaalrekening', () =>
+    sanne.heeftBetaalrekening({ contact: true }),
+  );
+  await bank.als('Jan € 0,00 probeert te betalen aan Sanne', () =>
+    jan.probeertTeBetalen({ bedrag: '0.00', aan: sanne }),
+  );
+  await bank.dan('wordt de betaling geweigerd als ongeldige invoer', () => jan.verwachtWeigering('ongeldige-invoer'));
+  await bank.en('is het saldo van Jan € 500,00', () => jan.verwachtSaldo('500.00'));
+  await bank.en('heeft Sanne geen bijschrijving ontvangen', () => sanne.verwachtGeenTransacties());
+});
+
 // FO: omschrijving en betalingskenmerk staan, indien aanwezig, in de details van de transactie.
 test('De omschrijving en het betalingskenmerk staan bij de ontvanger in de details', async ({ bank }) => {
   const jan = bank.klant('Jan');

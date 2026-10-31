@@ -76,16 +76,19 @@ class OverboekingTests {
     @Test
     void weigertEenBedragVanNulOfMinder() {
         assertThatThrownBy(() -> new Overboeking(JAN, SANNE, Bedrag.van("0.00"), TransactieType.ONLINE_BANKIEREN, TIJDSTIP))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Het bedrag moet groter zijn dan € 0,00.");
         assertThatThrownBy(() -> new Overboeking(JAN, SANNE, Bedrag.van("-0.01"), TransactieType.ONLINE_BANKIEREN, TIJDSTIP))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Het bedrag moet groter zijn dan € 0,00.");
     }
 
     @Test
     void weigertDezelfdeRekeningAanBeideKanten() {
         assertThatThrownBy(() -> new Overboeking(JAN, new Partij(JAN.iban(), "Ook Jan"), Bedrag.van("25.00"),
                 TransactieType.ONLINE_BANKIEREN, TIJDSTIP))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Van en naar zijn dezelfde rekening.");
     }
 
     @Test

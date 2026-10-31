@@ -71,11 +71,12 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 
 ## Fase 3: slop opruimen
 
-1. **Harde regel (hoge cohesie): validatie op één plek.**
-   - Het probleem: een ongeldige IBAN of een ongeldig bedrag bij `POST /api/betalingen` geeft 500. Dat staat al in de losse backlogpunten. Hetzelfde geldt waarschijnlijk voor een bedrag ≤ 0, dezelfde rekening aan beide kanten (constructor van `Overboeking`) en een ontbrekend veld *(te verifiëren)*.
-   - De oplossing: één `@RestControllerAdvice` die `IllegalArgumentException` als 400 met een probleembericht teruggeeft.
-   - Begin met een scenario.
-   - De bijna gelijke exception-handlers in `BetalingController` en `OverschrijvingController` gaan op in de advice.
+1. **Klaar: validatie op één plek.** Scenario "Een betaling van € 0,00 wordt geweigerd" in `betalen.spec.ts`, via REST en de UI. Het was rood om de goede reden: een 500, en in de UI geen melding.
+   - `ProbleemAdvice` maakt van elke `IllegalArgumentException` een 400 met probleemtype `ongeldige-invoer` en de melding van de exception. Dat geldt dus ook voor een ongeldige IBAN of een bedrag als "abc".
+   - De meldingen in `Overboeking` zijn klanttaal: "Het bedrag moet groter zijn dan € 0,00." en "Van en naar zijn dezelfde rekening.".
+   - De dubbele handlers van `BetalingController` en `OverschrijvingController` staan nu in `BetalingAdvice`, alleen voor die twee controllers. De exceptions blijven package-private in `betaling`.
+   - Kritisch punt: ook een `IllegalArgumentException` door een fout in de bank zelf wordt nu een 400. Gooi er daarom alleen een bij ongeldige invoer.
+   - Een bedrag als "abc" in de UI (een fout in de template van het controlescherm) staat in de losse backlogpunten.
 2. **Harde regel (hoge cohesie): de saldoformule op één plek.** `openingssaldo + coalesce(sum(bedrag))` staat drie keer in SQL:
    - `JdbcGrootboek` (`<= :datum`);
    - `JdbcRekeningRepository` (`<= :vandaag`);

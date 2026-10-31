@@ -6,6 +6,7 @@ export const WEIGERINGEN: Record<string, string> = {
   'Naar dit rekeningnummer kan niet worden betaald.': 'onbekend-contact',
   'De naam van de ontvanger hoort niet bij dit rekeningnummer.': 'naam-past-niet',
   'Saldo ontoereikend: deze betaling zou het saldo onder € 0,00 brengen, nu of op een latere datum.': 'saldo-ontoereikend',
+  'Het bedrag moet groter zijn dan € 0,00.': 'ongeldige-invoer',
 };
 
 /** Het scherm Betalen (FO "Betalen scherm"): het formulier, het controlescherm en terug naar de betaalrekening. */

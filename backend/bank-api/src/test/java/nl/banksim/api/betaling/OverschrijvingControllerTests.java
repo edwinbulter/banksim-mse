@@ -123,6 +123,25 @@ class OverschrijvingControllerTests {
         assertThat(grootboek.geschreven()).isEmpty();
     }
 
+    /** Backlog fase 3.1, net als bij betalen: een ongeldige opdracht is een fout van de client. */
+    @Test
+    void eenBedragVanNulIs400() throws Exception {
+        mvc.perform(verzoek(UUID.randomUUID().toString()).content(opdracht(BETAAL_JAN, SPAAR_JAN).replace("250.00", "0.00")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:ongeldige-invoer"))
+                .andExpect(jsonPath("$.detail").value("Het bedrag moet groter zijn dan € 0,00."));
+        assertThat(grootboek.geschreven()).isEmpty();
+    }
+
+    @Test
+    void naarDezelfdeRekeningIs400() throws Exception {
+        mvc.perform(verzoek(UUID.randomUUID().toString()).content(opdracht(SPAAR_JAN, SPAAR_JAN)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:ongeldige-invoer"))
+                .andExpect(jsonPath("$.detail").value("Van en naar zijn dezelfde rekening."));
+        assertThat(grootboek.geschreven()).isEmpty();
+    }
+
     /** ADR 0027, net als bij betalen: dezelfde sleutel boekt één keer. */
     @Test
     void dezelfdeSleutelTweeKeerBoektEenKeer() throws Exception {

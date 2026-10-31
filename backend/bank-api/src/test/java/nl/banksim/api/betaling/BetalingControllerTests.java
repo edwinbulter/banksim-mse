@@ -166,6 +166,36 @@ class BetalingControllerTests {
         assertThat(grootboek.saldoGevraagd()).containsExactly(VAN_JAN + " 2026-10-05");
     }
 
+    /** Backlog fase 3.1: een ongeldige opdracht is een fout van de client, met een melding voor de klant. */
+    @Test
+    void eenBedragVanNulGeeft400EnBoektNiets() throws Exception {
+        mvc.perform(betaalverzoek().content(betaling(VAN_JAN, "Sanne", "0.00")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:ongeldige-invoer"))
+                .andExpect(jsonPath("$.detail").value("Het bedrag moet groter zijn dan € 0,00."));
+
+        assertThat(grootboek.geschreven()).isEmpty();
+    }
+
+    /** ADR 0010: meer dan twee decimalen wordt geweigerd, niet afgerond; de melding komt uit het domein. */
+    @Test
+    void eenBedragMetMeerDanTweeDecimalenGeeft400() throws Exception {
+        mvc.perform(betaalverzoek().content(betaling(VAN_JAN, "Sanne", "25.001")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:ongeldige-invoer"));
+
+        assertThat(grootboek.geschreven()).isEmpty();
+    }
+
+    @Test
+    void eenOngeldigeIbanGeeft400() throws Exception {
+        mvc.perform(betaalverzoek().content(betaling(VAN_JAN).replace(VAN_SANNE.toString(), "NL00GEEN0000000000")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:ongeldige-invoer"));
+
+        assertThat(grootboek.geschreven()).isEmpty();
+    }
+
     /** ADR 0025: een incasso na de uitvoerdatum verlaagt wat er nu betaald mag worden (€ 500,00 - € 450,00). */
     @Test
     void eenLatereAfschrijvingDieRoodZouGevenGeeft422() throws Exception {
