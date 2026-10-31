@@ -55,11 +55,7 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 
 ## Fase 2: ontbrekende vangrails
 
-1. **Vangrail (hoge cohesie, lage koppeling): geen cycli tussen de feature-pakketten van `bank-api`.**
-   - De regel: `slices().matching("nl.banksim.api.(*)..").should().beFreeOfCycles()`.
-   - De code is per feature ingedeeld (`betaling`, `grootboek`, `rente`, …) en niet in lagen, dus `layeredArchitecture` uit het sjabloon past niet.
-   - Neem er ook een DTO-regel bij: records `*Json` staan alleen genest in een controller.
-   - Vandaag groen, dus sabotage.
+1. **Klaar: `ModulegrenzenTests` (hoge cohesie, lage koppeling).** Drie ArchUnit-regels: geen kringen tussen de featurepakketten van `bank-api`, geen kringen tussen die van `bank-domain`, en een record `*Json` wordt alleen door controllers gebruikt. De code is per feature ingedeeld, dus `layeredArchitecture` uit het sjabloon past niet. Alle drie waren groen op de bestaande code. Sabotage maakte elke regel rood: `simulatie` → `rente` (een kring via `grootboek`), `geld` → `grootboek` in het domein, en een klasse in `betaling` die `BetalingJson` gebruikt.
 2. **Vangrail (het domein kent geen framework): een ArchUnit-regel in `bank-domain`.** Geen afhankelijkheid van `org.springframework..` en `jakarta..`. De ArchUnit-dependency in `bank-domain/pom.xml` is nu ongebruikt; deze regel geeft hem een functie. Vandaag groen, dus sabotage.
 3. **Vangrail (concurrency met de juiste primitieven): geen `synchronized`.**
    - Een ArchUnit-regel voor de modifier op methodes.
@@ -75,9 +71,12 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - Het controleert dat bestanden in `e2e/specs/` alleen uit `../dsl/` importeren, en geen `page`, `request` of `expect` gebruiken.
    - Vandaag groen, dus sabotage.
 
-   ⛔ **Beslissing: mogen drivers beweren?** Werkwijze hoofdstuk 5 verbiedt beweringen in drivers. Toch gebruiken de UI-drivers `expect` om te wachten (`toBeVisible`), en de REST-driver controleert er HTTP-statussen mee. Er zijn twee keuzes:
-   - de regel aanscherpen naar "drivers wachten en controleren het protocol, maar doen geen uitspraak over gedrag" (ADR), en de vangrail daarop afstemmen;
-   - de beweringen naar de DSL verplaatsen.
+   **Besloten: drivers wachten en controleren het protocol, maar beweren niets over gedrag.** Dit gaat met een ADR mee in de commit van 2.5, en werkwijze hoofdstuk 5 wordt erop aangepast. Van de drie soorten `expect` mogen alleen de eerste twee in een driver.
+   - **Wachten** mag, bijvoorbeeld `toBeVisible()` in een UI-driver. Dat is Playwrights manier om te wachten tot de pagina klaar is.
+   - **Het protocol controleren** mag: een status 200 bij een GET of de vorm van een antwoord. Zo faalt de driver meteen met een duidelijke melding als hij het antwoord niet kan lezen.
+   - **Een uitkomst die per scenario kan verschillen,** zoals of een betaling lukt of geweigerd wordt, beweert de driver niet. Hij geeft haar terug aan de DSL, zoals `zetSimulatiedatum(): Promise<Uitkomst>` al doet.
+
+   Waarom: een driver wordt door veel scenario's gebruikt. Een ingebouwde verwachting dwingt dubbele methodes af (`neemOp` naast `probeerOpTeNemen`), kan per driver verschillen, valt buiten de ⛔-controle op goedgekeurde verwachtingen, en geeft een melding zonder domeintaal. De drivers die nu een uitkomst beweren, ruimt fase 3 op.
 6. **Vangrail (frontend):** `"strict": true` expliciet zetten in `frontend/tsconfig.json`, en `strictTemplates` in `angularCompilerOptions`.
 
 ## Fase 3: slop opruimen
@@ -106,10 +105,11 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - In `Zoekfilter.bedrag` overleeft de PIT-mutant `>= 0` → `> 0`, omdat geen test een bedrag van 0 gebruikt. In de ene run wordt hij gedood, in de andere niet: 161 en 160 van de 162 bij dezelfde code. Een test met bedrag 0 maakt de score stabiel.
    - `deploy/scripts/uninstall.sh` heeft een `shellcheck disable=SC2086` zonder reden.
    - `subscribe` zonder foutafhandeling in `overschrijven-scherm.ts`, `betalen-scherm.ts` en `app.ts`. Een fout blijft dan onzichtbaar. De spaarrekening staat al in de losse backlogpunten.
-6. ⛔ **Beslissing (geen luie quick-fixes): de herkansing in CI.** `e2e/playwright.config.ts` heeft `retries: 1` in CI, en daardoor slaagt een flaky scenario stil. Er zijn twee keuzes:
+6. **Harde regel (vierlaagse model): uitkomsten uit de drivers.** Volgens het besluit bij 2.5 beweert een driver geen uitkomst die per scenario kan verschillen. Zoek de `expect`'s in de drivers die dat wel doen, waarschijnlijk de 201 van betalen en overschrijven. Laat de driver een `Uitkomst` teruggeven en de DSL beweren. Dan kunnen dubbele methodes als `neemOp` en `probeerOpTeNemen` samengaan.
+7. ⛔ **Beslissing (geen luie quick-fixes): de herkansing in CI.** `e2e/playwright.config.ts` heeft `retries: 1` in CI, en daardoor slaagt een flaky scenario stil. Er zijn twee keuzes:
    - `retries: 0`;
    - de pipeline laat een scenario dat pas bij de herkansing slaagt (status `flaky`) zien als waarschuwing.
-7. ⛔ **Beslissing (geen luie quick-fixes): de PIT-uitsluiting van `nl.banksim.*Config`** (ADR 0018). Daardoor valt de rolmapping in `BeveiligingConfig` buiten mutation testing. Er zijn twee keuzes:
+8. ⛔ **Beslissing (geen luie quick-fixes): de PIT-uitsluiting van `nl.banksim.*Config`** (ADR 0018). Daardoor valt de rolmapping in `BeveiligingConfig` buiten mutation testing. Er zijn twee keuzes:
    - de mapping naar een eigen klasse halen, met een eigen test;
    - de uitsluiting houden, met een reden in ADR 0018.
 
