@@ -53,7 +53,8 @@ class AlleEndpointsTests {
         for (Endpoint endpoint : endpoints()) {
             int status = mvc.perform(endpoint.verzoek()).andReturn().getResponse().getStatus();
             if (PERMIT_ALL.equals(endpoint.recht())) {
-                assertThat(status).as(endpoint.toString()).isNotEqualTo(401);
+                // Bereikbaar: geen 401 of 403, en ook geen fout van de bank (backlog fase 3.5).
+                assertThat(status).as(endpoint.toString()).isNotIn(401, 403).isLessThan(500);
             } else {
                 assertThat(status).as(endpoint.toString()).isEqualTo(401);
             }
