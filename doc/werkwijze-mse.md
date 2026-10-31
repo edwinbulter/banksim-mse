@@ -315,6 +315,7 @@ Welk scenario of welke fitness function (ArchUnit, contracttest, rooktest) faalt
 - Eén beslissing per ADR. Een ADR wordt nooit herschreven: een nieuwe beslissing krijgt een nieuw nummer en zet de oude op "Vervangen door".
 - Elke ADR noemt de **bewaking**: waar mogelijk een geautomatiseerde fitness function, zodat de beslissing niet stilletjes wordt losgelaten.
 - De ADR gaat mee in dezelfde commit als de code die de beslissing invoert.
+- Een nieuwe vangrail is een ADR-kandidaat (skill `atdd` §4). De vangrails die nog ontbreken, en wat er aan AI-slop moet worden opgeruimd, staan in [backlog.md](backlog.md).
 
 **Verwachte ADR's (backlog uit TO §1.2 en §17)**
 
@@ -1522,7 +1523,7 @@ Controle en leren zijn daarom twee aparte doelen. Controle houd je minimaal (§1
 
 | Moment | Wat | Hoe |
 | --- | --- | --- |
-| Na elke iteratie | Een blok **Uitleg** van vijf tot tien regels in het rapport van de skill `atdd` (§5 van de skill): de route van het scenario door de lagen met `bestand:regel`, de ontwerpkeuze met de ADR, en de kritische punten, waaronder wat de tests níet afdekken. Je leest het bij het rapport, dus het kost geen extra stap | Vanzelf |
+| Na elke iteratie | Een blok **Uitleg** van vijf tot tien regels in het rapport van de skill `atdd` (§6 van de skill): de route van het scenario door de lagen met `bestand:regel`, de ontwerpkeuze met de ADR, en de kritische punten, waaronder wat de tests níet afdekken. Je leest het bij het rapport, dus het kost geen extra stap | Vanzelf |
 | Als je het nodig hebt | De skill `uitleg`, bijvoorbeeld `/uitleg slice 4`, `/uitleg betalen` of `/uitleg bank-bff`. Claude leest de actuele specs, code, unittests, ADR's en commitberichten. Je krijgt de functionaliteit, één verzoek gevolgd door de code, het ontwerp, de kritische punten, en waar een volgende wijziging begint. Gebruik het voordat je aan een slice begint die op eerder werk voortbouwt, bij een onderdeel dat je niet kent, of om iemand in te werken | `/uitleg <onderwerp>` |
 
 Beide halen de uitleg uit de code van dat moment, en schrijven niets weg. Er is dus geen document dat kan verouderen. Elke bewering over de code heeft een `bestand:regel`, zodat je hem kunt nalopen. Een kritisch punt dat Claude vindt, zoals een ontbrekende test, wordt geen reparatie in de uitleg, maar een nieuwe iteratie met eerst een rode test.
@@ -1583,7 +1584,7 @@ Een slice is pas klaar als:
 - [ ] De scenario's van de slice groen zijn in de acceptance stage: in het project `rest` en (waar relevant) in `chromium`; `@ui`- en `@rook`-scenario's ook in `firefox` en `webkit` (ADR 0019).
 - [ ] Alle code test-first is ontstaan; unittests (JUnit, Vitest) en slicetests zijn groen.
 - [ ] Elke wijziging aan chart, scripts of CI heeft een template- of scripttest. Verandert er gedrag in het cluster, dan heeft hij ook een installatiescenario (hoofdstuk 9).
-- [ ] Nieuwe fitness functions (ArchUnit, property-based, concurrency, contract) zijn toegevoegd en groen.
+- [ ] Nieuwe fitness functions (ArchUnit, property-based, concurrency, contract) zijn toegevoegd en groen in de commit stage. Elke nieuwe vangrail is één keer rood gezien met sabotage, en staat met zijn test in de tabel Vangrails van het profiel (skill `atdd` §4).
 - [ ] Elke architectuurbeslissing uit deze slice een ADR heeft, met bewaking.
 - [ ] Er geen library of tool buiten de afgesproken stack is bijgekomen zonder ADR.
 - [ ] De slice via de pipeline is gedeployed in namespace `banksim-mse` op `kind-single-node` en met de hand te gebruiken is op `https://bank-mse.localtest.me`.

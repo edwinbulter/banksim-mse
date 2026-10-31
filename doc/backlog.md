@@ -46,18 +46,12 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 
 ## Fase 1: bestaande vangrails bewijzen
 
-1. **Vangrail: sabotage op de vangrails waarvan geen rood is vastgelegd.** Het gaat om:
-   - `GeenDrijvendeKommaTests`;
-   - `GeenSysteemtijdTests`;
-   - de trigger in `V6__grootboek.sql`;
-   - de yq-regels in `scripts/iac-check.sh`;
-   - de eslint-regels van ADR 0010.
-
-   Leg het rood vast in het commitbericht en werk de kolom "Rood gezien" in het profiel bij.
-2. **Werkwijze gelijktrekken met de skill** in `doc/werkwijze-mse.md`:
-   - hoofdstuk 12 (DoD): "elke nieuwe vangrail is één keer rood gezien en draait in de commit stage";
-   - hoofdstuk 10, de tabel met het blok Uitleg: "§5 van de skill" wordt §6;
-   - hoofdstuk 6: een verwijzing naar deze backlog.
+1. **Klaar: elke bestaande vangrail is één keer rood gezien.** De sabotage is telkens weer weggehaald.
+   - De trigger in `V6__grootboek.sql`, uitgezet: vier tests in `JdbcGrootboekTests` werden rood (één kant, drie kanten, som niet nul, dezelfde rekening).
+   - `GeenDrijvendeKommaTests` en `GeenSysteemtijdTests`: een veld `double` en een aanroep van `LocalDate.now()`, in `bank-api` en in `bank-domain`.
+   - `scripts/iac-check.sh`: een `ClusterRole`, een `ConfigMap` in namespace `banksim` en een letterlijk `DB_PASSWORD` werden elk tegengehouden.
+   - De eslint-regels van ADR 0010: `parseFloat`, `parseInt`, `Number()`, `Number.parseFloat` en de unaire `+` gaven elk een fout.
+2. **Klaar: de werkwijze is gelijkgetrokken met de skill.** De DoD in hoofdstuk 12 eist nu dat elke nieuwe vangrail één keer rood is gezien. Hoofdstuk 10 verwijst naar §6 van de skill, en hoofdstuk 6 naar deze backlog.
 
 ## Fase 2: ontbrekende vangrails
 
@@ -109,6 +103,7 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - `Cursor.lees` vangt elke `RuntimeException` op. Zo verschijnt ook een fout in de HMAC-configuratie als 400. Vang alleen de parseerfouten.
    - `SeedCommando` negeert onbekende opties van `transacties` stil. Een tikfout geeft dan stilletjes minder testdata. Laat de opdracht falen.
    - `AlleEndpointsTests` controleert `isNotEqualTo(401)` voor de `permitAll`-endpoints. Daardoor komt een 500 erdoor.
+   - In `Zoekfilter.bedrag` overleeft de PIT-mutant `>= 0` → `> 0`, omdat geen test een bedrag van 0 gebruikt. In de ene run wordt hij gedood, in de andere niet: 161 en 160 van de 162 bij dezelfde code. Een test met bedrag 0 maakt de score stabiel.
    - `deploy/scripts/uninstall.sh` heeft een `shellcheck disable=SC2086` zonder reden.
    - `subscribe` zonder foutafhandeling in `overschrijven-scherm.ts`, `betalen-scherm.ts` en `app.ts`. Een fout blijft dan onzichtbaar. De spaarrekening staat al in de losse backlogpunten.
 6. ⛔ **Beslissing (geen luie quick-fixes): de herkansing in CI.** `e2e/playwright.config.ts` heeft `retries: 1` in CI, en daardoor slaagt een flaky scenario stil. Er zijn twee keuzes:

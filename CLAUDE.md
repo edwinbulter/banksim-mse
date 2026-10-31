@@ -48,13 +48,13 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Elk endpoint heeft `@PreAuthorize`; zonder token 401, als klant 403 op beheer (ADR 0022) | `ToegangPerEndpointTests`, `AlleEndpointsTests` | ja, e0cddec |
 | Gelijktijdige overboekingen: geen deadlock, totaal behouden, nooit onder nul (ADR 0026) | `grootboek/GelijktijdigeOverboekingenTests` | ja, sabotage in 54eac60 |
 | Een betaling met dezelfde Idempotency-Key boekt één keer; de sleutel geldt per gebruiker (ADR 0027) | `BetalingControllerTests`, `JdbcIdempotentieTests` | ja, sabotage in 8140ffd |
-| Een overboeking heeft twee kanten die samen nul zijn (ADR 0024) | trigger in `db/migration/V6__grootboek.sql` | niet vastgelegd |
-| Geen `double`/`float` voor bedragen (ADR 0010) | `GeenDrijvendeKommaTests` | niet vastgelegd |
-| Geen systeemtijd buiten de klok (ADR 0013) | `GeenSysteemtijdTests` | niet vastgelegd |
+| Een overboeking heeft twee kanten die samen nul zijn (ADR 0024) | trigger in `db/migration/V6__grootboek.sql`, via `JdbcGrootboekTests` | ja, sabotage (fase 1 van de backlog) |
+| Geen `double`/`float` voor bedragen (ADR 0010) | `GeenDrijvendeKommaTests` | ja, sabotage in bank-api en bank-domain (fase 1) |
+| Geen systeemtijd buiten de klok (ADR 0013) | `GeenSysteemtijdTests` | ja, sabotage in bank-api en bank-domain (fase 1) |
 | Het domein kent geen Spring | `backend/bank-domain/pom.xml` zonder Spring-dependency (compileert niet) | n.v.t. |
 | Mutatiescore minimaal 95% per module (ADR 0018) | PIT, `make mutatie` | – |
-| Alles in namespace `banksim-mse`, geen geheimen in de chart (ADR 0004, 0009) | `scripts/iac-check.sh` (yq) | niet vastgelegd |
-| Geen `parseFloat`, `parseInt`, `Number()` of unaire `+` voor bedragen (ADR 0010) | `frontend/eslint.config.js` | niet vastgelegd |
+| Alles in namespace `banksim-mse`, geen geheimen in de chart (ADR 0004, 0009) | `scripts/iac-check.sh` (yq) | ja, sabotage: ClusterRole, andere namespace, letterlijk wachtwoord (fase 1) |
+| Geen `parseFloat`, `parseInt`, `Number()` of unaire `+` voor bedragen (ADR 0010) | `frontend/eslint.config.js` | ja, sabotage: alle vijf vormen (fase 1) |
 
 **Doelomgeving:** alleen kubectl-context `kind-single-node` en namespace `banksim-mse`, op de hosts `bank-mse.localtest.me` en `auth-mse.localtest.me` (Keycloak) (ADR 0004, 0007). Er komen geen cluster-brede resources. Het origineel in namespace `banksim` blijft onaangeroerd. Daarnaast is verboden:
 - `kubectl edit` of `kubectl apply` met de hand;
