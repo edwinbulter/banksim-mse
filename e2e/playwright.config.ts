@@ -21,7 +21,8 @@ export default defineConfig<Opties>({
   testDir: './specs',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // Backlog fase 3.7: geen herkansing, ook niet in CI. Een flaky scenario maakt de pipeline rood en valt zo op.
+  retries: 0,
   timeout: 30_000,
   expect: { timeout: 10_000 },
   reporter: [['list'], ['html', { open: 'never' }]],

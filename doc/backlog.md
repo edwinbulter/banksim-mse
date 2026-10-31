@@ -106,9 +106,7 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - De REST-driver controleert alleen nog het protocol: 201 is gelukt, 400 of 422 met een probleemtype is geweigerd, elke andere status is een fout. De UI-driver wacht op de rekening of op een melding.
    - Wat in de drivers blijft, is wachten en het protocol controleren: een 200 bij een GET, de vorm van een pagina, de inlog- en uitlogstappen.
    - Sabotage: Sanne tijdelijk geen contact in "Betaling naar een contact". Beide drivers faalden met dezelfde melding: "betaling van Jan (onbekend-contact)", Expected "gelukt", Received "geweigerd".
-7. ⛔ **Beslissing (geen luie quick-fixes): de herkansing in CI.** `e2e/playwright.config.ts` heeft `retries: 1` in CI, en daardoor slaagt een flaky scenario stil. Er zijn twee keuzes:
-   - `retries: 0`;
-   - de pipeline laat een scenario dat pas bij de herkansing slaagt (status `flaky`) zien als waarschuwing.
+7. **Klaar (⛔ besloten): geen herkansing in CI.** `e2e/playwright.config.ts` heeft nu `retries: 0`, ook in CI. In de 24 geslaagde runs van 25 tot en met 31 oktober was geen enkel scenario `flaky`; de herkansing hielp dus nergens, maar zou het volgende flaky scenario stil laten slagen. Nu maakt het de pipeline rood. De andere keuze, een waarschuwing bij `flaky`, vroeg een extra reporter en stap in CI voor een probleem dat niet voorkwam (YAGNI). De zin over `retries: 1` in de Gevolgen van ADR 0014 is daarmee achterhaald; de ADR zelf blijft ongewijzigd.
 8. ⛔ **Beslissing (geen luie quick-fixes): de PIT-uitsluiting van `nl.banksim.*Config`** (ADR 0018). Daardoor valt de rolmapping in `BeveiligingConfig` buiten mutation testing. Er zijn twee keuzes:
    - de mapping naar een eigen klasse halen, met een eigen test;
    - de uitsluiting houden, met een reden in ADR 0018.
