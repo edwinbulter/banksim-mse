@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import nl.banksim.api.sql.Like;
 import nl.banksim.domain.grootboek.Contact;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -31,7 +32,7 @@ class JdbcContacten implements Contacten {
     /** Naam: een deel, zonder hoofdletters; IBAN: het begin, zonder spaties. %, _ en \\ zijn gewone tekens. */
     @Override
     public List<Contact> zoek(String tekst, String gebruikersnaam) {
-        String gewoon = tekst.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        String gewoon = Like.letterlijk(tekst.strip());
         return jdbc.sql("""
                         SELECT c.iban, c.naam FROM contact c
                         WHERE (c.naam ILIKE :naam ESCAPE '\\' OR c.iban LIKE :iban ESCAPE '\\')

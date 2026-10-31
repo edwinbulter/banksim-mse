@@ -1217,7 +1217,6 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Een bedrag als "abc" in het betaalformulier: `bedragVoorWeergave` gooit dan een fout in de template van het controlescherm (gevolg in de browser te verifiëren). De API geeft sinds backlog fase 3.1 wel een 400 met een melding | De UI valideert het formulier nog niet | Een scenario "ongeldig bedrag wordt in het formulier al tegengehouden" (origineel) |
 | Suggesties bij een leeg veld: de app vraagt dan op met een lege tekst en krijgt 10 willekeurige contacten | Geen test vroeg erom (S7.1, suggesties) | Een `@ui`-scenario of frontendtest: een leeg veld toont geen suggesties |
 | Suggesties zonder vertraging (debounce): elk teken is een verzoek, en een ouder antwoord kan een nieuwer overschrijven | Lokaal en in CI niet gezien; de driver typt in één keer | Eerste melding van verkeerde suggesties, of CFR Performance |
-| Het onschadelijk maken van `%`, `_` en `\` in LIKE staat dubbel (`Zoekfilter`, `JdbcContacten`) | Twee plekken; een gedeelde helper is een refactorstap | De volgende query met LIKE |
 | Integratietest van de realm met Testcontainers | Zie hoofdstuk 9.1 | Bij de volgende realm-wijziging (slice 6 of 10) |
 | Herstart van PostgreSQL en Keycloak behoudt de data | Zie hoofdstuk 9.4 | CFR Resilience |
 | Mutation testing van de frontend met Stryker | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend meer logica krijgt (slice 7) |

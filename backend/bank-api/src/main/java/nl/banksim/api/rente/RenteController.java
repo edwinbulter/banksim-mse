@@ -1,8 +1,8 @@
 package nl.banksim.api.rente;
 
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
+import nl.banksim.api.rekening.IbanInPad;
 import nl.banksim.api.simulatie.SimulationClock;
-import nl.banksim.domain.rekening.Iban;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,17 +30,9 @@ class RenteController {
     @GetMapping("/api/rekeningen/{iban}/lopende-rente")
     @PreAuthorize("isAuthenticated()")
     LopendeRenteJson lopendeRente(@PathVariable String iban) {
-        return lopendeRente.van(gebruiker.gebruikersnaam(), ibanOf404(iban), klok.vandaag())
+        return lopendeRente.van(gebruiker.gebruikersnaam(), IbanInPad.van(iban), klok.vandaag())
                 .map(bedrag -> new LopendeRenteJson(bedrag.toString()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-    }
-
-    private static Iban ibanOf404(String tekst) {
-        try {
-            return Iban.van(tekst);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        }
     }
 
     /** ADR 0010: het bedrag als string, bijvoorbeeld "12.36". */

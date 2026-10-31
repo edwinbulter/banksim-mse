@@ -1,4 +1,5 @@
 import { Component, input, output, signal } from '@angular/core';
+import { TRANSACTIETYPEN } from './transactie/transactietype';
 
 /** S5.1: een zoekopdracht zoals de klant hem invult; lege velden ontbreken, bedragen blijven letterlijke tekst. */
 export interface Zoekopdracht {
@@ -10,17 +11,6 @@ export interface Zoekopdracht {
 }
 
 type Richting = 'inkomend' | 'uitgaand';
-
-/** De 7 typen uit het FO, in de volgorde van het FO. */
-const TYPEN = [
-  ['ONLINE_BANKIEREN', 'Online bankieren'],
-  ['IDEAL_WERO', 'iDEAL | Wero'],
-  ['BETAALAUTOMAAT', 'Betaalautomaat'],
-  ['INCASSO', 'Incasso'],
-  ['GELDAUTOMAAT', 'Geldautomaat'],
-  ['OVERSCHRIJVING', 'Overschrijving'],
-  ['VERZAMELBETALING', 'Verzamelbetaling'],
-] as const;
 
 /**
  * S5.1: zoeken in de transacties. "Zoeken in transacties" opent het formulier, "Verberg zoeken" sluit het. Het
@@ -42,8 +32,8 @@ const TYPEN = [
         <label for="zoek-type">Transactietype</label>
         <select id="zoek-type" (change)="type.set(waarde($event))">
           <option value="" [selected]="type() === ''">Alle transactietypes</option>
-          @for (t of typen; track t[0]) {
-            <option [value]="t[0]" [selected]="type() === t[0]">{{ t[1] }}</option>
+          @for (t of typen; track t.code) {
+            <option [value]="t.code" [selected]="type() === t.code">{{ t.label }}</option>
           }
         </select>
         <fieldset>
@@ -76,7 +66,7 @@ export class ZoekFormulier {
   readonly zoek = output<Zoekopdracht>();
   readonly wis = output();
 
-  protected readonly typen = TYPEN;
+  protected readonly typen = TRANSACTIETYPEN;
   protected readonly open = signal(false);
   protected readonly tekst = signal('');
   protected readonly van = signal('');

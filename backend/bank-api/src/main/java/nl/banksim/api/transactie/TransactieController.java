@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
+import nl.banksim.api.rekening.IbanInPad;
 import nl.banksim.api.simulatie.SimulationClock;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.http.HttpStatus;
@@ -48,7 +49,7 @@ class TransactieController {
     PaginaJson transacties(@PathVariable String iban, @RequestParam Optional<String> na,
             @RequestParam Optional<String> tekst, @RequestParam Optional<String> van, @RequestParam Optional<String> tm,
             @RequestParam Optional<String> type, @RequestParam Optional<String> richting) {
-        Iban rekening = ibanOf404(iban);
+        Iban rekening = IbanInPad.van(iban);
         Zoekfilter filter = Zoekfilter.van(tekst, van, tm, type, richting);
         Optional<Positie> positie = na.map(cursortekst -> cursor.lees(rekening, cursortekst));
         Pagina pagina = transacties.vanRekening(gebruiker.gebruikersnaam(), rekening, klok.vandaag(), filter, positie, PER_PAGINA)
@@ -70,14 +71,6 @@ class TransactieController {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     void ongeldigeCursor() {
         // 400 zonder body; de klant opent de rekening opnieuw.
-    }
-
-    private static Iban ibanOf404(String tekst) {
-        try {
-            return Iban.van(tekst);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        }
     }
 
     /** {@code volgende} is null aan het eind van de lijst. */

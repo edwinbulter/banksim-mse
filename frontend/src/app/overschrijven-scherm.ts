@@ -2,13 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { bedragUitInvoer } from './geld/bedrag';
-
-/** Een rekening zoals GET /api/rekeningen hem levert. */
-interface Rekening {
-  soort: 'betaal' | 'spaar';
-  iban: string;
-  saldo: string;
-}
+import type { Rekening } from './overzicht';
 
 /**
  * Routes `/spaarrekeningen/:iban/inleggen` en `/opnemen` (S9.1, FO "Overschrijven scherm"): bij inleggen is Van de eigen

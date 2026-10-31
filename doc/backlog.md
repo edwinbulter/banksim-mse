@@ -85,11 +85,11 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - Besloten: **geen transactie om het geheel**, anders dan eerst voorgesteld. Elke maand van elke spaarrekening wordt al in een eigen transactie afgesloten (`MaandRente.boek`), en de afsluiting is idempotent (ADR 0028). Eén transactie om alles zou alle spaarrekeningen tegelijk vergrendelen, en bij één fout ook de datum terugdraaien.
    - Elke overboeking blijft één atomaire transactie: `LedgerService.boek` schrijft beide kanten, en de trigger uit V6 controleert bij de commit dat ze samen nul zijn.
    - `SimulatieServiceTests` bewaakt de volgorde. Sabotage: eerst afsluiten en dan pas de datum zetten maakte deze test en `SimulatiedatumControllerTests` rood.
-4. **Harde regel (YAGNI en eenvoud): dubbele code samenvoegen.**
-   - `ibanOf404` staat in `RenteController` en in `TransactieController`.
-   - Het onschadelijk maken van LIKE-tekens staat in `JdbcContacten` en in `Zoekfilter`. Dat staat al in de losse backlogpunten.
-   - De tabel van transactietype naar label staat in de frontend twee keer: `transactie/transactietype.ts` en `zoek-formulier.ts`.
-   - De interface `Rekening` staat in de frontend twee keer: `overzicht.ts` en `overschrijven-scherm.ts`.
+4. **Klaar: dubbele code samengevoegd.** Telkens eerst een test voor de gedeelde plek, daarna de aanroepers omgezet onder de bestaande tests.
+   - `rekening/IbanInPad`: een ongeldige IBAN in het pad is een 404 (ADR 0023), voor `RenteController` en `TransactieController`. Dat is sinds fase 3.1 belangrijker: zonder deze klasse wordt het een 400 via `ProbleemAdvice`.
+   - `sql/Like.letterlijk`: `%`, `_` en `\` als gewone tekens, voor `JdbcContacten` en `Zoekfilter`. Het losse backlogpunt is weg.
+   - `TRANSACTIETYPEN` in `transactie/transactietype.ts`: de 7 typen met hun label in de volgorde van het FO, voor de details en het zoekformulier.
+   - De interface `Rekening` staat alleen nog in `overzicht.ts`; `overschrijven-scherm.ts` importeert hem.
 5. **Harde regel (geen luie quick-fixes):**
    - `Cursor.lees` vangt elke `RuntimeException` op. Zo verschijnt ook een fout in de HMAC-configuratie als 400. Vang alleen de parseerfouten.
    - `SeedCommando` negeert onbekende opties van `transacties` stil. Een tikfout geeft dan stilletjes minder testdata. Laat de opdracht falen.

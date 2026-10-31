@@ -3,6 +3,7 @@ package nl.banksim.api.transactie;
 import java.util.Arrays;
 import java.util.Optional;
 
+import nl.banksim.api.sql.Like;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.transactie.TransactieType;
 
@@ -42,7 +43,7 @@ record Zoekfilter(Optional<String> tekst, Optional<Bedrag> van, Optional<Bedrag>
     }
 
     private static String bevat(String tekst) {
-        return "%" + tekst.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+        return "%" + Like.letterlijk(tekst) + "%";
     }
 
     private static Optional<String> ingevuld(Optional<String> veld) {
