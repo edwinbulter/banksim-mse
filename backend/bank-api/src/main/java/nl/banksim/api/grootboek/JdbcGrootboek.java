@@ -21,9 +21,11 @@ import org.springframework.stereotype.Repository;
 class JdbcGrootboek implements Grootboek {
 
     private final JdbcClient jdbc;
+    private final Saldi saldi;
 
     JdbcGrootboek(JdbcClient jdbc) {
         this.jdbc = jdbc;
+        this.saldi = new Saldi(jdbc);
     }
 
     @Override
@@ -64,14 +66,7 @@ class JdbcGrootboek implements Grootboek {
 
     @Override
     public SaldoVerloop saldoVerloop(Iban iban, LocalDate datum) {
-        Bedrag saldo = new Bedrag(jdbc.sql("""
-                        SELECT r.openingssaldo + coalesce((SELECT sum(t.bedrag) FROM transactie t
-                                                           WHERE t.iban = r.iban AND t.datum <= :datum), 0)
-                        FROM rekening r WHERE r.iban = :iban""")
-                .param("iban", iban.toString())
-                .param("datum", datum)
-                .query(BigDecimal.class)
-                .single());
+        Bedrag saldo = saldi.aanHetEindVan(iban, datum);
         List<Bedrag> latereBewegingen = jdbc.sql("""
                         SELECT sum(bedrag) FROM transactie WHERE iban = :iban AND datum > :datum
                         GROUP BY datum ORDER BY datum""")

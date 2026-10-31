@@ -77,10 +77,10 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - De dubbele handlers van `BetalingController` en `OverschrijvingController` staan nu in `BetalingAdvice`, alleen voor die twee controllers. De exceptions blijven package-private in `betaling`.
    - Kritisch punt: ook een `IllegalArgumentException` door een fout in de bank zelf wordt nu een 400. Gooi er daarom alleen een bij ongeldige invoer.
    - Een bedrag als "abc" in de UI (een fout in de template van het controlescherm) staat in de losse backlogpunten.
-2. **Harde regel (hoge cohesie): de saldoformule op één plek.** `openingssaldo + coalesce(sum(bedrag))` staat drie keer in SQL:
-   - `JdbcGrootboek` (`<= :datum`);
-   - `JdbcRekeningRepository` (`<= :vandaag`);
-   - `JdbcRenteOpslag` (`< :van`, het saldo bij het begin van de dag; nagaan of dat bewust is).
+2. **Klaar: de saldoformule op één plek.** `grootboek/Saldi` geeft het saldo aan het eind van een datum: het openingssaldo plus de transacties tot en met die datum. `JdbcGrootboek`, `JdbcRekeningRepository` en `JdbcRenteOpslag` gebruiken hem.
+   - De `< :van` in `JdbcRenteOpslag` was bewust: het saldo bij het begin van de eerste dag. Dat is nu `aanHetEindVan(iban, van − 1 dag)`.
+   - Het overzicht vraagt nu per rekening een saldo op, in plaats van één query voor alle rekeningen. Een klant heeft een paar rekeningen; optimaliseren pas na meten.
+   - `JdbcRenteOpslag` had geen eigen repositorytest. `JdbcRenteOpslagTests` legt de dagsaldi eerst vast: het beginsaldo telt de rente van vóór de eerste dag mee en die dag zelf niet, en de rente van de maand zelf telt niet mee (ADR 0030). Sabotage: `<=` in plaats van `<`, en zonder `type <> 'RENTE'`; beide rood.
 3. **Harde regel (hoge cohesie): orkestratie uit de controller.**
    - `SimulatiedatumController` doet zelf twee mutaties: eerst `zet` of `wis`, daarna `sluitAf`. Er zit geen service tussen en geen `@Transactional`.
    - De oplossing: een service met een transactie.

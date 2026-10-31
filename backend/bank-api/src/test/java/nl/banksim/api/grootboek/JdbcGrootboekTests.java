@@ -103,6 +103,15 @@ class JdbcGrootboekTests {
                 .isEqualTo(new SaldoVerloop(Bedrag.van("420.00"), List.of()));
     }
 
+    /** Backlog fase 3.2: de saldoformule op één plek; het openingssaldo plus de transacties tot en met de datum. */
+    @Test
+    void hetSaldoIsAanHetEindVanDeDatum() {
+        Saldi saldi = new Saldi(jdbc);
+        assertThat(saldi.aanHetEindVan(KEES, LocalDate.of(2026, 9, 30))).isEqualTo(Bedrag.van("500.00"));
+        assertThat(saldi.aanHetEindVan(KEES, LocalDate.of(2026, 10, 5))).isEqualTo(Bedrag.van("380.00"));
+        assertThat(saldi.aanHetEindVan(KEES, LocalDate.of(2026, 10, 10))).isEqualTo(Bedrag.van("420.00"));
+    }
+
     /** Beide kanten, met type, tijdstip in Europe/Amsterdam, uitvoerdatum en de andere kant als tegenpartij (S4.1). */
     @Test
     void schrijftDeOverboekingMetBeideTransacties() {

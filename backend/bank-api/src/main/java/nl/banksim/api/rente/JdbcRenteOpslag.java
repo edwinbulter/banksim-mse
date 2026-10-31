@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import nl.banksim.api.grootboek.Saldi;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import nl.banksim.domain.rente.DagSaldo;
@@ -20,9 +21,11 @@ import org.springframework.stereotype.Repository;
 class JdbcRenteOpslag implements RenteOpslag {
 
     private final JdbcClient jdbc;
+    private final Saldi saldi;
 
     JdbcRenteOpslag(JdbcClient jdbc) {
         this.jdbc = jdbc;
+        this.saldi = new Saldi(jdbc);
     }
 
     @Override
@@ -80,14 +83,8 @@ class JdbcRenteOpslag implements RenteOpslag {
 
     @Override
     public List<DagSaldo> dagsaldi(Iban iban, LocalDate van, LocalDate totEnMet) {
-        BigDecimal saldo = jdbc.sql("""
-                        SELECT r.openingssaldo + coalesce((SELECT sum(t.bedrag) FROM transactie t
-                                                           WHERE t.iban = r.iban AND t.datum < :van), 0)
-                        FROM rekening r WHERE r.iban = :iban""")
-                .param("iban", iban.toString())
-                .param("van", van)
-                .query(BigDecimal.class)
-                .single();
+        // Het saldo bij het begin van de eerste dag.
+        BigDecimal saldo = saldi.aanHetEindVan(iban, van.minusDays(1)).waarde();
         Map<LocalDate, BigDecimal> perDag = jdbc.sql("""
                         SELECT datum, sum(bedrag) AS som FROM transactie
                         WHERE iban = :iban AND type <> 'RENTE' AND datum BETWEEN :van AND :tm GROUP BY datum""")

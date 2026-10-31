@@ -1,0 +1,73 @@
+package nl.banksim.api.rente;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.time.LocalDate;
+
+import nl.banksim.domain.geld.Bedrag;
+import nl.banksim.domain.rekening.Iban;
+import nl.banksim.domain.rente.DagSaldo;
+import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
+
+/** ADR 0028, tegen PostgreSQL met de migraties van bank-api: de dagsaldi waarover de rente gaat. */
+@Testcontainers
+class JdbcRenteOpslagTests {
+
+    @Container
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName
+            .parse("postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873")
+            .asCompatibleSubstituteFor("postgres"));
+
+    static final Iban SPAAR_JAN = Iban.van("NL94SIMB0000000001");
+
+    static JdbcRenteOpslag opslag;
+
+    /**
+     * Jan opent met € 1.000,00. Vóór 1 oktober: rente en een inleg. In oktober: een inleg op de 1e, een opname op de
+     * 3e en de rente van oktober op de 31e.
+     */
+    @BeforeAll
+    static void spaarrekeningMetTransacties() {
+        var dataSource = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        Flyway.configure().dataSource(dataSource).load().migrate();
+        JdbcClient jdbc = JdbcClient.create(dataSource);
+        opslag = new JdbcRenteOpslag(jdbc);
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('jan', 'Jan')").update();
+        jdbc.sql("""
+                INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo, geopend_op)
+                SELECT 'NL94SIMB0000000001', id, 'spaar', 1000.00, '2026-01-01' FROM rekeninghouder WHERE gebruikersnaam = 'jan'
+                """).update();
+        jdbc.sql("""
+                INSERT INTO transactie (iban, datum, bedrag, tegenpartij, type, tijdstip) VALUES
+                ('NL94SIMB0000000001', '2026-09-30', 2.00, 'BankSim', 'RENTE', '2026-09-30T23:59+02:00'),
+                ('NL94SIMB0000000001', '2026-09-30', 100.00, 'Jan', 'INLEG', '2026-09-30T12:00+02:00'),
+                ('NL94SIMB0000000001', '2026-10-01', 50.00, 'Jan', 'INLEG', '2026-10-01T12:00+02:00'),
+                ('NL94SIMB0000000001', '2026-10-03', -30.00, 'Jan', 'OPNAME', '2026-10-03T12:00+02:00'),
+                ('NL94SIMB0000000001', '2026-10-31', 3.00, 'BankSim', 'RENTE', '2026-10-31T23:59+01:00')
+                """).update();
+    }
+
+    /** Het saldo bij het begin van de eerste dag telt alles van daarvóór mee, ook de rente; die dag zelf niet. */
+    @Test
+    void beginnenBijHetSaldoAanHetBeginVanDeEersteDag() {
+        assertThat(opslag.dagsaldi(SPAAR_JAN, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 3))).containsExactly(
+                new DagSaldo(LocalDate.of(2026, 10, 1), Bedrag.van("1152.00")),
+                new DagSaldo(LocalDate.of(2026, 10, 2), Bedrag.van("1152.00")),
+                new DagSaldo(LocalDate.of(2026, 10, 3), Bedrag.van("1122.00")));
+    }
+
+    /** ADR 0030: de rente van de maand zelf telt niet mee, anders verandert een herberekening haar eigen uitkomst. */
+    @Test
+    void deRenteVanDeMaandZelfTeltNietMee() {
+        assertThat(opslag.dagsaldi(SPAAR_JAN, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31)).getLast())
+                .isEqualTo(new DagSaldo(LocalDate.of(2026, 10, 31), Bedrag.van("1122.00")));
+    }
+}
