@@ -707,4 +707,73 @@ describe('App', () => {
     expect(TestBed.inject(Location).path()).toBe('/spaarrekeningen/NL67SIMB0000000002/opnemen');
     expect(pagina.querySelector('h2')?.textContent).toBe('Overschrijven');
   });
+
+  // Backlog fase 3.5: een fout zonder melding van de API blijft niet onzichtbaar.
+  const SERVERFOUT = { status: 500, statusText: 'Internal Server Error' };
+
+  it('meldt het als de rekeningen voor Overschrijven niet geladen kunnen worden (S9.1)', async () => {
+    const pagina = await start('/spaarrekeningen/NL67SIMB0000000002/inleggen');
+    http.expectOne('/api/rekeningen').flush(null, SERVERFOUT);
+    await ververs();
+
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe('De rekeningen konden niet worden geladen.');
+  });
+
+  it('meldt het als een overschrijving mislukt zonder melding van de API (S9.1)', async () => {
+    const pagina = await start('/spaarrekeningen/NL67SIMB0000000002/opnemen');
+    await rekeningen({
+      status: 200,
+      body: [...JAN, { soort: 'spaar', iban: 'NL67SIMB0000000002', saldo: '5000.00' }],
+    });
+    vulIn(pagina, 'Bedrag (€)', '500,00');
+    knop(pagina, 'Overschrijven')?.click();
+    await ververs();
+
+    http.expectOne('/api/overschrijvingen').flush(null, SERVERFOUT);
+    await ververs();
+
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Er ging iets mis. Probeer het later opnieuw.');
+  });
+
+  it('meldt het als een betaling mislukt zonder melding van de API (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+    vulIn(pagina, 'Bedrag (€)', '25,00');
+    vulIn(pagina, 'Naam ontvanger', 'Sanne');
+    vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL67SIMB0000000002');
+    knop(pagina, 'Volgende')?.click();
+    await ververs();
+    knop(pagina, 'Bevestigen')?.click();
+    await ververs();
+    http.match((verzoek) => verzoek.url === '/api/contacten').forEach((verzoek) => verzoek.flush([]));
+
+    http.expectOne('/api/betalingen').flush(null, SERVERFOUT);
+    await ververs();
+
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Er ging iets mis. Probeer het later opnieuw.');
+  });
+
+  it('toont geen suggesties en geen melding als de contacten niet geladen kunnen worden (S7.1)', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001/betalen');
+
+    vulIn(pagina, 'Naam ontvanger', 'San');
+    await ververs();
+    http.expectOne('/api/contacten?q=San').flush(null, SERVERFOUT);
+    await ververs();
+
+    expect(pagina.querySelector('ul[aria-label="Suggesties"]')).toBeNull();
+    expect(pagina.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('meldt het als uitloggen mislukt, en blijft dan ingelogd (S6.2)', async () => {
+    const pagina = await start('/');
+    await rekeningen({ status: 200, body: JAN });
+
+    knop(pagina, 'Uitloggen')?.click();
+    http.expectOne({ method: 'POST', url: '/logout' }).flush(null, SERVERFOUT);
+    await ververs();
+
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Uitloggen is mislukt. Probeer het opnieuw.');
+    expect(genavigeerd).toEqual([]);
+    expect(knop(pagina, 'Uitloggen')).toBeDefined();
+  });
 });

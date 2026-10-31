@@ -1,6 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { meldingBij } from './fout';
 import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
 
 /**
@@ -88,7 +89,11 @@ export class BetalenScherm {
   protected readonly suggesties = signal<Contact[]>([]);
 
   protected zoekContacten(tekst: string): void {
-    this.http.get<Contact[]>('/api/contacten', { params: { q: tekst } }).subscribe((contacten) => this.suggesties.set(contacten));
+    // Suggesties zijn een hulpmiddel: lukt het ophalen niet, dan zijn er geen, en kan de klant gewoon verder typen.
+    this.http.get<Contact[]>('/api/contacten', { params: { q: tekst } }).subscribe({
+      next: (contacten) => this.suggesties.set(contacten),
+      error: () => this.suggesties.set([]),
+    });
   }
 
   /** Kiezen vult naam en IBAN in één keer, en sluit de suggesties. */
@@ -120,7 +125,7 @@ export class BetalenScherm {
     this.http.post('/api/betalingen', betaling, { headers }).subscribe({
       next: () => void this.router.navigate(['/rekeningen', this.iban()]),
       // Een 400 of 422 is een geweigerde betaling met een melding; een 401 meldt de interceptor aan App.
-      error: (fout: HttpErrorResponse) => this.melding.set((fout.error as { detail?: string } | null)?.detail),
+      error: (fout: HttpErrorResponse) => this.melding.set(meldingBij(fout)),
     });
   }
 

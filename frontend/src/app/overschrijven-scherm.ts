@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { bedragUitInvoer } from './geld/bedrag';
+import { meldingBij } from './fout';
 import type { Rekening } from './overzicht';
 
 /**
@@ -54,7 +55,10 @@ export class OverschrijvenScherm {
   private readonly sleutel = crypto.randomUUID();
 
   constructor() {
-    this.http.get<Rekening[]>('/api/rekeningen').subscribe((rekeningen) => this.rekeningen.set(rekeningen));
+    this.http.get<Rekening[]>('/api/rekeningen').subscribe({
+      next: (rekeningen) => this.rekeningen.set(rekeningen),
+      error: () => this.melding.set('De rekeningen konden niet worden geladen.'),
+    });
   }
 
   protected schrijfOver(): void {
@@ -62,8 +66,8 @@ export class OverschrijvenScherm {
     const headers = { 'Idempotency-Key': this.sleutel };
     this.http.post('/api/overschrijvingen', opdracht, { headers }).subscribe({
       next: () => void this.router.navigate(['/spaarrekeningen', this.iban()]),
-      // Een 422 is een geweigerde overschrijving met een melding; een 401 meldt de interceptor aan App.
-      error: (fout: HttpErrorResponse) => this.melding.set((fout.error as { detail?: string } | null)?.detail),
+      // Een 400 of 422 is een geweigerde overschrijving met een melding; een 401 meldt de interceptor aan App.
+      error: (fout: HttpErrorResponse) => this.melding.set(meldingBij(fout)),
     });
   }
 

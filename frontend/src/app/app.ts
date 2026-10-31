@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterOutlet } from '@angular/router';
 import { map } from 'rxjs';
@@ -22,6 +22,9 @@ import { Sessie } from './sessie';
         <a href="/oauth2/authorization/keycloak">Inloggen</a>
       } @else {
         <button type="button" (click)="logUit()">Uitloggen</button>
+        @if (melding(); as melding) {
+          <p role="alert">{{ melding }}</p>
+        }
         <router-outlet />
       }
     </main>
@@ -37,12 +40,18 @@ export class App {
   private readonly http = inject(HttpClient);
   private readonly browser = inject(Browser);
 
+  /** Backlog fase 3.5: mislukt uitloggen, dan blijft de klant ingelogd en ziet de klant een melding. */
+  protected readonly melding = signal<string | undefined>(undefined);
+
   /** Angular zet het CSRF-token (ADR 0016) zelf als header op de POST. */
   protected logUit(): void {
     // De BFF geeft altijd een Location bij de 202 (BffTests).
     this.http
       .post('/logout', null, { observe: 'response' })
-      .subscribe((antwoord) => this.browser.naar(antwoord.headers.get('Location')!));
+      .subscribe({
+        next: (antwoord) => this.browser.naar(antwoord.headers.get('Location')!),
+        error: () => this.melding.set('Uitloggen is mislukt. Probeer het opnieuw.'),
+      });
   }
 
   protected readonly versie = toSignal(

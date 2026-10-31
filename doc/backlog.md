@@ -96,7 +96,12 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - **Klaar:** `AlleEndpointsTests` eist voor een `permitAll`-endpoint nu: geen 401 of 403, en ook geen 5xx. Sabotage: een `ResponseStatusException(500)` in `VersieController` was met de oude bewering groen en met de nieuwe rood.
    - **Klaar:** `ZoekfilterTests.eenBedragVanNulMag` doodt de grensmutant in `Zoekfilter.bedrag`. Met `> 0` in plaats van `>= 0` was de test rood.
    - **Klaar:** `uninstall.sh --purge` geeft de images als array door, zonder `shellcheck disable`. Nieuwe test `deploy/scripts/test/purge.bats`. Sabotage: alle images als één argument maakte hem rood.
-   - ⛔ **Open:** `subscribe` zonder foutafhandeling in `overschrijven-scherm.ts` (rekeningen laden), `betalen-scherm.ts` (suggesties) en `app.ts` (uitloggen). Daarnaast tonen betalen en overschrijven niets bij een fout zonder `detail`, zoals een 500. Wat de klant dan ziet, is een beslissing. De spaarrekening staat al in de losse backlogpunten.
+   - **Klaar (⛔ teksten goedgekeurd):** geen `subscribe` meer zonder foutafhandeling in `overschrijven-scherm.ts`, `betalen-scherm.ts` en `app.ts`.
+     - De rekeningen laden mislukt: "De rekeningen konden niet worden geladen.".
+     - Betalen of overschrijven mislukt zonder melding van de API (500, netwerk): "Er ging iets mis. Probeer het later opnieuw." (`fout.ts`, `meldingBij`).
+     - De suggesties laden mislukt: geen suggesties en geen melding; betalen kan gewoon verder.
+     - Uitloggen mislukt: "Uitloggen is mislukt. Probeer het opnieuw.", en de klant blijft ingelogd.
+     - Vijf Vitest-tests in `app.spec.ts`, eerst rood: vier op de ontbrekende melding, en de suggesties op een niet-afgevangen fout in de testrun. De spaarrekening staat nog in de losse backlogpunten.
 6. **Harde regel (vierlaagse model): uitkomsten uit de drivers.** Volgens het besluit bij 2.5 beweert een driver geen uitkomst die per scenario kan verschillen. Zoek de `expect`'s in de drivers die dat wel doen, waarschijnlijk de 201 van betalen en overschrijven. Laat de driver een `Uitkomst` teruggeven en de DSL beweren. Dan kunnen dubbele methodes als `neemOp` en `probeerOpTeNemen` samengaan.
 7. ⛔ **Beslissing (geen luie quick-fixes): de herkansing in CI.** `e2e/playwright.config.ts` heeft `retries: 1` in CI, en daardoor slaagt een flaky scenario stil. Er zijn twee keuzes:
    - `retries: 0`;
