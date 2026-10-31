@@ -57,10 +57,7 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 
 1. **Klaar: `ModulegrenzenTests` (hoge cohesie, lage koppeling).** Drie ArchUnit-regels: geen kringen tussen de featurepakketten van `bank-api`, geen kringen tussen die van `bank-domain`, en een record `*Json` wordt alleen door controllers gebruikt. De code is per feature ingedeeld, dus `layeredArchitecture` uit het sjabloon past niet. Alle drie waren groen op de bestaande code. Sabotage maakte elke regel rood: `simulatie` → `rente` (een kring via `grootboek`), `geld` → `grootboek` in het domein, en een klasse in `betaling` die `BetalingJson` gebruikt.
 2. **Klaar: `DomeinKentGeenFrameworkTests` (het domein kent geen framework).** Een ArchUnit-regel in `bank-domain`: geen afhankelijkheid van `org.springframework..`, `jakarta..`, `javax..` en `com.fasterxml.jackson..`. De ArchUnit-dependency in die module heeft daarmee een functie. Sabotage: `spring-context` in de pom en `@Component` op een domeinklasse maakte de regel rood.
-3. **Vangrail (concurrency met de juiste primitieven): geen `synchronized`.**
-   - Een ArchUnit-regel voor de modifier op methodes.
-   - Een bronscan voor blokken, want ArchUnit ziet die niet; zie `stack-java-spring.md`.
-   - Vandaag groen, dus sabotage.
+3. **Klaar: `GeenSynchronizedTests` (concurrency met de juiste primitieven).** Eén bronscan in bank-api over `src/main/java` van alle modules van de backend vindt het woord `synchronized`, op een methode en als blok. Een aparte ArchUnit-regel voor de modifier is niet nodig, want de scan vindt die ook (YAGNI). Sabotage: een blok in bank-seed en een methode in bank-bff werden allebei gemeld, met bestand en regel.
 4. **Vangrail: `GeenSysteemtijdTests` uitbreiden.**
    - Extra methodes: `LocalTime.now()`, `YearMonth.now()`, `Year.now()`, `Clock.system*()` buiten `KlokConfig`, en `System.currentTimeMillis()`.
    - Extra modules: `bank-seed` en `bank-bff`. Die vallen nu buiten elke ArchUnit-regel.

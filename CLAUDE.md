@@ -52,6 +52,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Een overboeking heeft twee kanten die samen nul zijn (ADR 0024) | trigger in `db/migration/V6__grootboek.sql`, via `JdbcGrootboekTests` | ja, sabotage (fase 1 van de backlog) |
 | Geen `double`/`float` voor bedragen (ADR 0010) | `GeenDrijvendeKommaTests` | ja, sabotage in bank-api en bank-domain (fase 1) |
 | Geen systeemtijd buiten de klok (ADR 0013) | `GeenSysteemtijdTests` | ja, sabotage in bank-api en bank-domain (fase 1) |
+| Geen `synchronized`, niet op een methode en niet als blok, in alle modules van de backend (concurrency) | `GeenSynchronizedTests` (bronscan) | ja, sabotage in bank-seed en bank-bff (fase 2.3) |
 | Het domein kent geen framework (Spring, Jakarta, Jackson) | `bank-domain/.../architectuur/DomeinKentGeenFrameworkTests`; de pom heeft ook geen Spring | ja, sabotage: Spring in de pom en `@Component` (fase 2.2) |
 | Mutatiescore minimaal 95% per module (ADR 0018) | PIT, `make mutatie` | – |
 | Alles in namespace `banksim-mse`, geen geheimen in de chart (ADR 0004, 0009) | `scripts/iac-check.sh` (yq) | ja, sabotage: ClusterRole, andere namespace, letterlijk wachtwoord (fase 1) |
