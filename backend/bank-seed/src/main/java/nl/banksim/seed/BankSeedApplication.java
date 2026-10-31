@@ -14,6 +14,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -53,9 +54,9 @@ public class BankSeedApplication {
 
     @Bean
     CommandLineRunner seed(KeycloakLogins logins, Rekeninghouders rekeninghouders, Transacties transacties,
-            Contacten contacten, JdbcClient jdbc, JsonMapper json) {
+            Contacten contacten, JdbcClient jdbc, JsonMapper json, TransactionTemplate transactie) {
         Supplier<Iban> nieuweIban = () -> Iban.simBank(RANDOM.nextLong(10_000_000_000L));
-        var aanmaker = new SeedKlantAanmaker(logins, rekeninghouders, nieuweIban);
+        var aanmaker = new SeedKlantAanmaker(logins, rekeninghouders, nieuweIban, transactie);
         var spaarrekeningen = new JdbcSpaarrekeningen(jdbc, nieuweIban);
         return args -> {
             var commando = new SeedCommando(aanmaker, transacties, logins, contacten, spaarrekeningen, json, System.out);

@@ -8,6 +8,7 @@ import java.util.List;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionOperations;
 
 class SeedKlantAanmakerTests {
 
@@ -21,7 +22,8 @@ class SeedKlantAanmakerTests {
             rekeningen.add(gebruikersnaam + " " + naam + " " + iban + " " + openingssaldo);
     private final Iban iban = Iban.simBank(123456789L);
 
-    private final SeedKlantAanmaker aanmaker = new SeedKlantAanmaker(keycloak, database, () -> iban);
+    private final SeedKlantAanmaker aanmaker = new SeedKlantAanmaker(keycloak, database, () -> iban,
+            TransactionOperations.withoutTransaction());
 
     @Test
     void maaktEenLoginMetDeAliasAlsGebruikersnaamEnEenBetaalrekeningMetOpeningssaldo() {
