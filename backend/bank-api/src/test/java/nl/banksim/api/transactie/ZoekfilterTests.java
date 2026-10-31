@@ -37,6 +37,16 @@ class ZoekfilterTests {
         assertThat(filter.van()).isEqualTo(filter.tm());
     }
 
+    /** Alleen een negatief bedrag wordt geweigerd; € 0,00 is de ondergrens zelf (backlog fase 3.5, PIT-grens). */
+    @Test
+    void eenBedragVanNulMag() {
+        Zoekfilter filter = Zoekfilter.van(Optional.empty(), Optional.of("0,00"), Optional.of("0"), Optional.empty(),
+                Optional.empty());
+
+        assertThat(filter.van()).contains(Bedrag.van("0.00"));
+        assertThat(filter.tm()).contains(Bedrag.van("0.00"));
+    }
+
     @Test
     void vanGroterDanTmIsEenOngeldigBedragbereik() {
         assertThatThrownBy(() -> Zoekfilter.van(Optional.empty(), Optional.of("100"), Optional.of("50"), Optional.empty(),
