@@ -113,10 +113,9 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 
 ## Fase 4: idempotente mutaties
 
-1. **Vangrail (idempotentie): seed-opdracht `klant`.** `SeedKlantAanmaker` schrijft de rekeninghouder in de database vóór de login in Keycloak. Mislukt Keycloak, dan botst een herhaling op de UNIQUE-constraint van `gebruikersnaam`. Test: twee keer dezelfde klant geeft dezelfde toestand, of een duidelijke fout zonder half aangemaakte klant.
-2. ⛔ **Beslissing (idempotentie): de seed-opdrachten `spaarrekening`, `transactie` en `transacties`** hebben geen business-sleutel. Elke herhaling maakt een nieuwe rekening of nieuwe transacties, en `transacties` boekt in een lus zonder transactie. Er zijn twee keuzes:
-   - idempotent maken;
-   - expliciet uitzonderen als testdata-CLI (ADR 0003), met wel één transactie per opdracht.
+1. **Klaar: seed-opdracht `klant` atomair (⛔ besloten: een duidelijke fout bij herhaling, geen echte idempotentie).** `SeedKlantAanmaker` schrijft de rekeninghouder en maakt de login in één databasetransactie. Mislukt Keycloak, dan wordt de rekeninghouder teruggedraaid. Een herhaling stopt vóór Keycloak met "Klant jan bestaat al", zonder dubbele data. `SeedKlantAanmakerDatabaseTests` (PostgreSQL) was eerst rood: na een mislukte login stond de rekeninghouder er nog (`count` 1), en een herhaling gaf een kale `DuplicateKeyException`. Echte idempotentie (een herhaling maakt de klant af) is niet gekozen: de e2e-tests gebruiken unieke aliassen, dus het komt niet voor (YAGNI).
+   - Eén klein gat blijft: mislukt de commit van de database ná een gelukte login, dan blijft er een login zonder rekeninghouder.
+2. **Klaar (⛔ besloten): `spaarrekening`, `transactie` en `transacties` blijven gewone opdrachten.** Ze hebben geen business-sleutel; twee keer is bewust twee keer, zoals twee keer hetzelfde bedrag inleggen. Dat staat in het Javadoc van `SeedCommando`. Wel boekt `transacties` nu alles of niets (`JdbcTransacties.boekAlle`, één databasetransactie). `JdbcTransactiesTests.boekAlleBoektNietsAlsEenVanDeBoekingenFaalt` was eerst rood: de eerste boeking bleef staan.
 3. **Vangrail (idempotentie): "twee keer is één keer"-tests** waar ze ontbreken:
    - twee keer `PUT /api/beheer/simulatiedatum` en twee keer `DELETE`, op controllerniveau;
    - gelijktijdig `markeer` in `JdbcRenteOpslag`: de nachtelijke afsluiting tegelijk met een `PUT` van de beheerder;
@@ -140,7 +139,7 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 
 Uit de vergelijking met Farley (31 oktober): vertrouw niet op mensen die code lezen, maar op linters, typecontrole, architectuurchecks en contracttests in de pipeline. Linters, typecontrole en architectuurchecks zijn er grotendeels (fase 1 en 2). Dit zijn de gaten.
 
-1. **Klaar (ADR 0032): mutatietests parallel aan de acceptance stage.** De acceptatie wachtte op PIT (8:40), terwijl de andere jobs van de commit stage na hooguit 1:24 klaar waren. De pipeline duurde zo ongeveer 15 minuten. Nu wacht de acceptatie alleen op `backend`, `frontend`, `infrastructuur` en `images`, en duurt de pipeline naar verwachting ongeveer 9 minuten. Een rode PIT-job maakt de pipeline nog steeds rood.
+1. **Klaar (ADR 0032): mutatietests parallel aan de acceptance stage.** De acceptatie wachtte op PIT (8:40), terwijl de andere jobs van de commit stage na hooguit 1:24 klaar waren. De pipeline duurde zo ongeveer 15 minuten. Nu wacht de acceptatie alleen op `backend`, `frontend`, `infrastructuur` en `images`, en duurde de eerste pipeline daarna 7 minuten (run 41244343247; PIT 6:40, acceptatie 5:26). Een rode PIT-job maakt de pipeline nog steeds rood.
 2. ⛔ **Beslissing (vangrail): contracttests op de grenzen tussen services.** Elke kant test nu tegen zijn eigen aanname van de andere kant:
    - `BffTests` gebruikt een nep-bank-api (JDK-`HttpServer`); niets controleert dat die zich gedraagt als de echte.
    - De Vitest-tests van de frontend verzinnen zelf de JSON van de API.

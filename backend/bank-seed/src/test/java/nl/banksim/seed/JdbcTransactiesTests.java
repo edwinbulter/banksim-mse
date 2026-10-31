@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -20,7 +21,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -33,16 +36,18 @@ class JdbcTransactiesTests {
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(TestDatabase.IMAGE);
 
     static JdbcClient jdbc;
+    static TransactionTemplate transactie;
 
     @BeforeAll
     static void schemaEnRekening() {
         var dataSource = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         Flyway.configure().dataSource(dataSource).locations(TestDatabase.MIGRATIES).load().migrate();
         jdbc = JdbcClient.create(dataSource);
+        transactie = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         new JdbcRekeninghouders(jdbc).voegToeMetBetaalrekening("jan-a1-1", "Jan", Iban.simBank(1L), Bedrag.van("1000.00"));
     }
 
-    private final JdbcTransacties transacties = new JdbcTransacties(jdbc);
+    private final JdbcTransacties transacties = new JdbcTransacties(jdbc, transactie);
 
     @Test
     void slaatDeTransactieOpBijDeRekening() {
@@ -85,5 +90,19 @@ class JdbcTransactiesTests {
     void weigertEenTransactieOpEenOnbekendeRekening() {
         assertThatThrownBy(() -> transacties.boek(Iban.simBank(2L), Boeking.opDatum(LocalDate.of(2026, 10, 1), Bedrag.van("1.00"), "Iemand")))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    /** Backlog fase 4.2: de opdracht transacties boekt alles of niets; een fout halverwege laat geen deel achter. */
+    @Test
+    void boekAlleBoektNietsAlsEenVanDeBoekingenFaalt() {
+        List<Boeking> boekingen = List.of(
+                Boeking.opDatum(LocalDate.of(2026, 10, 1), Bedrag.van("-10.00"), "Eerste van de reeks"),
+                Boeking.opDatum(LocalDate.of(2026, 10, 2), Bedrag.van("0.00"), "Tweede van de reeks"));
+
+        assertThatThrownBy(() -> transacties.boekAlle(Iban.simBank(1L), boekingen))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        assertThat(jdbc.sql("SELECT count(*) FROM transactie WHERE tegenpartij LIKE '% van de reeks'").query(Long.class).single())
+                .isZero();
     }
 }

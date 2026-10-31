@@ -1,9 +1,11 @@
 package nl.banksim.seed;
 
 import java.time.ZoneId;
+import java.util.List;
 
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.support.TransactionOperations;
 
 /** Schrijft in het schema van bank-api, als databasegebruiker bank_seed (alleen SELECT en INSERT). */
 class JdbcTransacties implements Transacties {
@@ -11,9 +13,11 @@ class JdbcTransacties implements Transacties {
     private static final ZoneId AMSTERDAM = ZoneId.of("Europe/Amsterdam");
 
     private final JdbcClient jdbc;
+    private final TransactionOperations transactie;
 
-    JdbcTransacties(JdbcClient jdbc) {
+    JdbcTransacties(JdbcClient jdbc, TransactionOperations transactie) {
         this.jdbc = jdbc;
+        this.transactie = transactie;
     }
 
     @Override
@@ -30,5 +34,11 @@ class JdbcTransacties implements Transacties {
                 .param("tijdstip", boeking.tijdstip().atZone(AMSTERDAM).toOffsetDateTime())
                 .param("tegenIban", boeking.tegenIban().map(Iban::toString).orElse(null))
                 .update();
+    }
+
+    /** Backlog fase 4.2: in één databasetransactie, dus alles of niets. */
+    @Override
+    public void boekAlle(Iban iban, List<Boeking> boekingen) {
+        transactie.executeWithoutResult(status -> boekingen.forEach(boeking -> boek(iban, boeking)));
     }
 }

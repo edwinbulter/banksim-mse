@@ -23,6 +23,11 @@ import tools.jackson.databind.json.JsonMapper;
  * {@code contact --iban NL94SIMB0000000001 --naam Sanne}. Een spaarrekening (S8.2):
  * {@code spaarrekening --gebruikersnaam jan-f4de79-1 --saldo 12405.63 [--geopend-op 2026-01-01]}. Het
  * resultaat komt als één JSON-regel op stdout; de shell-driver leest de laatste regel (ADR 0003).
+ *
+ * <p>Herhalen (backlog fase 4): {@code klant} en {@code beheerder} hebben een business-sleutel, de alias; nog een keer is
+ * een fout. {@code spaarrekening}, {@code transactie} en {@code transacties} hebben die niet, net als bij een klant die
+ * twee keer hetzelfde bedrag inlegt: nog een keer is bewust een nieuwe opdracht. Elke opdracht slaagt helemaal of
+ * laat niets achter.
  */
 class SeedCommando {
 
@@ -158,7 +163,7 @@ class SeedCommando {
                 boekingen.add(boeking(args[i + 1]));
             }
         }
-        boekingen.forEach(boeking -> transacties.boek(iban, boeking));
+        transacties.boekAlle(iban, boekingen);
         return new GeboekteTransacties(iban.toString(), boekingen.size());
     }
 

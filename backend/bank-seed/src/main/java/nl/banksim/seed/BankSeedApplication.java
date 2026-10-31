@@ -38,8 +38,8 @@ public class BankSeedApplication {
     }
 
     @Bean
-    JdbcTransacties transacties(JdbcClient jdbc) {
-        return new JdbcTransacties(jdbc);
+    JdbcTransacties transacties(JdbcClient jdbc, TransactionTemplate transactie) {
+        return new JdbcTransacties(jdbc, transactie);
     }
 
     @Bean
