@@ -147,12 +147,14 @@ export class UiDriver implements BankDriver {
     await this.betaalrekening.toonMeer();
   }
 
-  async betaal(opdracht: Betaalopdracht): Promise<void> {
-    await this.betalen.betaal(opdracht);
+  async betaal(opdracht: Betaalopdracht): Promise<Uitkomst> {
+    this.laatsteFormulier = 'betalen';
+    return this.betalen.betaal(opdracht);
   }
 
-  async betaalDubbel(opdracht: Betaalopdracht): Promise<void> {
-    await this.betalen.betaalDubbel(opdracht);
+  async betaalDubbel(opdracht: Betaalopdracht): Promise<Uitkomst> {
+    this.laatsteFormulier = 'betalen';
+    return this.betalen.betaalDubbel(opdracht);
   }
 
   async openBetalen(): Promise<void> {
@@ -171,11 +173,6 @@ export class UiDriver implements BankDriver {
     return this.betalen.ontvanger();
   }
 
-  async probeerTeBetalen(opdracht: Betaalopdracht): Promise<void> {
-    this.laatsteFormulier = 'betalen';
-    await this.betalen.probeer(opdracht);
-  }
-
   async openSpaarrekening(iban: string): Promise<void> {
     await this.spaarrekening.open(iban);
   }
@@ -188,17 +185,14 @@ export class UiDriver implements BankDriver {
     return this.spaarrekening.koppen();
   }
 
-  async legIn({ bedrag }: Overschrijfopdracht): Promise<void> {
-    await this.spaarrekening.schrijfOver('Inleggen', bedrag);
-  }
-
-  async neemOp({ bedrag }: Overschrijfopdracht): Promise<void> {
-    await this.spaarrekening.schrijfOver('Opnemen', bedrag);
-  }
-
-  async probeerOpTeNemen({ bedrag }: Overschrijfopdracht): Promise<void> {
+  async legIn({ bedrag }: Overschrijfopdracht): Promise<Uitkomst> {
     this.laatsteFormulier = 'overschrijven';
-    await this.spaarrekening.probeerOver('Opnemen', bedrag);
+    return this.spaarrekening.schrijfOver('Inleggen', bedrag);
+  }
+
+  async neemOp({ bedrag }: Overschrijfopdracht): Promise<Uitkomst> {
+    this.laatsteFormulier = 'overschrijven';
+    return this.spaarrekening.schrijfOver('Opnemen', bedrag);
   }
 
   async lopendeRente(): Promise<string> {

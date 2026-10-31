@@ -105,19 +105,19 @@ export class Klant {
   /** S9.1: vanaf de spaarrekening met "Inleggen"; Van en Naar staan dan al goed. Daarna weer op de spaarrekening. */
   async legtIn(bedrag: string): Promise<void> {
     await this.opentSpaarrekening();
-    await (await this.sessie()).legIn({ van: this.iban(), naar: this.spaarIban!, bedrag });
+    await this.verwachtGelukt(await (await this.sessie()).legIn({ van: this.iban(), naar: this.spaarIban!, bedrag }), 'inleg');
   }
 
   /** S9.1: vanaf de spaarrekening met "Opnemen"; Van is de spaarrekening, Naar de betaalrekening. */
   async neemtOp(bedrag: string): Promise<void> {
     await this.opentSpaarrekening();
-    await (await this.sessie()).neemOp({ van: this.spaarIban!, naar: this.iban(), bedrag });
+    await this.verwachtGelukt(await (await this.sessie()).neemOp({ van: this.spaarIban!, naar: this.iban(), bedrag }), 'opname');
   }
 
   /** Zoals neemtOp, maar de bank mag weigeren; de weigering volgt uit verwachtWeigering. */
   async probeertOpTeNemen(bedrag: string): Promise<void> {
     await this.opentSpaarrekening();
-    await (await this.sessie()).probeerOpTeNemen({ van: this.spaarIban!, naar: this.iban(), bedrag });
+    this.uitkomst = await (await this.sessie()).neemOp({ van: this.spaarIban!, naar: this.iban(), bedrag });
   }
 
   /**
@@ -302,7 +302,10 @@ export class Klant {
     betalingskenmerk,
   }: { bedrag: string; aan: Klant; omschrijving?: string; betalingskenmerk?: string }): Promise<void> {
     await this.opentBetaalrekening();
-    await (await this.sessie()).betaal({ bedrag, naam: aan.naam(), iban: aan.iban(), omschrijving, betalingskenmerk });
+    await this.verwachtGelukt(
+      await (await this.sessie()).betaal({ bedrag, naam: aan.naam(), iban: aan.iban(), omschrijving, betalingskenmerk }),
+      'betaling',
+    );
   }
 
   /** De transactie met deze tegenpartij uitklappen op de eigen betaalrekening, en alleen de genoemde details. */
@@ -317,13 +320,13 @@ export class Klant {
    */
   async probeertTeBetalen({ bedrag, aan, naam = aan.naam() }: { bedrag: string; aan: Klant; naam?: string }): Promise<void> {
     await this.opentBetaalrekening();
-    await (await this.sessie()).probeerTeBetalen({ bedrag, naam, iban: aan.iban() });
+    this.uitkomst = await (await this.sessie()).betaal({ bedrag, naam, iban: aan.iban() });
   }
 
   /** S7.1 (CFR): dezelfde betaling, met twee keer dezelfde bevestiging; de bank boekt hem één keer. */
   async betaaltDubbel({ bedrag, aan }: { bedrag: string; aan: Klant }): Promise<void> {
     await this.opentBetaalrekening();
-    await (await this.sessie()).betaalDubbel({ bedrag, naam: aan.naam(), iban: aan.iban() });
+    await this.verwachtGelukt(await (await this.sessie()).betaalDubbel({ bedrag, naam: aan.naam(), iban: aan.iban() }), 'betaling');
   }
 
   /** Vanaf de eigen betaalrekening, met "Betalen". */
@@ -421,6 +424,12 @@ export class Klant {
   async verwachtGevonden(tegenpartijen: string[]): Promise<void> {
     const gevonden = (await (await this.sessie()).transacties()).flatMap((dag) => dag.transacties.map((t) => t.tegenpartij));
     expect(gevonden, `gevonden transacties van ${this.alias}`).toEqual(tegenpartijen);
+  }
+
+  /** ADR 0031: de driver geeft de uitkomst; de DSL beweert. Bij een weigering staat het probleemtype in de melding. */
+  private async verwachtGelukt(uitkomst: Uitkomst, wat: string): Promise<void> {
+    const weigering = uitkomst === 'geweigerd' ? ` (${await (await this.sessie()).weigering()})` : '';
+    expect(uitkomst, `${wat} van ${this.alias}${weigering}`).toBe('gelukt');
   }
 
   async verwachtWeigering(probleemtype: string): Promise<void> {

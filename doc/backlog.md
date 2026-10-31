@@ -102,7 +102,10 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
      - De suggesties laden mislukt: geen suggesties en geen melding; betalen kan gewoon verder.
      - Uitloggen mislukt: "Uitloggen is mislukt. Probeer het opnieuw.", en de klant blijft ingelogd.
      - Vijf Vitest-tests in `app.spec.ts`, eerst rood: vier op de ontbrekende melding, en de suggesties op een niet-afgevangen fout in de testrun. De spaarrekening staat nog in de losse backlogpunten.
-6. **Harde regel (vierlaagse model): uitkomsten uit de drivers.** Volgens het besluit bij 2.5 beweert een driver geen uitkomst die per scenario kan verschillen. Zoek de `expect`'s in de drivers die dat wel doen, waarschijnlijk de 201 van betalen en overschrijven. Laat de driver een `Uitkomst` teruggeven en de DSL beweren. Dan kunnen dubbele methodes als `neemOp` en `probeerOpTeNemen` samengaan.
+6. **Klaar: uitkomsten uit de drivers (ADR 0031).** `betaal`, `betaalDubbel`, `legIn` en `neemOp` geven een `Uitkomst` terug ('gelukt' of 'geweigerd'); `probeerTeBetalen` en `probeerOpTeNemen` zijn weg. De DSL beweert: `betaalt`, `betaaltDubbel`, `legtIn` en `neemtOp` verwachten 'gelukt', met het probleemtype in de melding; `probeertTeBetalen` en `probeertOpTeNemen` onthouden de uitkomst voor `verwachtWeigering`.
+   - De REST-driver controleert alleen nog het protocol: 201 is gelukt, 400 of 422 met een probleemtype is geweigerd, elke andere status is een fout. De UI-driver wacht op de rekening of op een melding.
+   - Wat in de drivers blijft, is wachten en het protocol controleren: een 200 bij een GET, de vorm van een pagina, de inlog- en uitlogstappen.
+   - Sabotage: Sanne tijdelijk geen contact in "Betaling naar een contact". Beide drivers faalden met dezelfde melding: "betaling van Jan (onbekend-contact)", Expected "gelukt", Received "geweigerd".
 7. ⛔ **Beslissing (geen luie quick-fixes): de herkansing in CI.** `e2e/playwright.config.ts` heeft `retries: 1` in CI, en daardoor slaagt een flaky scenario stil. Er zijn twee keuzes:
    - `retries: 0`;
    - de pipeline laat een scenario dat pas bij de herkansing slaagt (status `flaky`) zien als waarschuwing.

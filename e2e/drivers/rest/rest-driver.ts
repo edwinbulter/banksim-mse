@@ -231,22 +231,23 @@ export class RestDriver implements BankDriver {
   }
 
   /**
-   * S7.1: één POST met het CSRF-token, zoals Angular na "Bevestigen" op het controlescherm. Daarna laadt de driver de
+   * S7.1: één POST met het CSRF-token, zoals Angular na "Bevestigen" op het controlescherm. Gelukt: de driver laadt de
    * rekening opnieuw, zoals de app terugkeert naar de betaalrekening.
    */
-  async betaal({ bedrag, naam, iban, omschrijving, betalingskenmerk }: Betaalopdracht): Promise<void> {
+  async betaal({ bedrag, naam, iban, omschrijving, betalingskenmerk }: Betaalopdracht): Promise<Uitkomst> {
     const van = this.geopend;
     expect(van, 'een geopende rekening om van te betalen').toBeTruthy();
     const antwoord = await this.request.post('/api/betalingen', {
       headers: await this.betaalHeaders(),
       data: { van, naar: iban, naam, bedrag, omschrijving, betalingskenmerk },
     });
-    expect(antwoord.status(), `POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
-    await this.openRekening(van!);
+    const uitkomst = await this.uitkomstVan(antwoord, 'POST /api/betalingen');
+    if (uitkomst === 'gelukt') await this.openRekening(van!);
+    return uitkomst;
   }
 
-  /** Twee keer dezelfde POST met dezelfde sleutel, zoals de app na een storing opnieuw verstuurt; allebei 201. */
-  async betaalDubbel({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
+  /** Twee keer dezelfde POST met dezelfde sleutel, zoals de app na een storing opnieuw verstuurt. */
+  async betaalDubbel({ bedrag, naam, iban }: Betaalopdracht): Promise<Uitkomst> {
     const van = this.geopend;
     expect(van, 'een geopende rekening om van te betalen').toBeTruthy();
     const verzoek = {
@@ -255,9 +256,25 @@ export class RestDriver implements BankDriver {
     };
     for (const keer of ['eerste', 'tweede']) {
       const antwoord = await this.request.post('/api/betalingen', verzoek);
-      expect(antwoord.status(), `${keer} POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+      if ((await this.uitkomstVan(antwoord, `${keer} POST /api/betalingen`)) === 'geweigerd') return 'geweigerd';
     }
     await this.openRekening(van!);
+    return 'gelukt';
+  }
+
+  /**
+   * Het protocol (ADR 0031): een 201 is gelukt, een 400 of 422 met een probleemtype (RFC 9457) is geweigerd, en dan
+   * onthoudt de driver het type voor weigering(). Elke andere status is een fout van het systeem of van de driver.
+   */
+  private async uitkomstVan(antwoord: APIResponse, verzoek: string): Promise<Uitkomst> {
+    this.probleem = undefined;
+    if (WEIGERING.includes(antwoord.status())) {
+      const { type } = (await antwoord.json()) as { type?: string };
+      this.probleem = type?.split(':').at(-1);
+      return 'geweigerd';
+    }
+    expect(antwoord.status(), `${verzoek}: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+    return 'gelukt';
   }
 
   async openBetalen(): Promise<void> {
@@ -274,24 +291,6 @@ export class RestDriver implements BankDriver {
 
   async ontvangerInFormulier(): Promise<{ naam: string; iban: string }> {
     throw new Error('Het betaalformulier bestaat alleen in de browser (@ui)');
-  }
-
-  /** Een weigering is een 422 met een probleemtype (RFC 9457); een gelukte betaling laadt de rekening opnieuw. */
-  async probeerTeBetalen({ bedrag, naam, iban }: Betaalopdracht): Promise<void> {
-    const van = this.geopend;
-    expect(van, 'een geopende rekening om van te betalen').toBeTruthy();
-    this.probleem = undefined;
-    const antwoord = await this.request.post('/api/betalingen', {
-      headers: await this.betaalHeaders(),
-      data: { van, naar: iban, naam, bedrag },
-    });
-    if (WEIGERING.includes(antwoord.status())) {
-      const { type } = (await antwoord.json()) as { type?: string };
-      this.probleem = type?.split(':').at(-1);
-      return;
-    }
-    expect(antwoord.status(), `POST /api/betalingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
-    await this.openRekening(van!);
   }
 
   /** Het CSRF-token en, zoals de app per controlescherm, een nieuwe Idempotency-Key (ADR 0027). */
@@ -334,32 +333,19 @@ export class RestDriver implements BankDriver {
     return koppen;
   }
 
-  async legIn(opdracht: Overschrijfopdracht): Promise<void> {
-    await this.schrijfOver(opdracht);
-    await this.openSpaarrekening(opdracht.naar);
+  async legIn(opdracht: Overschrijfopdracht): Promise<Uitkomst> {
+    return this.schrijfOver(opdracht, opdracht.naar);
   }
 
-  async neemOp(opdracht: Overschrijfopdracht): Promise<void> {
-    await this.schrijfOver(opdracht);
-    await this.openSpaarrekening(opdracht.van);
+  async neemOp(opdracht: Overschrijfopdracht): Promise<Uitkomst> {
+    return this.schrijfOver(opdracht, opdracht.van);
   }
 
-  /** Een weigering is een 422 met een probleemtype (RFC 9457); een gelukte opname opent de spaarrekening opnieuw. */
-  async probeerOpTeNemen(opdracht: Overschrijfopdracht): Promise<void> {
-    this.probleem = undefined;
-    const antwoord = await this.postOverschrijving(opdracht);
-    if (WEIGERING.includes(antwoord.status())) {
-      const { type } = (await antwoord.json()) as { type?: string };
-      this.probleem = type?.split(':').at(-1);
-      return;
-    }
-    expect(antwoord.status(), `POST /api/overschrijvingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
-    await this.openSpaarrekening(opdracht.van);
-  }
-
-  private async schrijfOver(opdracht: Overschrijfopdracht): Promise<void> {
-    const antwoord = await this.postOverschrijving(opdracht);
-    expect(antwoord.status(), `POST /api/overschrijvingen: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
+  /** Gelukt: de driver opent de spaarrekening opnieuw, zoals de app terugkeert naar de spaarrekening. */
+  private async schrijfOver(opdracht: Overschrijfopdracht, spaar: string): Promise<Uitkomst> {
+    const uitkomst = await this.uitkomstVan(await this.postOverschrijving(opdracht), 'POST /api/overschrijvingen');
+    if (uitkomst === 'gelukt') await this.openSpaarrekening(spaar);
+    return uitkomst;
   }
 
   /** Zoals de app: met CSRF-token en een eigen Idempotency-Key (ADR 0027). */

@@ -110,7 +110,10 @@ export interface Overschrijfopdracht {
   bedrag: string;
 }
 
-/** Of een verzoek dat iets verandert, is uitgevoerd of door de rechten geweigerd (403). */
+/**
+ * Of een verzoek dat iets verandert, is uitgevoerd of geweigerd: door de rechten (403) of door een regel van de bank
+ * (400 of 422). De driver geeft de uitkomst terug; de DSL beweert erover (ADR 0031).
+ */
 export type Uitkomst = 'gelukt' | 'geweigerd';
 
 /** Wat de DSL van het systeem nodig heeft. De REST- en de UI-driver implementeren dit elk op hun eigen manier. */
@@ -168,13 +171,16 @@ export interface BankDriver {
   opnieuwGeladen(): Promise<boolean>;
   /** De pagina herladen; alleen in de UI-driver (@ui). */
   herlaad(): Promise<void>;
-  /** Vanaf de geopende rekening betalen en op het controlescherm bevestigen (S7.1); daarna staat de rekening weer open. */
-  betaal(opdracht: Betaalopdracht): Promise<void>;
+  /**
+   * Vanaf de geopende rekening betalen en op het controlescherm bevestigen (S7.1). Gelukt: daarna staat de rekening weer
+   * open. Geweigerd: weigering() geeft het probleemtype ("onbekend-contact").
+   */
+  betaal(opdracht: Betaalopdracht): Promise<Uitkomst>;
   /**
    * Betalen zoals betaal, maar de bevestiging gaat twee keer de deur uit: in de API twee keer hetzelfde verzoek, in de
    * browser een dubbelklik op "Bevestigen" (S7.1, CFR).
    */
-  betaalDubbel(opdracht: Betaalopdracht): Promise<void>;
+  betaalDubbel(opdracht: Betaalopdracht): Promise<Uitkomst>;
   /** Alleen in de UI-driver (@ui): vanaf de geopende rekening het betaalscherm openen. */
   openBetalen(): Promise<void>;
   /** Alleen in de UI-driver (@ui): hoeveel tekens er in elk veld van het betaalscherm passen. */
@@ -183,8 +189,6 @@ export interface BankDriver {
   kiesSuggestie(tekst: string, iban: string): Promise<void>;
   /** Alleen in de UI-driver (@ui): de naam en het IBAN van de ontvanger zoals ze in het formulier staan. */
   ontvangerInFormulier(): Promise<{ naam: string; iban: string }>;
-  /** Hetzelfde, zonder te verwachten dat het lukt; daarna geeft weigering() het probleemtype ("onbekend-contact"). */
-  probeerTeBetalen(opdracht: Betaalopdracht): Promise<void>;
   /** Vanuit het overzicht de spaarrekening met dit IBAN openen (S8.1). */
   openSpaarrekening(iban: string): Promise<void>;
   /** De mutaties van de geopende spaarrekening, nieuw naar oud. */
@@ -193,12 +197,13 @@ export interface BankDriver {
    * De datumregels ("2026-01-31") en jaartalregels ("2025") van de geopende spaarrekening, van boven naar beneden.
    */
   spaarkoppen(): Promise<string[]>;
-  /** Vanaf de geopende spaarrekening geld inleggen (S9.1); daarna staat de spaarrekening weer open. */
-  legIn(opdracht: Overschrijfopdracht): Promise<void>;
-  /** Vanaf de geopende spaarrekening geld opnemen (S9.1); daarna staat de spaarrekening weer open. */
-  neemOp(opdracht: Overschrijfopdracht): Promise<void>;
-  /** Hetzelfde, zonder te verwachten dat het lukt; daarna geeft weigering() het probleemtype ("saldo-ontoereikend"). */
-  probeerOpTeNemen(opdracht: Overschrijfopdracht): Promise<void>;
+  /**
+   * Vanaf de geopende spaarrekening geld inleggen (S9.1). Gelukt: daarna staat de spaarrekening weer open. Geweigerd:
+   * weigering() geeft het probleemtype.
+   */
+  legIn(opdracht: Overschrijfopdracht): Promise<Uitkomst>;
+  /** Vanaf de geopende spaarrekening geld opnemen (S9.1), net als legIn ("saldo-ontoereikend"). */
+  neemOp(opdracht: Overschrijfopdracht): Promise<Uitkomst>;
   /** De lopende rente van de geopende spaarrekening, in domeinnotatie ("12.36"). */
   lopendeRente(): Promise<string>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */

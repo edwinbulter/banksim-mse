@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { Spaarmutatie } from '../bank-driver';
+import type { Spaarmutatie, Uitkomst } from '../bank-driver';
 import { datumUitKop, transactieUitRegel } from './betaalrekening-pagina';
 import { WEIGERINGEN } from './betalen-pagina';
 
@@ -30,15 +30,11 @@ export class SpaarrekeningPagina {
    * S9.1 (FO "Overschrijven scherm"): "Inleggen" of "Opnemen" opent het scherm Overschrijven met Van en Naar al
    * ingevuld. Het bedrag zoals de klant het typt, met komma; na "Overschrijven" weer op de spaarrekening.
    */
-  async schrijfOver(knop: 'Inleggen' | 'Opnemen', bedrag: string): Promise<void> {
-    await this.vulInEnSchrijfOver(knop, bedrag);
-    await expect(this.page.getByRole('heading', { name: 'Spaarrekening' })).toBeVisible();
-  }
-
-  /** Na "Overschrijven": terug op de spaarrekening, of een melding op het scherm Overschrijven. */
-  async probeerOver(knop: 'Inleggen' | 'Opnemen', bedrag: string): Promise<void> {
+  /** Na "Overschrijven": terug op de spaarrekening (gelukt), of een melding op het scherm Overschrijven (geweigerd). */
+  async schrijfOver(knop: 'Inleggen' | 'Opnemen', bedrag: string): Promise<Uitkomst> {
     await this.vulInEnSchrijfOver(knop, bedrag);
     await expect(this.page.getByRole('heading', { name: 'Spaarrekening' }).or(this.melding())).toBeVisible();
+    return (await this.melding().isVisible()) ? 'geweigerd' : 'gelukt';
   }
 
   /** De melding na "Overschrijven", terug naar het probleemtype van de API; undefined zonder melding. */
