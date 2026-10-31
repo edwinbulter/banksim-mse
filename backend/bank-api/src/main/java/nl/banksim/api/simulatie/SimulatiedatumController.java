@@ -11,21 +11,14 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-/**
- * S3.1: de beheerder zet de bank op een gekozen datum, of terug op vandaag (ADR 0013). Daarna sluit de bank de maanden
- * af die tot die dag voorbij zijn, met de rente op de spaarrekeningen (ADR 0028).
- */
+/** S3.1: de beheerder zet de simulatiedatum of wist hem; wat daarna gebeurt, staat in {@link SimulatieService}. */
 @RestController
 class SimulatiedatumController {
 
-    private final SimulatiedatumRepository simulatiedatum;
-    private final Maandafsluiting maandafsluiting;
-    private final SimulationClock klok;
+    private final SimulatieService simulatie;
 
-    SimulatiedatumController(SimulatiedatumRepository simulatiedatum, Maandafsluiting maandafsluiting, SimulationClock klok) {
-        this.simulatiedatum = simulatiedatum;
-        this.maandafsluiting = maandafsluiting;
-        this.klok = klok;
+    SimulatiedatumController(SimulatieService simulatie) {
+        this.simulatie = simulatie;
     }
 
     @PutMapping("/api/beheer/simulatiedatum")
@@ -35,16 +28,14 @@ class SimulatiedatumController {
         if (json.datum() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "datum ontbreekt");
         }
-        simulatiedatum.zet(json.datum());
-        maandafsluiting.sluitAf(klok.vandaag());
+        simulatie.zet(json.datum());
     }
 
     @DeleteMapping("/api/beheer/simulatiedatum")
     @PreAuthorize("hasRole('beheerder')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void wis() {
-        simulatiedatum.wis();
-        maandafsluiting.sluitAf(klok.vandaag());
+        simulatie.wis();
     }
 
     /** {@code {"datum": "2026-10-05"}}; een andere notatie geeft 400. */

@@ -81,9 +81,10 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - De `< :van` in `JdbcRenteOpslag` was bewust: het saldo bij het begin van de eerste dag. Dat is nu `aanHetEindVan(iban, van − 1 dag)`.
    - Het overzicht vraagt nu per rekening een saldo op, in plaats van één query voor alle rekeningen. Een klant heeft een paar rekeningen; optimaliseren pas na meten.
    - `JdbcRenteOpslag` had geen eigen repositorytest. `JdbcRenteOpslagTests` legt de dagsaldi eerst vast: het beginsaldo telt de rente van vóór de eerste dag mee en die dag zelf niet, en de rente van de maand zelf telt niet mee (ADR 0030). Sabotage: `<=` in plaats van `<`, en zonder `type <> 'RENTE'`; beide rood.
-3. **Harde regel (hoge cohesie): orkestratie uit de controller.**
-   - `SimulatiedatumController` doet zelf twee mutaties: eerst `zet` of `wis`, daarna `sluitAf`. Er zit geen service tussen en geen `@Transactional`.
-   - De oplossing: een service met een transactie.
+3. **Klaar: orkestratie uit de controller.** `SimulatieService` zet of wist de simulatiedatum en sluit daarna de maanden af; `SimulatiedatumController` roept alleen de service aan.
+   - Besloten: **geen transactie om het geheel**, anders dan eerst voorgesteld. Elke maand van elke spaarrekening wordt al in een eigen transactie afgesloten (`MaandRente.boek`), en de afsluiting is idempotent (ADR 0028). Eén transactie om alles zou alle spaarrekeningen tegelijk vergrendelen, en bij één fout ook de datum terugdraaien.
+   - Elke overboeking blijft één atomaire transactie: `LedgerService.boek` schrijft beide kanten, en de trigger uit V6 controleert bij de commit dat ze samen nul zijn.
+   - `SimulatieServiceTests` bewaakt de volgorde. Sabotage: eerst afsluiten en dan pas de datum zetten maakte deze test en `SimulatiedatumControllerTests` rood.
 4. **Harde regel (YAGNI en eenvoud): dubbele code samenvoegen.**
    - `ibanOf404` staat in `RenteController` en in `TransactieController`.
    - Het onschadelijk maken van LIKE-tekens staat in `JdbcContacten` en in `Zoekfilter`. Dat staat al in de losse backlogpunten.

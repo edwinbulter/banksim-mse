@@ -25,7 +25,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /** S3.1, ADR 0013: de beheerder zet of wist de simulatiedatum. */
 @WebMvcTest(SimulatiedatumController.class)
-@Import({BeveiligingConfig.class, SimulatiedatumControllerTests.Opslag.class})
+@Import({BeveiligingConfig.class, SimulatieService.class, SimulatiedatumControllerTests.Opslag.class})
 class SimulatiedatumControllerTests {
 
     @Autowired
