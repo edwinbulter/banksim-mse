@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 
 import javax.crypto.Mac;
@@ -38,20 +39,29 @@ class Cursor {
         return ENCODER.encodeToString(bytes(inhoud)) + "." + ENCODER.encodeToString(handtekening(iban, inhoud));
     }
 
+    /**
+     * Alleen een onleesbare cursor is een {@link OngeldigeCursor}: geen punt, geen base64, geen komma, geen datum of geen
+     * id. Een fout in de HMAC-configuratie is een fout van de bank en geen 400 (backlog fase 3.5).
+     */
     Positie lees(Iban iban, String cursor) {
+        int punt = cursor.indexOf('.');
+        // De mutant "< 0 wordt <= 0" is gelijkwaardig: bij een punt vooraan faalt daarna de handtekening.
+        if (punt < 0) {
+            throw new OngeldigeCursor();
+        }
         try {
-            int punt = cursor.indexOf('.');
             String inhoud = new String(DECODER.decode(cursor.substring(0, punt)), StandardCharsets.UTF_8);
             byte[] gegeven = DECODER.decode(cursor.substring(punt + 1));
             if (!MessageDigest.isEqual(gegeven, handtekening(iban, inhoud))) {
                 throw new OngeldigeCursor();
             }
             String[] delen = inhoud.split(",", 2);
+            if (delen.length != 2) {
+                throw new OngeldigeCursor();
+            }
             return new Positie(LocalDate.parse(delen[0]), Long.parseLong(delen[1]));
-        } catch (OngeldigeCursor e) {
-            throw e;
-        } catch (RuntimeException e) {
-            // Onleesbaar: geen punt, geen base64, geen datum of geen id.
+        } catch (IllegalArgumentException | DateTimeParseException e) {
+            // Base64 en het id gooien een IllegalArgumentException, de datum een DateTimeParseException.
             throw new OngeldigeCursor();
         }
     }

@@ -57,6 +57,15 @@ class CursorTests {
         }
     }
 
+    /** Backlog fase 3.5: ook met een geldige handtekening is een inhoud zonder datum, id of komma onleesbaar. */
+    @Test
+    void weigertEenOndertekendeInhoudDieGeenPositieIs() throws Exception {
+        for (String inhoud : new String[] {"geen-datum,51", "2026-01-17,geen-id", "2026-01-17"}) {
+            assertThatThrownBy(() -> cursor.lees(VAN_JAN, ondertekend(VAN_JAN, inhoud))).as(inhoud)
+                    .isInstanceOf(OngeldigeCursor.class);
+        }
+    }
+
     @Test
     void startNietZonderSleutelVanMinstens32Tekens() {
         assertThatThrownBy(() -> new Cursor("te-kort")).isInstanceOf(IllegalStateException.class)
@@ -70,5 +79,15 @@ class CursorTests {
         Cursor precies32 = new Cursor("a".repeat(32));
         assertThat(precies32.lees(VAN_JAN, precies32.maak(VAN_JAN, POSITIE))).isEqualTo(POSITIE);
         assertThatThrownBy(() -> new Cursor("a".repeat(31))).isInstanceOf(IllegalStateException.class);
+    }
+
+    /** Zoals {@link Cursor#maak}, maar met een willekeurige inhoud. */
+    private static String ondertekend(Iban iban, String inhoud) throws Exception {
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(
+                "test-sleutel-van-minstens-32-tekens".getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+        return encoder.encodeToString(inhoud.getBytes(StandardCharsets.UTF_8)) + "."
+                + encoder.encodeToString(mac.doFinal((iban + "," + inhoud).getBytes(StandardCharsets.UTF_8)));
     }
 }
