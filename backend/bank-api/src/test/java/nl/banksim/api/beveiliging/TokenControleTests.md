@@ -97,7 +97,7 @@ Twee tests gebruiken dezelfde opbouw voor de rollen. De testcontroller heeft daa
 | `deRealmRolBeheerderUitHetTokenGeeftToegangTotBeheer` | `realm_access.roles = ["beheerder"]` | `200` |
 | `zonderDeRealmRolBeheerderIsBeheer403` | een andere rol (`offline_access`), en een token zonder `realm_access` | twee keer `403` |
 
-Keycloak zet realm-rollen in de claim `realm_access.roles`. Spring Security leest standaard alleen `scope`. De `JwtAuthenticationConverter` uit `BeveiligingConfig.realmRollen()` zet elke realm-rol om naar een recht met `ROLE_`, zodat `hasRole("beheerder")` werkt.
+Keycloak zet realm-rollen in de claim `realm_access.roles`. Spring Security leest standaard alleen `scope`. `RealmRollen`, via de `JwtAuthenticationConverter` uit `BeveiligingConfig.realmRollen()`, zet elke realm-rol om naar een recht met `ROLE_`, zodat `hasRole("beheerder")` werkt.
 
 Waarom hier, en niet in `SimulatiedatumControllerTests`? Daar zet `jwt()` de rechten rechtstreeks in de `SecurityContext`, met `.authorities(...)`. De omzetter van de app wordt dan overgeslagen. Alleen deze test stuurt een echt token door de echte keten, en bewijst dus dat de omzetter werkt. Met de sabotage `SCOPE_` in plaats van `ROLE_` faalt `deRealmRolBeheerder…` met `Status expected:<200> but was:<403>`.
 

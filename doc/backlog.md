@@ -107,9 +107,9 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
    - Wat in de drivers blijft, is wachten en het protocol controleren: een 200 bij een GET, de vorm van een pagina, de inlog- en uitlogstappen.
    - Sabotage: Sanne tijdelijk geen contact in "Betaling naar een contact". Beide drivers faalden met dezelfde melding: "betaling van Jan (onbekend-contact)", Expected "gelukt", Received "geweigerd".
 7. **Klaar (⛔ besloten): geen herkansing in CI.** `e2e/playwright.config.ts` heeft nu `retries: 0`, ook in CI. In de 24 geslaagde runs van 25 tot en met 31 oktober was geen enkel scenario `flaky`; de herkansing hielp dus nergens, maar zou het volgende flaky scenario stil laten slagen. Nu maakt het de pipeline rood. De andere keuze, een waarschuwing bij `flaky`, vroeg een extra reporter en stap in CI voor een probleem dat niet voorkwam (YAGNI). De zin over `retries: 1` in de Gevolgen van ADR 0014 is daarmee achterhaald; de ADR zelf blijft ongewijzigd.
-8. ⛔ **Beslissing (geen luie quick-fixes): de PIT-uitsluiting van `nl.banksim.*Config`** (ADR 0018). Daardoor valt de rolmapping in `BeveiligingConfig` buiten mutation testing. Er zijn twee keuzes:
-   - de mapping naar een eigen klasse halen, met een eigen test;
-   - de uitsluiting houden, met een reden in ADR 0018.
+8. **Klaar (⛔ besloten): de rolmapping in een eigen klasse.** Van alle `*Config`-klassen had alleen `BeveiligingConfig` van bank-api echte logica: de omzetting van `realm_access.roles` naar rechten met `ROLE_`. Die staat nu in `beveiliging/RealmRollen`, met `RealmRollenTests` (gewone JUnit, zonder Spring) voor de vier gevallen: rollen, geen `realm_access`, geen `roles`, en `roles` die geen lijst is. Dat laatste geval was niet getest. PIT meet de klasse: vier mutanten, alle vier gedood. De uitsluiting van `*Config` blijft voor de bedrading; de reden in ADR 0018 klopt nog.
+   - Sabotage: `SCOPE_` in plaats van `ROLE_` maakte `RealmRollenTests` en `TokenControleTests` rood.
+   - Eerst is de code leesbaarder geschreven: een positieve `instanceof` in plaats van `if (!(… instanceof …)) return …;`.
 
 ## Fase 4: idempotente mutaties
 
