@@ -57,6 +57,7 @@ class SeedCommando {
             throw new IllegalArgumentException("Optie " + args[args.length - 1] + " heeft geen waarde");
         }
         Map<String, String> opties = opties(args);
+        alleenBekendeOpties(commando, args);
         return switch (commando) {
             case "klant" -> klant(opties);
             case "transactie" -> transactie(opties);
@@ -187,6 +188,28 @@ class SeedCommando {
 
     /** Het resultaat van {@code transactie}: wat er geboekt is. */
     record GeboekteTransactie(String iban, String datum, String bedrag, String tegenpartij) {
+    }
+
+    /** De opties per commando; een andere optie is een tikfout en geeft geen stilletjes andere testdata (backlog fase 3.5). */
+    private static final Map<String, List<String>> OPTIES = Map.of(
+            "klant", List.of("--alias", "--betaalrekening", "--naam"),
+            "transactie", List.of("--iban", "--datum", "--tijdstip", "--bedrag", "--tegenpartij", "--type", "--tegen-iban"),
+            "transacties", List.of("--iban", "--transactie", "--boeking"),
+            "beheerder", List.of("--alias"),
+            "contact", List.of("--iban", "--naam"),
+            "spaarrekening", List.of("--gebruikersnaam", "--saldo", "--geopend-op"));
+
+    private static void alleenBekendeOpties(String commando, String[] args) {
+        List<String> bekend = OPTIES.get(commando);
+        if (bekend == null) {
+            return;
+        }
+        for (int i = 1; i < args.length; i += 2) {
+            if (!bekend.contains(args[i])) {
+                throw new IllegalArgumentException("Onbekende optie " + args[i] + " voor " + commando
+                        + " (verwacht: " + String.join(", ", bekend) + ")");
+            }
+        }
     }
 
     private static Map<String, String> opties(String[] args) {

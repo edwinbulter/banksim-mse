@@ -13,6 +13,8 @@ import java.util.List;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import tools.jackson.databind.json.JsonMapper;
 
 class SeedCommandoTests {
@@ -214,6 +216,24 @@ class SeedCommandoTests {
         assertThatThrownBy(() -> commando.voerUit("klant", "--alias", "jan", "--betaalrekening"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Optie --betaalrekening heeft geen waarde");
+        assertThat(aanroepen).isEmpty();
+    }
+
+    /** Backlog fase 3.5: een tikfout in een optie geeft geen stilletjes andere testdata, maar een fout. */
+    @ParameterizedTest
+    @CsvSource({
+            "klant, --alias jan --betaalrekening 10.00 --naaam Jan, --naaam",
+            "transactie, --iban NL94SIMB0000000001 --datum 2026-10-01 --bedrag 1.00 --tegenpartij X --tegeniban NL94SIMB0000000001, --tegeniban",
+            "transacties, --iban NL94SIMB0000000001 --transacties 2026-10-01;-812.40;Woningstichting, --transacties",
+            "beheerder, --alias beheer --naam Beheer, --naam",
+            "contact, --iban NL94SIMB0000000001 --naam Sanne --alias sanne, --alias",
+            "spaarrekening, --gebruikersnaam jan --saldo 10.00 --geopend 2026-01-01, --geopend"
+    })
+    void weigertEenOnbekendeOptie(String opdracht, String opties, String onbekend) {
+        String[] args = (opdracht + " " + opties).split(" ");
+        assertThatThrownBy(() -> commando.voerUit(args))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Onbekende optie " + onbekend + " voor " + opdracht);
         assertThat(aanroepen).isEmpty();
     }
 
