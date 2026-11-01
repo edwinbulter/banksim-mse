@@ -236,7 +236,7 @@ describe('App', () => {
     const pagina = await start('/rekeningen/NL94SIMB0000000001');
     await transacties(PAD, TWEE_DAGEN);
 
-    await zoek(pagina, { 'Naam of IBAN': 'woning', 'Bedrag van (€)': '27,95' });
+    await zoek(pagina, { 'Naam, bedrag, IBAN of omschrijving': 'woning', 'Bedrag van (€)': '27,95' });
     await transacties(`${PAD}?tekst=woning&van=27,95`, {
       transacties: [api('2026-10-01', 'Woningstichting Thuis', '-812.40')],
       volgende: null,
@@ -248,7 +248,7 @@ describe('App', () => {
   it('"Toon meer" na zoeken stuurt de zoekvelden mee met de cursor (S5.1)', async () => {
     const pagina = await start('/rekeningen/NL94SIMB0000000001');
     await transacties(PAD, TWEE_DAGEN);
-    await zoek(pagina, { 'Naam of IBAN': 'albert' });
+    await zoek(pagina, { 'Naam, bedrag, IBAN of omschrijving': 'albert' });
     await transacties(`${PAD}?tekst=albert`, {
       transacties: [api('2026-10-04', 'Albert Heijn Online', '-27.95')],
       volgende: 'MjAyNi0xMC0wNCw0.q-_x',
@@ -267,7 +267,7 @@ describe('App', () => {
   it('meldt "Geen transacties gevonden." als een zoekopdracht niets vindt (S5.1)', async () => {
     const pagina = await start('/rekeningen/NL94SIMB0000000001');
     await transacties(PAD, TWEE_DAGEN);
-    await zoek(pagina, { 'Naam of IBAN': 'Jumbo' });
+    await zoek(pagina, { 'Naam, bedrag, IBAN of omschrijving': 'Jumbo' });
     await transacties(`${PAD}?tekst=Jumbo`, { transacties: [], volgende: null });
 
     expect(pagina.textContent).toContain('Geen transacties gevonden.');
@@ -295,7 +295,7 @@ describe('App', () => {
   it('"Wissen" laadt weer alle transacties, zonder zoekvelden (S5.1)', async () => {
     const pagina = await start('/rekeningen/NL94SIMB0000000001');
     await transacties(PAD, TWEE_DAGEN);
-    await zoek(pagina, { 'Naam of IBAN': 'woning' });
+    await zoek(pagina, { 'Naam, bedrag, IBAN of omschrijving': 'woning' });
     await transacties(`${PAD}?tekst=woning`, {
       transacties: [api('2026-10-01', 'Woningstichting Thuis', '-812.40')],
       volgende: null,

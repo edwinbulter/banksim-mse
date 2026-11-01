@@ -327,7 +327,7 @@ export interface operations {
             query?: {
                 /** @description De cursor uit `volgende` van de vorige pagina (ADR 0011) */
                 na?: string;
-                /** @description Een deel van de naam of het IBAN van de tegenpartij */
+                /** @description Een deel van de naam of het IBAN van de tegenpartij, of van de omschrijving; of precies het bedrag, met punt of komma */
                 tekst?: string;
                 /** @description Het bedrag vanaf, met punt of komma */
                 van?: string;

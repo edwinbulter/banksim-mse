@@ -43,6 +43,20 @@ record Zoekfilter(Optional<String> tekst, Optional<Bedrag> van, Optional<Bedrag>
         return tekst.map(waarde -> bevat(waarde.replace(" ", "").toUpperCase(Locale.ROOT)));
     }
 
+    /**
+     * FO "Naam, bedrag, IBAN of omschrijving": staat er een bedrag in het tekstveld, met punt of komma en hoogstens twee
+     * decimalen, dan zoekt de bank daar precies op, als absolute waarde. Andere tekst is gewoon tekst, geen fout.
+     */
+    Optional<Bedrag> tekstAlsBedrag() {
+        return tekst.flatMap(waarde -> {
+            try {
+                return Optional.of(Bedrag.van(waarde.replace(',', '.'))).map(bedrag -> new Bedrag(bedrag.waarde().abs()));
+            } catch (IllegalArgumentException e) {
+                return Optional.empty();
+            }
+        });
+    }
+
     private static String bevat(String tekst) {
         return "%" + Like.letterlijk(tekst) + "%";
     }

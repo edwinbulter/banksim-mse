@@ -119,4 +119,25 @@ class ZoekfilterTests {
             Locale.setDefault(standaard);
         }
     }
+
+    /** FO "Naam, bedrag, IBAN of omschrijving": staat er een bedrag in het tekstveld, dan zoekt de bank er ook precies op. */
+    @Test
+    void eenBedragInHetTekstveldIsOokEenBedragOmPreciesOpTeZoeken() {
+        for (String tekst : new String[] {"63,48", "63.48", "-63,48", " 63,48 "}) {
+            assertThat(tekstfilter(tekst).tekstAlsBedrag()).as(tekst).contains(Bedrag.van("63.48"));
+        }
+        assertThat(tekstfilter("50").tekstAlsBedrag()).contains(Bedrag.van("50.00"));
+    }
+
+    /** Tekst die geen bedrag is, zoals een naam of een bedrag met drie decimalen, zoekt niet op een bedrag; geen fout. */
+    @Test
+    void tekstDieGeenBedragIsZoektNietOpEenBedrag() {
+        for (String tekst : new String[] {"albert", "NL91 ABNA", "1,234", "12,5,0"}) {
+            assertThat(tekstfilter(tekst).tekstAlsBedrag()).as(tekst).isEmpty();
+        }
+    }
+
+    private static Zoekfilter tekstfilter(String tekst) {
+        return Zoekfilter.van(Optional.of(tekst), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
 }

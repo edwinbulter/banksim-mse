@@ -1205,8 +1205,6 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 
 | Punt | Reden van uitstel | Komt terug bij |
 | --- | --- | --- |
-| Zoeken op omschrijving (FO: "Naam, bedrag, IBAN of omschrijving") | De omschrijving staat sinds S7.1 in de data en de details, maar zoeken erop vroeg nog geen scenario | Eigen scenario in `zoeken.spec.ts`, samen met zoeken op bedrag |
-| Zoeken op bedrag in het tekstveld (FO: "Naam, bedrag, IBAN of omschrijving") | Bij S5.1 gekozen voor naam en IBAN; op bedrag zoeken kan via het bedragbereik | Eigen scenario, samen met de omschrijving |
 | Het aantal resultaten ("12 resultaten", FO) | Niet in S5.1 meegenomen | Eigen scenario in `zoeken.spec.ts` |
 | `pg_trgm`-index voor zoeken | Geen test kan de prestatie nu eisen | Zie de ADR-backlog (hoofdstuk 6): slice 11 of een prestatie-eis |
 | `npm audit`: 2 kwetsbaarheden (1 low, 1 high) in `vite` via `@angular/build` (gezien op 2026-10-23); de oplossing van npm is een breaking downgrade naar `@angular/build` 22.1.9 | Een Angular-update hoort bij een eigen wijziging met de commit stage als vangnet | CFR Supply chain (`npm audit` in CI), of eerder bij een Angular-patch |

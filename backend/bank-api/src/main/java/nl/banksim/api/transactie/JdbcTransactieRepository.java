@@ -44,9 +44,12 @@ class JdbcTransactieRepository implements TransactieRepository {
                         WHERE t.iban = :iban
                           AND t.datum <= :vandaag
                           -- S5.1: elk veld is een vaste voorwaarde met een parameter, of doet niet mee (null).
+                          -- FO "Naam, bedrag, IBAN of omschrijving": een bedrag in het tekstveld past alleen precies.
                           AND (CAST(:tekst AS text) IS NULL
                                OR t.tegenpartij ILIKE CAST(:tekst AS text) ESCAPE '\\'
-                               OR t.tegen_iban LIKE CAST(:ibanPatroon AS text) ESCAPE '\\')
+                               OR t.tegen_iban LIKE CAST(:ibanPatroon AS text) ESCAPE '\\'
+                               OR t.omschrijving ILIKE CAST(:tekst AS text) ESCAPE '\\'
+                               OR abs(t.bedrag) = CAST(:tekstBedrag AS numeric))
                           AND (CAST(:van AS numeric) IS NULL OR abs(t.bedrag) >= CAST(:van AS numeric))
                           AND (CAST(:tm AS numeric) IS NULL OR abs(t.bedrag) <= CAST(:tm AS numeric))
                           AND (CAST(:type AS text) IS NULL OR t.type = CAST(:type AS text))
@@ -62,6 +65,7 @@ class JdbcTransactieRepository implements TransactieRepository {
                 .param("vandaag", vandaag)
                 .param("tekst", filter.tekstPatroon().orElse(null))
                 .param("ibanPatroon", filter.ibanPatroon().orElse(null))
+                .param("tekstBedrag", filter.tekstAlsBedrag().map(Bedrag::waarde).orElse(null))
                 .param("van", filter.van().map(Bedrag::waarde).orElse(null))
                 .param("tm", filter.tm().map(Bedrag::waarde).orElse(null))
                 .param("type", filter.type().map(Enum::name).orElse(null))

@@ -32,7 +32,7 @@ export class ZoekenPagina {
   async zoek(opdracht: Zoekopdracht): Promise<void> {
     await this.open();
     const formulier = this.formulier();
-    await formulier.getByLabel('Naam of IBAN').fill(opdracht.tekst ?? '');
+    await formulier.getByLabel('Naam, bedrag, IBAN of omschrijving').fill(opdracht.tekst ?? '');
     await formulier.getByLabel('Bedrag van (€)').fill(opdracht.van ?? '');
     await formulier.getByLabel('Bedrag t/m (€)').fill(opdracht.tm ?? '');
     await formulier.getByLabel('Transactietype').selectOption(opdracht.type ?? '');
@@ -68,7 +68,7 @@ export class ZoekenPagina {
       if (await formulier.getByRole('radio', { name: RICHTINGEN[sleutel] }).isChecked()) gekozen = sleutel;
     }
     return {
-      tekst: await formulier.getByLabel('Naam of IBAN').inputValue(),
+      tekst: await formulier.getByLabel('Naam, bedrag, IBAN of omschrijving').inputValue(),
       van: await formulier.getByLabel('Bedrag van (€)').inputValue(),
       tm: await formulier.getByLabel('Bedrag t/m (€)').inputValue(),
       type: await formulier.getByLabel('Transactietype').inputValue(),

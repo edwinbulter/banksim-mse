@@ -14,8 +14,8 @@ type Richting = 'inkomend' | 'uitgaand';
 
 /**
  * S5.1: zoeken in de transacties. "Zoeken in transacties" opent het formulier, "Verberg zoeken" sluit het. Het
- * tekstveld heet "Naam of IBAN": zoeken op bedrag of omschrijving in de tekst komt later (backlog). De controle van de
- * velden doet de API; een melding daarvan staat in het formulier.
+ * tekstveld heet "Naam, bedrag, IBAN of omschrijving", zoals in het FO; een bedrag erin past alleen precies. De controle
+ * van de velden doet de API; een melding daarvan staat in het formulier.
  */
 @Component({
   selector: 'app-zoek-formulier',
@@ -23,7 +23,7 @@ type Richting = 'inkomend' | 'uitgaand';
     <button type="button" (click)="open.set(!open())">{{ open() ? 'Verberg zoeken' : 'Zoeken in transacties' }}</button>
     @if (open()) {
       <form aria-label="Zoeken in transacties" (submit)="$event.preventDefault(); zoeken()">
-        <label for="zoek-tekst">Naam of IBAN</label>
+        <label for="zoek-tekst">Naam, bedrag, IBAN of omschrijving</label>
         <input id="zoek-tekst" [value]="tekst()" (input)="tekst.set(waarde($event))" />
         <label for="zoek-van">Bedrag van (€)</label>
         <input id="zoek-van" inputmode="decimal" [value]="van()" (input)="van.set(waarde($event))" />

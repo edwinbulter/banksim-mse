@@ -59,9 +59,9 @@ describe('ZoekFormulier', () => {
     expect(formulier()).toBeNull();
   });
 
-  it('heeft de velden uit het FO, met "Naam of IBAN" omdat bedrag en omschrijving nog niet in de tekst meedoen', () => {
+  it('heeft de velden uit het FO, met het tekstveld "Naam, bedrag, IBAN of omschrijving"', () => {
     open();
-    expect(veld('Naam of IBAN')).not.toBeNull();
+    expect(veld('Naam, bedrag, IBAN of omschrijving')).not.toBeNull();
     expect(veld('Bedrag van (€)')).not.toBeNull();
     expect(veld('Bedrag t/m (€)')).not.toBeNull();
     expect([...veld('Transactietype').options].map((o) => [o.value, o.textContent?.trim()])).toEqual([
@@ -81,7 +81,7 @@ describe('ZoekFormulier', () => {
 
   it('"Zoeken" meldt alleen de ingevulde velden, letterlijk', () => {
     open();
-    vulIn('Naam of IBAN', 'albert');
+    vulIn('Naam, bedrag, IBAN of omschrijving', 'albert');
     vulIn('Bedrag van (€)', '27,95');
     vulIn('Transactietype', 'INCASSO');
     radio('Inkomende transacties').click();
@@ -91,13 +91,13 @@ describe('ZoekFormulier', () => {
 
   it('"Wissen" maakt alle velden leeg, kiest "Alle transacties" en meldt het', () => {
     open();
-    vulIn('Naam of IBAN', 'albert');
+    vulIn('Naam, bedrag, IBAN of omschrijving', 'albert');
     vulIn('Bedrag t/m (€)', '100');
     radio('Uitgaande transacties').click();
     fixture.detectChanges();
     knop('Wissen')?.click();
     fixture.detectChanges();
-    expect(veld('Naam of IBAN').value).toBe('');
+    expect(veld('Naam, bedrag, IBAN of omschrijving').value).toBe('');
     expect(veld('Bedrag t/m (€)').value).toBe('');
     expect(veld('Transactietype').value).toBe('');
     expect(radio('Alle transacties').checked).toBe(true);

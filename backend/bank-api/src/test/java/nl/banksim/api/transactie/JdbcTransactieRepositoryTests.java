@@ -143,6 +143,22 @@ class JdbcTransactieRepositoryTests {
         assertThat(zoek(NA_ALLES, filter("nl91 abna", null, null, null, null))).containsExactly("Woningstichting Thuis");
     }
 
+    /** FO "Naam, bedrag, IBAN of omschrijving": een deel van de omschrijving, hoofdletterongevoelig. */
+    @Test
+    void zoektOpEenDeelVanDeOmschrijving() {
+        assertThat(zoek(NA_ALLES, filter("salaris", null, null, null, null))).containsExactly("Werkgever B.V.");
+    }
+
+    /**
+     * Een bedrag in het tekstveld past alleen precies, op de absolute waarde; "812" vindt de 812,40 dus niet. (Geen
+     * "12": dat staat in het IBAN van de werkgever, en daar mag de tekst wel een deel van zijn.)
+     */
+    @Test
+    void zoektOpEenBedragInHetTekstveldAlleenPrecies() {
+        assertThat(zoek(NA_ALLES, filter("812,40", null, null, null, null))).containsExactly("Woningstichting Thuis");
+        assertThat(zoek(NA_ALLES, filter("812", null, null, null, null))).isEmpty();
+    }
+
     /** Het bereik geldt voor de absolute waarde, met de grenzen erbij. */
     @Test
     void zoektOpBedragInclusiefDeGrenzenOpAbsoluteWaarde() {

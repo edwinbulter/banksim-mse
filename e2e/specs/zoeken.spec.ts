@@ -2,7 +2,8 @@ import { test } from '../dsl/fixtures';
 import type { Boeking } from '../dsl/klant';
 
 /**
- * S5.1: zoeken in de transacties op tekst (naam of IBAN), bedrag, type en richting (doc/werkwijze-mse.md, slice 5).
+ * S5.1: zoeken in de transacties op tekst (naam, bedrag, IBAN of omschrijving), bedrag, type en richting
+ * (doc/werkwijze-mse.md, slice 5).
  * De transacties staan hier, zodat je ziet waarom een voorbeeld deze uitkomst heeft.
  */
 const TRANSACTIES: Boeking[] = [
@@ -22,6 +23,8 @@ const voorbeelden = [
   { criterium: 'type Incasso', zoek: { type: 'INCASSO' }, gevonden: ['Vattenfall', 'Woningstichting Thuis'] },
   { criterium: 'inkomende transacties', zoek: { richting: 'inkomend' }, gevonden: ['Piet', 'Werkgever B.V.'] },
   { criterium: 'type Incasso en bedrag t/m 100', zoek: { type: 'INCASSO', tm: '100' }, gevonden: ['Vattenfall'] },
+  // Een bedrag in het tekstveld past alleen precies; voor een bereik zijn er Bedrag van en Bedrag t/m.
+  { criterium: 'bedrag 63,48 in het tekstveld', zoek: { tekst: '63,48' }, gevonden: ['Albert Heijn'] },
   { criterium: 'tekst "Jumbo"', zoek: { tekst: 'Jumbo' }, gevonden: [] },
 ] as const;
 
@@ -39,6 +42,28 @@ for (const v of voorbeelden) {
     );
   });
 }
+
+/** De omschrijving staat sinds S7.1 bij een betaling; zoeken erop gaat via het tekstveld, zonder hoofdletters. */
+test('Zoeken op omschrijving', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  const piet = bank.klant('Piet');
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 500,00', () =>
+    jan.heeftBetaalrekening({ saldo: '500.00' }),
+  );
+  await bank.en('Sanne en Piet zijn contacten met een betaalrekening', async () => {
+    await sanne.heeftBetaalrekening({ contact: true });
+    await piet.heeftBetaalrekening({ contact: true });
+  });
+  await bank.en('Jan betaalde € 25,00 aan Sanne met omschrijving "Etentje"', () =>
+    jan.betaalt({ bedrag: '25.00', aan: sanne, omschrijving: 'Etentje' }),
+  );
+  await bank.en('Jan betaalde € 10,00 aan Piet met omschrijving "Bioscoop"', () =>
+    jan.betaalt({ bedrag: '10.00', aan: piet, omschrijving: 'Bioscoop' }),
+  );
+  await bank.als('Jan zoekt op tekst "etentje"', () => jan.zoekt({ tekst: 'etentje' }));
+  await bank.dan('vindt Jan alleen de betaling aan Sanne', () => jan.verwachtGevonden(['Sanne']));
+});
 
 test('Ongeldig bedragbereik', async ({ bank }) => {
   const jan = bank.klant('Jan');
