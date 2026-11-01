@@ -88,6 +88,22 @@ class JdbcRekeningRepositoryTests {
                 new Rekening(Soort.BETAAL, Iban.van("NL08SIMB2010265342"), Bedrag.van("187.60")));
     }
 
+    /**
+     * Backlog fase 7.4: de interne rekening van de bank (soort intern, V11) hoort niet in het overzicht van een klant.
+     * Zonder filter gaf Soort.van een IllegalArgumentException, en ProbleemAdvice maakte daar een 400 van.
+     */
+    @Test
+    void eenInterneRekeningHoortNietInHetOverzicht() {
+        Iban betaal = Iban.simBank(4L);
+        jdbc.sql("""
+                INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
+                SELECT :iban, id, 'betaal', 10.00 FROM rekeninghouder WHERE gebruikersnaam = 'banksim'
+                """).param("iban", betaal.toString()).update();
+
+        assertThat(repository.vanGebruiker("banksim", NA_ALLES)).containsExactly(
+                new Rekening(Soort.BETAAL, betaal, Bedrag.van("10.00")));
+    }
+
     @Test
     void geeftNietsVoorEenOnbekendeGebruiker() {
         assertThat(repository.vanGebruiker("onbekend", NA_ALLES)).isEmpty();

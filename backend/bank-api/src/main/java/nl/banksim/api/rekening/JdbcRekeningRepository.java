@@ -19,13 +19,14 @@ class JdbcRekeningRepository implements RekeningRepository {
         this.saldi = new Saldi(jdbc);
     }
 
+    /** Alleen de rekeningen van een klant: de interne rekening van de bank (V11) hoort niet in het overzicht. */
     @Override
     public List<Rekening> vanGebruiker(String gebruikersnaam, LocalDate vandaag) {
         record SoortEnIban(Soort soort, Iban iban) {
         }
         return jdbc.sql("""
                         SELECT r.soort, r.iban FROM rekening r JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
-                        WHERE h.gebruikersnaam = :gebruikersnaam
+                        WHERE h.gebruikersnaam = :gebruikersnaam AND r.soort IN ('betaal', 'spaar')
                         ORDER BY r.soort, r.iban""")
                 .param("gebruikersnaam", gebruikersnaam)
                 .query((rij, nummer) -> new SoortEnIban(Soort.van(rij.getString("soort")), Iban.van(rij.getString("iban"))))
