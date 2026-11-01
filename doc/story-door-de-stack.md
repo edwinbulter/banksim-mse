@@ -12,7 +12,7 @@ Dit document beschrijft de vorm van het systeem, niet de details. Het noemt alle
 
 Klassen, versies, poorten, aantallen en regelnummers staan er bewust niet in. Die vind je in de bron waar het document naar verwijst.
 
-Verschillen het document en de code, dan wint de code. Het scenario, de ADR en de Helm-chart zijn de bron van de waarheid. Wil je de route tot op de klasse kennen, gebruik dan de skill `uitleg` (`/uitleg betalen`), die alles uit de actuele code haalt.
+Verschillen het document en de code, dan wint de code. Het scenario, de ADR en de Helm-chart zijn de bron van de waarheid; voor de vorm van de API is dat het contract `api/bank-api.yaml` (ADR 0034). Wil je de route tot op de klasse kennen, gebruik dan de skill `uitleg` (`/uitleg betalen`), die alles uit de actuele code haalt.
 
 ## 1. De stack
 
@@ -55,6 +55,7 @@ De browser praat alleen met `bank-web`, `bank-bff` en Keycloak. `bank-api` is va
 | `bank-web` | Levert de Angular-app als statische bestanden. Elk scherm heeft een eigen URL. | `frontend/` | 0012 |
 | `bank-bff` | Backend for frontend. Doet het inloggen bij Keycloak, houdt de sessie en het token bij, beschermt tegen CSRF en stuurt `/api/**` door naar `bank-api` met het token. | `backend/bank-bff` | 0008, 0016, 0021 |
 | `bank-api` | De bank: rekeningen, transacties, betalen, rente, simulatiedatum. Controleert het token bij elke aanvraag en het recht per endpoint. | `backend/bank-api` | 0022, 0023 |
+| API-contract | Beschrijft elk endpoint van `bank-api`: paden, parameters, de JSON van verzoeken en antwoorden, en de probleemberichten. `bank-api` wordt ertegen getest; de frontend haalt er zijn types uit. Geen onderdeel dat draait. | `api/bank-api.yaml` | 0034 |
 | `bank-domain` | De regels van de bank zonder framework, zoals bedrag, IBAN, overboeking en "nooit rood". `bank-api` gebruikt het als library. | `backend/bank-domain` | 0010, 0024, 0025 |
 | `keycloak` | Identiteitsprovider: gebruikers, wachtwoorden, rollen en tokens, in de realm `banksim-mse`. | chart, `deploy/banksim-mse/files/` | 0007, 0015 |
 | `postgres` | Eén PostgreSQL met twee databases: `bank` voor de bank en `keycloak` voor Keycloak. Het schema van `bank` komt uit Flyway-migraties in `bank-api`. | chart, `backend/bank-api/src/main/resources/db/migration` | 0009 |
@@ -83,7 +84,7 @@ Alles staat in namespace `banksim-mse`, en er zijn geen cluster-brede resources 
   
   Hetzelfde scenario draait zo via de API en in de browser.
 - **De pipeline** (`.github/workflows/ci.yml`, ADR 0002) heeft twee stages:
-  - de commit stage bouwt de code, voert de unittests, de mutatietests en de infrastructuurchecks uit, en bouwt de images één keer;
+  - de commit stage bouwt de code, voert de unittests, de mutatietests en de infrastructuurchecks uit, en bouwt de images één keer. Daarbij hoort het contract: de controllertests controleren elk antwoord van `bank-api` ertegen, en de types van de frontend moeten erbij passen;
   - de acceptance stage installeert die images in een tijdelijk kind-cluster en draait daar de scenario's.
 
 ## 2. De story: Betalen naar een contact
@@ -183,6 +184,7 @@ sequenceDiagram
 - **De BFF** controleert de CSRF-header, haalt de cookies van de browser van de aanvraag af en zet het access token uit de sessie erop.
 - **`bank-api`** controleert het token tegen de publieke sleutels van Keycloak, inclusief de audience `bank-api`. Daarna controleert het het recht van het endpoint met `@PreAuthorize` (ADR 0022).
 - **Waar kijk je:**
+  - de vorm van `POST /api/betalingen` en zijn antwoorden in `api/bank-api.yaml`;
   - de schermen in `frontend/src/app`;
   - de route naar `bank-api` in `backend/bank-bff`;
   - het package `betaling` in `bank-api`;
@@ -250,6 +252,7 @@ Dezelfde route geldt voor elke story:
 1. Begin bij de spec in `e2e/specs/`.
 2. Volg de DSL-methode naar de driver.
 3. Kijk welk endpoint de driver aanroept: de schermen in `frontend/src/app` roepen dezelfde endpoints aan.
-4. Zoek dat endpoint in `bank-api` en volg het naar het domein en de database.
+4. Zoek dat endpoint op in het contract `api/bank-api.yaml`: daar staat wat het verwacht en wat het teruggeeft.
+5. Zoek het endpoint in `bank-api` en volg het naar het domein en de database.
 
 De tabel "Waar komt wat" in `CLAUDE.md` geeft per soort wijziging de plek en de test. De ADR's in `doc/adr/` geven het waarom.

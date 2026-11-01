@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
 
+import nl.banksim.api.ApiContract;
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
 import nl.banksim.api.grootboek.GeheugenGrootboek;
@@ -42,7 +43,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * kant (ADR 0024, 0029).
  */
 @WebMvcTest(OverschrijvingController.class)
-@Import({BeveiligingConfig.class, IngelogdeGebruiker.class, OverschrijfService.class, LedgerService.class,
+@Import({ApiContract.class, BeveiligingConfig.class, IngelogdeGebruiker.class, OverschrijfService.class, LedgerService.class,
         OverschrijvingControllerTests.Opslag.class})
 class OverschrijvingControllerTests {
 

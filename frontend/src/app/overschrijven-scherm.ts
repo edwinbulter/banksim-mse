@@ -3,7 +3,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { bedragUitInvoer } from './geld/bedrag';
 import { meldingBij } from './fout';
-import type { Rekening } from './overzicht';
+import type { Overschrijving, Rekening } from './api/schemas';
 
 /**
  * Routes `/spaarrekeningen/:iban/inleggen` en `/opnemen` (S9.1, FO "Overschrijven scherm"): bij inleggen is Van de eigen
@@ -64,7 +64,7 @@ export class OverschrijvenScherm {
   }
 
   protected schrijfOver(): void {
-    const opdracht = { van: this.van().iban, naar: this.naar().iban, bedrag: bedragUitInvoer(this.bedrag()) };
+    const opdracht: Overschrijving = { van: this.van().iban, naar: this.naar().iban, bedrag: bedragUitInvoer(this.bedrag()) };
     const headers = { 'Idempotency-Key': this.sleutel };
     this.http.post('/api/overschrijvingen', opdracht, { headers }).subscribe({
       next: () => void this.router.navigate(['/spaarrekeningen', this.iban()]),

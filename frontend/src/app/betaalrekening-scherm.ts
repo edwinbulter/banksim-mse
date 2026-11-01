@@ -1,7 +1,8 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Betaalrekening, type Transactie } from './betaalrekening';
+import type { Pagina } from './api/schemas';
+import { Betaalrekening } from './betaalrekening';
 import { ZoekFormulier, type Zoekopdracht } from './zoek-formulier';
 
 /**
@@ -85,10 +86,4 @@ export class BetaalrekeningScherm {
       },
     });
   }
-}
-
-/** Een pagina van bank-api; `volgende` is de cursor voor "Toon meer", of null aan het eind (ADR 0011). */
-interface Pagina {
-  transacties: Transactie[];
-  volgende: string | null;
 }

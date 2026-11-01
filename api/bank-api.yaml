@@ -1,0 +1,425 @@
+# Het contract van bank-api (ADR 0034). Contract-first: een wijziging aan de API begint hier. bank-api wordt in zijn
+# controllertests hiertegen gecontroleerd; de frontend genereert er zijn types uit (npm run api-types).
+# OpenAPI 3.0.3, niet 3.1: de validator in bank-api slaat de schema's van 3.1 stil over (ADR 0034).
+openapi: 3.0.3
+info:
+  title: bank-api
+  version: "1"
+  description: >
+    De bank achter de BFF. Alleen de BFF roept haar aan, met het access token van de gebruiker (ADR 0008).
+    Bedragen zijn tekst met een punt en twee decimalen, nooit een getal (ADR 0010).
+security:
+  - token: []
+paths:
+  /api/versie:
+    get:
+      operationId: versie
+      summary: De versie die draait, voor de voettekst en de rooktest; zonder token (ADR 0008).
+      security: []
+      responses:
+        "200":
+          description: De image-tag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Versie"
+
+  /api/rekeningen:
+    get:
+      operationId: rekeningen
+      summary: De rekeningen van de ingelogde klant met het saldo van vandaag (S1.1, S8.2).
+      responses:
+        "200":
+          description: Eerst de betaalrekeningen, dan de spaarrekeningen
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rekening"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+
+  /api/rekeningen/{iban}/transacties:
+    get:
+      operationId: transacties
+      summary: Een pagina van 50 transacties, nieuw naar oud, eventueel gezocht (S2.1, S2.2, S5.1).
+      parameters:
+        - $ref: "#/components/parameters/Iban"
+        - name: na
+          in: query
+          description: De cursor uit `volgende` van de vorige pagina (ADR 0011)
+          schema:
+            type: string
+        - name: tekst
+          in: query
+          description: Een deel van de naam of het IBAN van de tegenpartij
+          schema:
+            type: string
+        - name: van
+          in: query
+          description: Het bedrag vanaf, met punt of komma
+          schema:
+            type: string
+        - name: tm
+          in: query
+          description: Het bedrag tot en met, met punt of komma
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/Transactietype"
+        - name: richting
+          in: query
+          schema:
+            type: string
+            enum: [INKOMEND, UITGAAND]
+      responses:
+        "200":
+          description: De pagina
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pagina"
+        "400":
+          $ref: "#/components/responses/Probleem"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "404":
+          $ref: "#/components/responses/NietGevonden"
+
+  /api/rekeningen/{iban}/lopende-rente:
+    get:
+      operationId: lopendeRente
+      summary: De rente van de lopende maand tot en met vandaag, van een eigen spaarrekening (S8.1).
+      parameters:
+        - $ref: "#/components/parameters/Iban"
+      responses:
+        "200":
+          description: Het bedrag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LopendeRente"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "404":
+          $ref: "#/components/responses/NietGevonden"
+
+  /api/contacten:
+    get:
+      operationId: contacten
+      summary: Hoogstens 10 contacten uit de contactenlijst van de bank, voor de suggesties bij Betalen (S7.1).
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Een deel van de naam, of het begin van het IBAN
+          schema:
+            type: string
+      responses:
+        "200":
+          description: De contacten, op naam
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contact"
+        "400":
+          $ref: "#/components/responses/Probleem"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+
+  /api/betalingen:
+    post:
+      operationId: betaal
+      summary: Een betaling van een eigen rekening naar een contact, na "Bevestigen" (S7.1).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Betaling"
+      responses:
+        "201":
+          description: Geboekt, of al eerder geboekt met dezelfde sleutel (ADR 0027)
+        "400":
+          $ref: "#/components/responses/Probleem"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "404":
+          $ref: "#/components/responses/NietGevonden"
+        "422":
+          $ref: "#/components/responses/Geweigerd"
+
+  /api/overschrijvingen:
+    post:
+      operationId: schrijfOver
+      summary: Geld tussen de eigen betaal- en spaarrekening, Inleggen of Opnemen (S9.1).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Overschrijving"
+      responses:
+        "201":
+          description: Geboekt, of al eerder geboekt met dezelfde sleutel (ADR 0027)
+        "400":
+          $ref: "#/components/responses/Probleem"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "404":
+          $ref: "#/components/responses/NietGevonden"
+        "422":
+          $ref: "#/components/responses/Geweigerd"
+
+  /api/beheer/simulatiedatum:
+    put:
+      operationId: zetSimulatiedatum
+      summary: De beheerder zet de bank op een gekozen datum; daarna sluit de bank de maanden af (S3.1, ADR 0013).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Simulatiedatum"
+      responses:
+        "204":
+          description: Gezet
+        "400":
+          $ref: "#/components/responses/Probleem"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "403":
+          $ref: "#/components/responses/GeenRecht"
+    delete:
+      operationId: wisSimulatiedatum
+      summary: De bank draait weer op vandaag (S3.1).
+      responses:
+        "204":
+          description: Gewist
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "403":
+          $ref: "#/components/responses/GeenRecht"
+
+components:
+  securitySchemes:
+    token:
+      type: http
+      scheme: bearer
+      description: Het access token van Keycloak met audience bank-api; de BFF zet het erop (ADR 0008).
+
+  parameters:
+    Iban:
+      name: iban
+      in: path
+      required: true
+      description: Een ongeldige IBAN is een rekening die niet bestaat, dus 404 (ADR 0023)
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Eén per controlescherm; dezelfde sleutel boekt één keer (ADR 0027)
+      schema:
+        type: string
+
+  responses:
+    NietIngelogd:
+      description: Geen of een ongeldig token
+    GeenRecht:
+      description: Ingelogd, maar zonder het recht, zoals de rol beheerder (ADR 0022)
+    NietGevonden:
+      description: De rekening bestaat niet, of is niet van deze klant (ADR 0023)
+    Probleem:
+      description: Een ongeldig verzoek (RFC 9457); bij een fout van Spring zelf zonder body
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Probleem"
+    Geweigerd:
+      description: De bank weigert, met een probleemtype en de melding voor de klant (RFC 9457)
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Probleem"
+
+  schemas:
+    Bedrag:
+      description: Een bedrag in euro's met teken, een punt en twee decimalen (ADR 0010)
+      type: string
+      pattern: '^-?\d+\.\d{2}$'
+      example: "-812.40"
+    Iban:
+      type: string
+      pattern: '^NL\d{2}[A-Z]{4}\d{10}$'
+      example: NL94SIMB0000000001
+    Transactietype:
+      type: string
+      enum: [ONLINE_BANKIEREN, IDEAL_WERO, BETAALAUTOMAAT, INCASSO, GELDAUTOMAAT, OVERSCHRIJVING, VERZAMELBETALING,
+        RENTE, INLEG, OPNAME]
+
+    Versie:
+      type: object
+      additionalProperties: false
+      required: [versie]
+      properties:
+        versie:
+          type: string
+          example: 1a4e15f
+
+    Rekening:
+      type: object
+      additionalProperties: false
+      required: [soort, iban, saldo]
+      properties:
+        soort:
+          type: string
+          enum: [betaal, spaar]
+        iban:
+          $ref: "#/components/schemas/Iban"
+        saldo:
+          $ref: "#/components/schemas/Bedrag"
+
+    Pagina:
+      type: object
+      additionalProperties: false
+      required: [transacties, volgende]
+      properties:
+        transacties:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transactie"
+        volgende:
+          description: De cursor voor "Toon meer", of null aan het eind (ADR 0011)
+          type: string
+          nullable: true
+
+    Transactie:
+      type: object
+      additionalProperties: false
+      required: [datum, tegenpartij, bedrag, type, tijdstip, van, naar, omschrijving, betalingskenmerk]
+      properties:
+        datum:
+          description: De uitvoerdatum
+          type: string
+          format: date
+        tegenpartij:
+          type: string
+        bedrag:
+          $ref: "#/components/schemas/Bedrag"
+        type:
+          $ref: "#/components/schemas/Transactietype"
+        tijdstip:
+          description: In Europe/Amsterdam, met offset (S4.1)
+          type: string
+          format: date-time
+        van:
+          $ref: "#/components/schemas/Partij"
+        naar:
+          $ref: "#/components/schemas/Partij"
+        omschrijving:
+          type: string
+          nullable: true
+        betalingskenmerk:
+          type: string
+          nullable: true
+
+    Partij:
+      type: object
+      additionalProperties: false
+      required: [naam, iban]
+      properties:
+        naam:
+          type: string
+        iban:
+          description: Null zonder IBAN, zoals bij een betaalautomaat
+          type: string
+          nullable: true
+
+    LopendeRente:
+      type: object
+      additionalProperties: false
+      required: [bedrag]
+      properties:
+        bedrag:
+          $ref: "#/components/schemas/Bedrag"
+
+    Contact:
+      type: object
+      additionalProperties: false
+      required: [naam, iban]
+      properties:
+        naam:
+          type: string
+        iban:
+          $ref: "#/components/schemas/Iban"
+
+    Betaling:
+      type: object
+      additionalProperties: false
+      required: [van, naar, naam, bedrag]
+      properties:
+        van:
+          type: string
+        naar:
+          type: string
+        naam:
+          type: string
+        bedrag:
+          description: Zoals de klant het bevestigt, met punt; hoogstens twee decimalen (ADR 0010)
+          type: string
+        omschrijving:
+          type: string
+        betalingskenmerk:
+          type: string
+        extraOmschrijving:
+          type: string
+
+    Overschrijving:
+      type: object
+      additionalProperties: false
+      required: [van, naar, bedrag]
+      properties:
+        van:
+          type: string
+        naar:
+          type: string
+        bedrag:
+          type: string
+
+    Simulatiedatum:
+      type: object
+      additionalProperties: false
+      required: [datum]
+      properties:
+        datum:
+          type: string
+          format: date
+
+    Probleem:
+      description: RFC 9457; `type` is urn:banksim:probleem:<code>, `detail` de melding voor de klant
+      type: object
+      additionalProperties: false
+      required: [type, title, status, detail]
+      properties:
+        type:
+          type: string
+          pattern: '^urn:banksim:probleem:[a-z-]+$'
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string

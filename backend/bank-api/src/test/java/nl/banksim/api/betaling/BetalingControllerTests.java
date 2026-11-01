@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
 
+import nl.banksim.api.ApiContract;
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
 import nl.banksim.api.grootboek.GeheugenGrootboek;
@@ -41,7 +42,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /** S7.1: een betaling is één overboeking van de eigen rekening naar de ontvanger (ADR 0024). */
 @WebMvcTest(BetalingController.class)
-@Import({BeveiligingConfig.class, IngelogdeGebruiker.class, BetaalService.class, LedgerService.class,
+@Import({ApiContract.class, BeveiligingConfig.class, IngelogdeGebruiker.class, BetaalService.class, LedgerService.class,
         BetalingControllerTests.Opslag.class})
 class BetalingControllerTests {
 

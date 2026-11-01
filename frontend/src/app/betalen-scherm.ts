@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { meldingBij } from './fout';
+import type { Betaling, Contact } from './api/schemas';
 import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
 
 /**
@@ -112,7 +113,7 @@ export class BetalenScherm {
   }
 
   protected bevestig(): void {
-    const betaling = {
+    const betaling: Betaling = {
       van: this.iban(),
       naar: this.ontvanger(),
       naam: this.naam(),
@@ -136,10 +137,4 @@ export class BetalenScherm {
   protected waarde(event: Event): string {
     return (event.target as HTMLInputElement).value;
   }
-}
-
-/** Een contact uit de contactenlijst van de bank, zoals `GET /api/contacten` het levert. */
-interface Contact {
-  naam: string;
-  iban: string;
 }

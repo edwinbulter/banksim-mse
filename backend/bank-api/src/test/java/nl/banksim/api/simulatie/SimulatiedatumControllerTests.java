@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDate;
 
+import nl.banksim.api.ApiContract;
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /** S3.1, ADR 0013: de beheerder zet of wist de simulatiedatum. */
 @WebMvcTest(SimulatiedatumController.class)
-@Import({BeveiligingConfig.class, SimulatieService.class, SimulatiedatumControllerTests.Opslag.class})
+@Import({ApiContract.class, BeveiligingConfig.class, SimulatieService.class, SimulatiedatumControllerTests.Opslag.class})
 class SimulatiedatumControllerTests {
 
     @Autowired

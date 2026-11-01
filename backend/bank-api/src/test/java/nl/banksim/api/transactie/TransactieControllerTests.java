@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import nl.banksim.api.ApiContract;
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
 import nl.banksim.api.simulatie.GeheugenSimulatiedatum;
@@ -42,7 +43,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * oud). De cursor naar de volgende pagina is ondertekend (ADR 0011).
  */
 @WebMvcTest(TransactieController.class)
-@Import({BeveiligingConfig.class, IngelogdeGebruiker.class, Cursor.class, TransactieControllerTests.Transacties.class})
+@Import({ApiContract.class, BeveiligingConfig.class, IngelogdeGebruiker.class, Cursor.class, TransactieControllerTests.Transacties.class})
 @TestPropertySource(properties = "banksim.cursor.sleutel=" + TransactieControllerTests.SLEUTEL)
 class TransactieControllerTests {
 

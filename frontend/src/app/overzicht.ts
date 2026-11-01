@@ -1,12 +1,6 @@
 import { Component, computed, input, output } from '@angular/core';
+import type { Rekening } from './api/schemas';
 import { bedragVoorWeergave } from './geld/bedrag';
-
-/** Zoals bank-api hem levert; het saldo is een string, bijvoorbeeld "1842.17" (ADR 0010). */
-export interface Rekening {
-  soort: 'betaal' | 'spaar';
-  iban: string;
-  saldo: string;
-}
 
 /**
  * Het overzicht van de ingelogde klant: de betaalrekeningen met IBAN en saldo (S1.1); het IBAN opent de rekening (S2.1).

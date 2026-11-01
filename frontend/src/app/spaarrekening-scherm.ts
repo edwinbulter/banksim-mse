@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { Transactie } from './betaalrekening';
+import type { LopendeRente, Pagina, Transactie } from './api/schemas';
 import { datumregel } from './datum/datumregel';
 import { bedragMetTeken, bedragVoorWeergave } from './geld/bedrag';
 
@@ -78,10 +78,10 @@ export class SpaarrekeningScherm {
   constructor() {
     effect(() => {
       this.http
-        .get<{ transacties: Transactie[] }>(`/api/rekeningen/${this.iban()}/transacties`)
+        .get<Pagina>(`/api/rekeningen/${this.iban()}/transacties`)
         .subscribe((pagina) => this.transacties.set(pagina.transacties));
       this.http
-        .get<{ bedrag: string }>(`/api/rekeningen/${this.iban()}/lopende-rente`)
+        .get<LopendeRente>(`/api/rekeningen/${this.iban()}/lopende-rente`)
         .subscribe(({ bedrag }) => this.lopendeRente.set(bedragVoorWeergave(bedrag)));
     });
   }

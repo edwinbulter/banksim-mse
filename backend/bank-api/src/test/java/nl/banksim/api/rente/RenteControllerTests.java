@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import nl.banksim.api.ApiContract;
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
 import nl.banksim.api.simulatie.GeheugenSimulatiedatum;
@@ -34,7 +35,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /** S8.1: de lopende rente van een eigen spaarrekening; andermans of onbekende rekening geeft 404 (ADR 0023). */
 @WebMvcTest(RenteController.class)
-@Import({BeveiligingConfig.class, IngelogdeGebruiker.class, RenteControllerTests.Config.class})
+@Import({ApiContract.class, BeveiligingConfig.class, IngelogdeGebruiker.class, RenteControllerTests.Config.class})
 class RenteControllerTests {
 
     static final Iban SPAAR = Iban.simBank(7L);

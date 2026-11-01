@@ -1,28 +1,9 @@
 import { Component, computed, input, output, signal } from '@angular/core';
+import type { Transactie } from './api/schemas';
 import { datumregel } from './datum/datumregel';
 import { datumZonderDag, tijdstipVoorWeergave } from './datum/tijdstip';
 import { bedragMetTeken } from './geld/bedrag';
 import { typeVoorWeergave } from './transactie/transactietype';
-
-/** Zoals bank-api hem levert, van nieuw naar oud; het bedrag is een string met teken (ADR 0010). */
-export interface Transactie {
-  datum: string;
-  tegenpartij: string;
-  bedrag: string;
-  /** S4.1: de details. Het tijdstip met offset ("2026-10-01T06:02:00+02:00"); iban is null zonder IBAN. */
-  type: string;
-  tijdstip: string;
-  van: Partij;
-  naar: Partij;
-  /** S7.1 (FO): alleen als ze er zijn; de API geeft anders null. */
-  omschrijving?: string | null;
-  betalingskenmerk?: string | null;
-}
-
-export interface Partij {
-  naam: string;
-  iban: string | null;
-}
 
 /**
  * De betaalrekening: de transacties per datum, in de volgorde van de API; zonder transacties een melding (S2.1).

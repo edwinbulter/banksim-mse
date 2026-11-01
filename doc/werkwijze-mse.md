@@ -353,7 +353,7 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | mTLS in de applicaties met eigen CA, geen service mesh | TO §10.1, §17 | CFR Zero trust |
 | Default-deny NetworkPolicies | TO §10.1 | CFR Zero trust |
 | Rate limiting met Bucket4j in de BFF | TO §10, §17 | CFR Rate limiting |
-| Contract-first OpenAPI, gegenereerde Angular-client | TO §3.2, §16 | Uitgesteld bij S2.2 (drie endpoints): zodra de frontend de API vaker aanroept |
+| Contract-first OpenAPI, gegenereerde Angular-client | TO §3.2, §16 | Gedaan in backlog fase 6.2 (ADR 0034): `api/bank-api.yaml`, met gegenereerde types in plaats van een gegenereerde client |
 | MFA instelbaar, standaard uit; geen transactielimiet naast "nooit rood" | TO §17 | 6 Inloggen / 7 Betalen |
 | Supply chain: vaste versies, SBOM, Trivy, Renovate | TO §16 | CFR Supply chain |
 | Mutation testing met PIT in de commit stage | — (ontbrak in het origineel) | Afschaffen van de handmatige controle per slice (ADR 0018) |
@@ -1212,7 +1212,6 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | `npm audit`: 2 kwetsbaarheden (1 low, 1 high) in `vite` via `@angular/build` (gezien op 2026-10-23); de oplossing van npm is een breaking downgrade naar `@angular/build` 22.1.9 | Een Angular-update hoort bij een eigen wijziging met de commit stage als vangnet | CFR Supply chain (`npm audit` in CI), of eerder bij een Angular-patch |
 | Rotatie van de cursorsleutel (ADR 0011) | Geen test: een cursor van vóór de rotatie geeft 400, en dat is nooit gecontroleerd | Een installatiescenario met `--rotate`, of CFR Resilience |
 | Webkit in CI: twee scenario's van `betaalrekening.spec.ts` liepen in de time-out van 30 s (één bij de klik op `#kc-login` van Keycloak) en slaagden bij de herkansing (run 40021127418) | Eén keer gezien; lokaal nooit. Sinds backlog fase 3.7 is er geen herkansing meer, dus komt het terug, dan is de pipeline rood | Dan onderzoeken met de trace uit het Playwright-rapport |
-| Contract-first OpenAPI | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend de API vaker aanroept |
 | Opruimen van oude Idempotency-Keys (tabel `idempotency_sleutel`, ADR 0027), op de kolom `aangemaakt_op` | De tabel groeit met elke betaling; bij de huidige omvang klein | Slice 11 (generator, realistische data) of een prestatie-eis |
 | Een bedrag als "abc" in het betaalformulier: `bedragVoorWeergave` gooit dan een fout in de template van het controlescherm (gevolg in de browser te verifiëren). De API geeft sinds backlog fase 3.1 wel een 400 met een melding | De UI valideert het formulier nog niet | Een scenario "ongeldig bedrag wordt in het formulier al tegengehouden" (origineel) |
 | Suggesties bij een leeg veld: de app vraagt dan op met een lege tekst en krijgt 10 willekeurige contacten | Geen test vroeg erom (S7.1, suggesties) | Een `@ui`-scenario of frontendtest: een leeg veld toont geen suggesties |
@@ -1546,7 +1545,7 @@ Waar komt elk onderdeel van de originele BankSim terug?
 | FO Overschrijven scherm | 9 | S9.1 | `overschrijven.spec.ts` | Rentecorrectie via event |
 | FO Admin scherm + simulatiedatum | 3, 10 | S3.1, S10.1, S10.2 | `simulatiedatum.spec.ts`, `beheer.spec.ts` | `SimulationClock`, rolafhankelijke routes, audit log |
 | FO Datamodel en fake data | 1, 2, 7, 11 | S11.1 | `infra/huishoudens.spec.ts` | Deterministische generator |
-| TO §3 Backend-modules, REST API | 1–10 | – | — | Contract-first OpenAPI, Spring Modulith |
+| TO §3 Backend-modules, REST API | 1–10 | – | `api/bank-api.yaml` (ADR 0034) | Contract-first OpenAPI, Spring Modulith |
 | TO §4 Datamodel | 2, 7 | – | — | Grootboek, berekend saldo |
 | TO §5 Geld en BigDecimal | 1 | – | — | BigDecimal |
 | TO §6 Overboekingen | 7, 9 | – | `betalen.spec.ts`, `overschrijven.spec.ts` | Grootboek, nooit rood, idempotency |

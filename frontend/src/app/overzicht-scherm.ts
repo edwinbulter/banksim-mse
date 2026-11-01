@@ -3,7 +3,8 @@ import { Component, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { catchError, of } from 'rxjs';
-import { Overzicht, type Rekening } from './overzicht';
+import type { Rekening } from './api/schemas';
+import { Overzicht } from './overzicht';
 
 /** Route `/`: laadt de rekeningen; een klik op een IBAN gaat naar de URL van die rekening (S1.1, S2a.1). */
 @Component({

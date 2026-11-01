@@ -21,7 +21,9 @@ backend-test: ## mvnw verify
 mutatie: ## Mutation testing met PIT, faalt onder 95% per module (ADR 0018)
 	$(BACKEND)/mvnw -B -ntp -f $(BACKEND)/pom.xml test-compile org.pitest:pitest-maven:mutationCoverage
 
-frontend-test: ## Angular lint, Vitest en build
+frontend-test: ## De types uit het API-contract (ADR 0034), Angular lint, Vitest en build
+	npm --prefix api ci
+	npm --prefix api run types
 	npm --prefix $(FRONTEND) run lint
 	npm --prefix $(FRONTEND) test
 	npm --prefix $(FRONTEND) run build

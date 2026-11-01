@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterOutlet } from '@angular/router';
 import { map } from 'rxjs';
+import type { Versie } from './api/schemas';
 import { Browser } from './browser';
 import { Sessie } from './sessie';
 
@@ -55,6 +56,6 @@ export class App {
   }
 
   protected readonly versie = toSignal(
-    this.http.get<{ versie: string }>('/api/versie').pipe(map((antwoord) => antwoord.versie)),
+    this.http.get<Versie>('/api/versie').pipe(map((antwoord) => antwoord.versie)),
   );
 }

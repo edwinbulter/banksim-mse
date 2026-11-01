@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import nl.banksim.api.ApiContract;
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /** Ook zonder login: de voettekst en de rooktest vragen de versie op (ADR 0008). */
 @WebMvcTest(controllers = VersieController.class, properties = "banksim.versie=1.2.3")
-@Import(BeveiligingConfig.class)
+@Import({ApiContract.class, BeveiligingConfig.class})
 class VersieControllerTests {
 
     @Autowired

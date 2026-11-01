@@ -69,8 +69,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: |
+            api/package-lock.json
             frontend/package-lock.json
             e2e/package-lock.json
+      # ADR 0034: de types van de frontend horen bij het contract; wie het contract wijzigt, genereert ze opnieuw.
+      - run: npm --prefix api ci
+      - run: npm --prefix api run types
+      - run: git diff --exit-code -- frontend/src/app/api/bank-api.d.ts
       - run: npm --prefix frontend ci
       - run: npm --prefix frontend run lint
       - run: npm --prefix frontend test

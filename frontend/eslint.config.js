@@ -5,6 +5,8 @@ const tseslint = require('typescript-eslint');
 const angular = require('angular-eslint');
 
 module.exports = defineConfig([
+  // ADR 0034: gegenereerd uit api/bank-api.yaml; wie het contract wijzigt, genereert dit opnieuw, en niemand bewerkt het.
+  { ignores: ['src/app/api/bank-api.d.ts'] },
   {
     files: ['**/*.ts'],
     extends: [

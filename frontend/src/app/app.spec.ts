@@ -2,6 +2,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Location } from '@angular/common';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import type { Contact, LopendeRente, Pagina, Rekening, Transactie } from './api/schemas';
 import { App } from './app';
 import { appConfig } from './app.config';
 import { Browser } from './browser';
@@ -41,7 +42,7 @@ describe('App', () => {
     fixture.detectChanges();
   }
 
-  async function rekeningen(antwoord: { status: number; body?: object }): Promise<void> {
+  async function rekeningen(antwoord: { status: number; body?: Rekening[] }): Promise<void> {
     const verzoek = http.expectOne('/api/rekeningen');
     if (antwoord.status === 200) {
       verzoek.flush(antwoord.body ?? null);
@@ -51,7 +52,8 @@ describe('App', () => {
     await ververs();
   }
 
-  async function transacties(pad: string, pagina: object): Promise<void> {
+  /** Een antwoord van bank-api in de vorm van het contract (ADR 0034): een pagina of de lopende rente. */
+  async function transacties(pad: string, pagina: Pagina | LopendeRente): Promise<void> {
     http.expectOne(pad).flush(pagina);
     await ververs();
   }
@@ -71,7 +73,7 @@ describe('App', () => {
   }
 
   /** Een transactie zoals bank-api hem levert, met de details van S4.1. */
-  function api(datum: string, tegenpartij: string, bedrag: string): object {
+  function api(datum: string, tegenpartij: string, bedrag: string): Transactie {
     return {
       datum,
       tegenpartij,
@@ -80,11 +82,13 @@ describe('App', () => {
       tijdstip: `${datum}T12:00:00+02:00`,
       van: { naam: 'Jan', iban: 'NL94SIMB0000000001' },
       naar: { naam: tegenpartij, iban: null },
+      omschrijving: null,
+      betalingskenmerk: null,
     };
   }
 
-  const JAN = [{ soort: 'betaal', iban: 'NL94SIMB0000000001', saldo: '3402.60' }];
-  const TWEE_DAGEN = {
+  const JAN: Rekening[] = [{ soort: 'betaal', iban: 'NL94SIMB0000000001', saldo: '3402.60' }];
+  const TWEE_DAGEN: Pagina = {
     transacties: [
       api('2026-10-02', 'Werkgever B.V.', '3215.00'),
       api('2026-10-01', 'Woningstichting Thuis', '-812.40'),
@@ -471,7 +475,7 @@ describe('App', () => {
 
     vulIn(pagina, 'Rekeningnummer (IBAN)', 'NL67SIMB00');
     await ververs();
-    http.expectOne('/api/contacten?q=NL67SIMB00').flush([{ naam: 'Sanne', iban: 'NL67SIMB0000000002' }]);
+    http.expectOne('/api/contacten?q=NL67SIMB00').flush([{ naam: 'Sanne', iban: 'NL67SIMB0000000002' }] satisfies Contact[]);
     await ververs();
     const suggestie = [...(pagina.querySelector('ul[aria-label="Suggesties"]')?.querySelectorAll('button') ?? [])][0];
     expect(suggestie?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Sanne NL67SIMB0000000002');

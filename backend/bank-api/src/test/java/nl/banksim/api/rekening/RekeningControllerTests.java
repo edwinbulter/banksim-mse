@@ -12,6 +12,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import nl.banksim.api.ApiContract;
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
 import nl.banksim.api.simulatie.GeheugenSimulatiedatum;
@@ -29,7 +30,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(RekeningController.class)
-@Import({BeveiligingConfig.class, IngelogdeGebruiker.class, RekeningControllerTests.Rekeningen.class})
+@Import({ApiContract.class, BeveiligingConfig.class, IngelogdeGebruiker.class, RekeningControllerTests.Rekeningen.class})
 class RekeningControllerTests {
 
     /** Op welke datum de controller het saldo vroeg. */

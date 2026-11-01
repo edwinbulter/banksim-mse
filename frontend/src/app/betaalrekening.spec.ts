@@ -1,5 +1,6 @@
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { Betaalrekening, type Transactie } from './betaalrekening';
+import type { Transactie } from './api/schemas';
+import { Betaalrekening } from './betaalrekening';
 
 /** Een transactie zoals de API hem levert; details die een test niet noemt, krijgen een standaardwaarde. */
 function transactie(t: Pick<Transactie, 'datum' | 'tegenpartij' | 'bedrag'> & Partial<Transactie>): Transactie {
@@ -8,6 +9,9 @@ function transactie(t: Pick<Transactie, 'datum' | 'tegenpartij' | 'bedrag'> & Pa
     tijdstip: `${t.datum}T12:00:00+02:00`,
     van: { naam: 'Jan', iban: 'NL94SIMB0000000001' },
     naar: { naam: t.tegenpartij, iban: null },
+    // Het contract: zonder omschrijving of betalingskenmerk stuurt de API null, niet niets (ADR 0034).
+    omschrijving: null,
+    betalingskenmerk: null,
     ...t,
   };
 }
@@ -93,7 +97,7 @@ describe('Betaalrekening', () => {
     );
   }
 
-  const INCASSO = {
+  const INCASSO: Transactie = {
     datum: '2026-10-01',
     tegenpartij: 'Woningstichting Thuis',
     bedrag: '-812.40',
@@ -101,6 +105,8 @@ describe('Betaalrekening', () => {
     tijdstip: '2026-10-01T06:02:00+02:00',
     van: { naam: 'Jan', iban: 'NL94SIMB0000000001' },
     naar: { naam: 'Woningstichting Thuis', iban: 'NL91ABNA0417164300' },
+    omschrijving: null,
+    betalingskenmerk: null,
   };
 
   it('klapt een transactie uit met type, Van, Naar, datum transactie en uitgevoerd op (S4.1)', () => {
@@ -136,7 +142,7 @@ describe('Betaalrekening', () => {
         datum: '2026-10-03',
         tegenpartij: 'Albert Heijn',
         bedrag: '-63.48',
-        type: 'BETAALAUTOMAAT',
+        type: 'BETAALAUTOMAAT' as const,
         naar: { naam: 'Albert Heijn', iban: null },
       },
     ]);

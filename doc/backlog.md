@@ -141,15 +141,11 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 Uit de vergelijking met Farley (31 oktober): vertrouw niet op mensen die code lezen, maar op linters, typecontrole, architectuurchecks en contracttests in de pipeline. Linters, typecontrole en architectuurchecks zijn er grotendeels (fase 1 en 2). Dit zijn de gaten.
 
 1. **Klaar (ADR 0032): mutatietests parallel aan de acceptance stage.** De acceptatie wachtte op PIT (8:40), terwijl de andere jobs van de commit stage na hooguit 1:24 klaar waren. De pipeline duurde zo ongeveer 15 minuten. Nu wacht de acceptatie alleen op `backend`, `frontend`, `infrastructuur` en `images`, en duurde de eerste pipeline daarna 7 minuten (run 41244343247; PIT 6:40, acceptatie 5:26). Een rode PIT-job maakt de pipeline nog steeds rood.
-2. ⛔ **Beslissing (vangrail): contracttests op de grenzen tussen services.** Elke kant test nu tegen zijn eigen aanname van de andere kant:
-   - `BffTests` gebruikt een nep-bank-api (JDK-`HttpServer`); niets controleert dat die zich gedraagt als de echte.
-   - De Vitest-tests van de frontend verzinnen zelf de JSON van de API.
-
-   Een breuk ziet nu alleen de acceptance stage. Kies een vorm, bijvoorbeeld:
-   - één OpenAPI-specificatie (contract-first, al op de ADR-backlog in werkwijze hoofdstuk 6), met een test die bank-api ertegen controleert en de nep en de frontendfixtures ertegen valideert;
-   - of een contracttest per consument.
-
-   Nieuwe tool, dus een ADR. Draai de contracttests zonder Spring-context waar het kan, dan maken ze PIT niet trager. Op de doorlooptijd scheelt het verder niets: ze lopen in de jobs `backend` en `frontend`, die ruim binnen PIT klaar zijn.
+2. **Klaar (ADR 0034, ⛔ besloten: contract-first OpenAPI): het contract tussen de frontend en bank-api.** `api/bank-api.yaml` (OpenAPI 3.0.3) beschrijft de 9 operaties. bank-api controleert in elke controllertest elk antwoord ertegen (`ApiContract`), en `ContractDektAlleEndpointsTests` controleert dat elk endpoint erin staat en andersom. De frontend genereert er zijn types uit; de handgeschreven interfaces zijn weg, ook in de Vitest-fixtures. CI faalt als de gegenereerde types afwijken van het contract.
+   - Gevonden bij het typen: de Vitest-fixtures van transacties misten `omschrijving` en `betalingskenmerk`, die de API altijd meestuurt (als `null`), en gebruikten een vrije tekst als transactietype.
+   - Valkuil uit de spike: met OpenAPI 3.1 slaat de validator de schema's stil over. Daarom 3.0.3.
+   - De generator staat in `api/` met een eigen TypeScript 5, omdat `openapi-typescript` geen TypeScript 6 ondersteunt.
+   - Sabotage: een patroon (saldo met drie decimalen), een veldnaam (`tegenpartij`), een status (geen 422 bij betalingen) en een ontbrekend endpoint (`/api/contacten`) maakten de backendtests rood; `saldo` hernoemd in het contract maakte de diff-controle van CI en de typecheck van de frontend rood.
 3. **Klaar (ADR 0033): statische analyse van Java met Error Prone.** De standaardcontroles, en elke melding breekt de build (`failOnWarning`). Een spike gaf op de bestaande code 0 fouten en 9 waarschuwingen; die zijn opgelost:
    - **Een echte fout:** `Zoekfilter` gebruikte `toUpperCase()` zonder `Locale`. Op een machine met een Turkse locale werd "nl12 ingb" "NL12İNGB", en vond het zoeken op IBAN niets. `ZoekfilterTests.eenIbanInKleineLettersWordtHoofdlettersOokInEenTurkseLocale` was eerst rood met `%NL12İNGB%`.
    - `Iban` gebruikt `Character.digit(c, 36)` in plaats van `Character.getNumericValue`.

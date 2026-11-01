@@ -1,0 +1,12 @@
+{
+  "name": "bank-api-contract",
+  "private": true,
+  "description": "Het gereedschap bij het contract van bank-api (ADR 0034): de TypeScript-types voor de frontend genereren.",
+  "scripts": {
+    "types": "openapi-typescript bank-api.yaml -o ../frontend/src/app/api/bank-api.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

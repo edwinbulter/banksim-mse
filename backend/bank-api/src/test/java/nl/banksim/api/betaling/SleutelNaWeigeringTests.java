@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.UUID;
 
+import nl.banksim.api.ApiContract;
 import nl.banksim.api.PostgresTestDatabase;
 import nl.banksim.domain.rekening.Iban;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +33,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
         "banksim.cursor.sleutel=test-sleutel-van-minstens-32-tekens",
         "management.server.port="})
 @AutoConfigureMockMvc
-@Import(PostgresTestDatabase.class)
+@Import({ApiContract.class, PostgresTestDatabase.class})
 class SleutelNaWeigeringTests {
 
     // Eigen rekeningen: andere tests met dezelfde Spring-context delen de database. Ook deze twee tests delen ze, dus

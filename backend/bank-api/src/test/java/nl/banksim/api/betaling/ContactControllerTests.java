@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import nl.banksim.api.ApiContract;
 import nl.banksim.api.beveiliging.BeveiligingConfig;
 import nl.banksim.api.beveiliging.IngelogdeGebruiker;
 import nl.banksim.domain.grootboek.Contact;
@@ -23,7 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /** S7.1 (FO): suggesties uit de contactenlijst bij typen in naam of IBAN op het betaalscherm. */
 @WebMvcTest(ContactController.class)
-@Import({BeveiligingConfig.class, IngelogdeGebruiker.class, ContactControllerTests.Opslag.class})
+@Import({ApiContract.class, BeveiligingConfig.class, IngelogdeGebruiker.class, ContactControllerTests.Opslag.class})
 class ContactControllerTests {
 
     @Autowired

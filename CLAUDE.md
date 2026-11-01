@@ -29,7 +29,8 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Scenario | `e2e/specs/` (infra: `e2e/specs/infra/`) | Playwright: projecten `rest` en `chromium` alles, `firefox` en `webkit` alleen `@ui` en `@rook` (ADR 0019); infra: `infra` |
 | DSL / drivers | `e2e/dsl/`, `e2e/drivers/{rest,ui,shell}/` | Via de scenario's, plus `npm --prefix e2e run typecheck` |
 | Domein | `backend/bank-domain` (zonder Spring) | JUnit, jqwik |
-| API | `backend/bank-api` | MockMvc of slicetest; repository met Testcontainers; ArchUnit |
+| API-contract | `api/bank-api.yaml` (OpenAPI 3.0.3, ADR 0034); daarna `npm --prefix api run types` | Controllertests van bank-api (`ApiContract`), `ContractDektAlleEndpointsTests`, de typecheck van de frontend |
+| API | `backend/bank-api` | MockMvc of slicetest met `@Import(ApiContract.class)`; repository met Testcontainers; ArchUnit |
 | BFF | `backend/bank-bff` | `@SpringBootTest` met MockMvc en een nep-`bank-api` (JDK-`HttpServer`) |
 | Testdata (seed-CLI) | `backend/bank-seed` | JUnit; Keycloak met `MockRestServiceServer`; database met Testcontainers |
 | Schema | `backend/bank-api/src/main/resources/db/migration` (Flyway) | Via de repositorytests van `bank-api` en `bank-seed` |
@@ -57,6 +58,8 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Geen `synchronized`, niet op een methode en niet als blok, in alle modules van de backend (concurrency) | `GeenSynchronizedTests` (bronscan) | ja, sabotage in bank-seed en bank-bff (fase 2.3) |
 | Het domein kent geen framework (Spring, Jakarta, Jackson) | `bank-domain/.../architectuur/DomeinKentGeenFrameworkTests`; de pom heeft ook geen Spring | ja, sabotage: Spring in de pom en `@Component` (fase 2.2) |
 | Mutatiescore minimaal 95% per module (ADR 0018) | PIT, `make mutatie` | – |
+| Elk antwoord van bank-api past in het contract, en elk endpoint staat erin (ADR 0034) | `ApiContract` in de controllertests, `ContractDektAlleEndpointsTests` | ja, sabotage: een patroon, een veldnaam, een status en een ontbrekend endpoint in het contract (fase 6.2) |
+| De types van de frontend horen bij het contract (ADR 0034) | de frontendjob genereert ze opnieuw en faalt bij een verschil; de typecheck | ja, sabotage: `saldo` hernoemd in het contract (fase 6.2) |
 | Statische analyse van Java: geen enkele melding van Error Prone of javac (ADR 0033) | Error Prone met `failOnWarning` in `backend/pom.xml`; elke build | ja, sabotage: `toLowerCase()` zonder `Locale` (fase 6.3) |
 | Alles in namespace `banksim-mse`, geen geheimen in de chart (ADR 0004, 0009) | `scripts/iac-check.sh` (yq) | ja, sabotage: ClusterRole, andere namespace, letterlijk wachtwoord (fase 1) |
 | De frontend is streng getypeerd, ook in de templates | `"strict"` en `"strictTemplates"` in `frontend/tsconfig.json`, via de build en Vitest | ja, sabotage: een verkeerd type in een template, een `any` en een `null` (fase 2.6) |
@@ -82,6 +85,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - De eerste installatie duurt langer: Keycloak start, en de Job `keycloak-config` maakt daarna de realm aan.
 - Een wijziging aan de realm hoort in `deploy/banksim-mse/files/realm-banksim-mse.json`. De Job `keycloak-config` past hem toe bij elke installatie, ook op een bestaande realm (ADR 0017). Geheimen in die JSON hebben de vorm `$(env:NAAM)`, niet `${NAAM}`. Draai na zo'n wijziging de scenario's eerst op je bestaande installatie: CI installeert altijd vers, en ziet een ontbrekend recht dus niet.
 - De simulatiedatum geldt voor de hele bank. Blijft hij na een afgebroken run staan, dan falen andere scenario's op saldo of datum. De fixture wist hem na elk `@simulatiedatum`-scenario; controleer bij twijfel tabel `instelling` in database `bank`.
+- Een wijziging aan de API begint in `api/bank-api.yaml`, in OpenAPI 3.0.3. Met 3.1 slaat de validator in bank-api de schema's stil over en blijft alles groen (ADR 0034). Genereer daarna de types (`npm --prefix api run types`) en commit `frontend/src/app/api/bank-api.d.ts` mee; CI faalt anders.
 - Error Prone (ADR 0033) heeft de JVM-opties in `backend/.mvn/jvm.config` nodig; zonder die opties start hij niet op JDK 21. IntelliJ leest dat bestand niet: faalt het compileren daar en in `make backend-test` niet, of andersom, kijk dan eerst daar.
 - De valkuilen van de tools (helm-unittest, yq, shellcheck, de webhook van ingress-nginx) staan in `.claude/skills/atdd/references/stack-helm-bats.md`.
 
