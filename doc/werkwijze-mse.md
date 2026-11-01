@@ -1205,7 +1205,6 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 
 | Punt | Reden van uitstel | Komt terug bij |
 | --- | --- | --- |
-| Binnen één dag sorteren op tijdstip in plaats van op volgorde van boeken | Geen scenario vroeg erom; de cursor (ADR 0011) sorteert op datum en id | Een scenario met twee transacties op één dag in een andere volgorde, uiterlijk slice 7 (betalen) |
 | Zoeken op omschrijving (FO: "Naam, bedrag, IBAN of omschrijving") | De omschrijving staat sinds S7.1 in de data en de details, maar zoeken erop vroeg nog geen scenario | Eigen scenario in `zoeken.spec.ts`, samen met zoeken op bedrag |
 | Zoeken op bedrag in het tekstveld (FO: "Naam, bedrag, IBAN of omschrijving") | Bij S5.1 gekozen voor naam en IBAN; op bedrag zoeken kan via het bedragbereik | Eigen scenario, samen met de omschrijving |
 | Het aantal resultaten ("12 resultaten", FO) | Niet in S5.1 meegenomen | Eigen scenario in `zoeken.spec.ts` |

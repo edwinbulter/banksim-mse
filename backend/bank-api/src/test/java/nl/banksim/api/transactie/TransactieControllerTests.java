@@ -50,7 +50,8 @@ class TransactieControllerTests {
     static final String SLEUTEL = "test-sleutel-van-minstens-32-tekens";
     static final Iban VAN_JAN = Iban.simBank(1L);
     static final Iban OOK_VAN_JAN = Iban.simBank(2L);
-    static final Positie LAATSTE_OP_PAGINA = new Positie(LocalDate.of(2026, 10, 1), 51L);
+    static final Positie LAATSTE_OP_PAGINA = new Positie(LocalDate.of(2026, 10, 1),
+            OffsetDateTime.parse("2026-10-01T06:02+02:00"), 51L);
 
     /** Met welke positie en welk aantal de controller de repository aanriep. */
     static final List<String> AANROEPEN = new ArrayList<>();

@@ -233,6 +233,38 @@ class JdbcTransactieRepositoryTests {
         assertThat(tweede.transacties()).extracting(Transactie::tegenpartij).containsExactly("Oudste");
     }
 
+    /**
+     * ADR 0035: binnen een dag op tijdstip, niet op de volgorde van boeken; ook over de grens van een pagina, met de
+     * cursor ertussen. De transactie van 15:00 wordt als eerste geboekt.
+     */
+    @Test
+    void binnenEenDagOpTijdstipOokOverDeGrensVanEenPagina() {
+        Iban vanIda = Iban.simBank(35L);
+        jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('ida', 'Ida')").update();
+        jdbc.sql("""
+                INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo)
+                SELECT :iban, id, 'betaal', 0.00 FROM rekeninghouder WHERE gebruikersnaam = 'ida'""")
+                .param("iban", vanIda.toString()).update();
+        boekOm(vanIda, "2026-10-05T15:00+02:00", "Middag");
+        boekOm(vanIda, "2026-10-05T09:00+02:00", "Ochtend");
+        boekOm(vanIda, "2026-10-05T12:00+02:00", "Lunch");
+
+        Pagina eerste = repository.vanRekening("ida", vanIda, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 1).orElseThrow();
+        Pagina tweede = repository.vanRekening("ida", vanIda, NA_ALLES, Zoekfilter.GEEN, eerste.volgende(), 1).orElseThrow();
+        Pagina derde = repository.vanRekening("ida", vanIda, NA_ALLES, Zoekfilter.GEEN, tweede.volgende(), 1).orElseThrow();
+
+        assertThat(List.of(eerste, tweede, derde)).flatExtracting(Pagina::transacties).extracting(Transactie::tegenpartij)
+                .containsExactly("Middag", "Lunch", "Ochtend");
+        assertThat(derde.volgende()).isEmpty();
+    }
+
+    private static void boekOm(Iban iban, String tijdstip, String tegenpartij) {
+        jdbc.sql("""
+                        INSERT INTO transactie (iban, datum, bedrag, tegenpartij, tijdstip)
+                        VALUES (:iban, CAST(:tijdstip AS timestamptz)::date, -1.00, :tegenpartij, CAST(:tijdstip AS timestamptz))""")
+                .param("iban", iban.toString()).param("tijdstip", tijdstip).param("tegenpartij", tegenpartij).update();
+    }
+
     private static void boek(Iban iban, String datum, String tegenpartij) {
         jdbc.sql("""
                         INSERT INTO transactie (iban, datum, bedrag, tegenpartij, tijdstip)

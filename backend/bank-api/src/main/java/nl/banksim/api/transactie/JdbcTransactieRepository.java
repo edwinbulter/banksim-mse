@@ -53,8 +53,10 @@ class JdbcTransactieRepository implements TransactieRepository {
                           AND (CAST(:richting AS text) IS NULL
                                OR (CAST(:richting AS text) = 'INKOMEND' AND t.bedrag > 0)
                                OR (CAST(:richting AS text) = 'UITGAAND' AND t.bedrag < 0))
-                          AND (CAST(:naDatum AS date) IS NULL OR (t.datum, t.id) < (CAST(:naDatum AS date), :naId))
-                        ORDER BY t.datum DESC, t.id DESC
+                          -- ADR 0035: binnen een dag op tijdstip; het id beslist alleen bij een gelijk tijdstip.
+                          AND (CAST(:naDatum AS date) IS NULL
+                               OR (t.datum, t.tijdstip, t.id) < (CAST(:naDatum AS date), CAST(:naTijdstip AS timestamptz), :naId))
+                        ORDER BY t.datum DESC, t.tijdstip DESC, t.id DESC
                         LIMIT :limiet""")
                 .param("iban", iban.toString())
                 .param("vandaag", vandaag)
@@ -65,6 +67,7 @@ class JdbcTransactieRepository implements TransactieRepository {
                 .param("type", filter.type().map(Enum::name).orElse(null))
                 .param("richting", filter.richting().map(Enum::name).orElse(null))
                 .param("naDatum", na.map(Positie::datum).orElse(null))
+                .param("naTijdstip", na.map(Positie::tijdstip).orElse(null))
                 .param("naId", na.map(Positie::id).orElse(0L))
                 .param("limiet", aantal + 1)
                 .query((rij, nummer) -> new Rij(rij.getLong("id"), new Transactie(
@@ -80,7 +83,8 @@ class JdbcTransactieRepository implements TransactieRepository {
                 .list();
         List<Rij> pagina = rijen.subList(0, Math.min(aantal, rijen.size()));
         Optional<Positie> volgende = rijen.size() > aantal
-                ? Optional.of(new Positie(pagina.getLast().transactie().datum(), pagina.getLast().id()))
+                ? Optional.of(new Positie(pagina.getLast().transactie().datum(), pagina.getLast().transactie().tijdstip(),
+                        pagina.getLast().id()))
                 : Optional.empty();
         return Optional.of(new Pagina(pagina.stream().map(Rij::transactie).toList(), volgende));
     }

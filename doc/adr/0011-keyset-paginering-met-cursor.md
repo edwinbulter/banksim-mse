@@ -1,7 +1,7 @@
 # 0011. Transactielijst per 50 met keyset-paginering en een cursor
 
 Datum: 2026-10-21
-Status: Geaccepteerd
+Status: Geaccepteerd; de sortering en de inhoud van de cursor zijn vervangen door [0035](0035-binnen-een-dag-sorteren-op-tijdstip.md)
 
 ## Context
 Scenario "Toon meer laadt per 50 transacties" (S2.2, `e2e/specs/betaalrekening.spec.ts`): de betaalrekening toont de nieuwste 50 transacties, en "Toon meer" laadt de volgende 50. Tussen twee keer "Toon meer" kan er een transactie bijkomen. De grens van 50 kan midden in een dag vallen.

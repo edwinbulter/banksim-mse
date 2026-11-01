@@ -21,6 +21,35 @@ test('Transacties per datum, nieuw naar oud, met teken', async ({ bank }) => {
   );
 });
 
+/**
+ * Losse backlogpunt: binnen één dag op tijdstip, niet op de volgorde van boeken. De bank boekt de transactie van 15:00
+ * met opzet eerst; anders zou sorteren op de volgorde van boeken hetzelfde geven.
+ */
+test('Binnen een dag staat de laatste transactie bovenaan, ook als ze eerder is geboekt', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>
+    jan.heeftBetaalrekening({ saldo: '1000.00' }),
+  );
+  await bank.en('eerst boekt de bank een betaling van Jan van € 4,50 aan Bakkerij De Korenschoof op 5 oktober 2026 om 15:00', () =>
+    jan.heeftBetaald({ op: '2026-10-05T15:00', bedrag: '4.50', aan: 'Bakkerij De Korenschoof' }),
+  );
+  await bank.en('daarna boekt de bank een betaling van Jan van € 63,48 aan Albert Heijn op 5 oktober 2026 om 09:00', () =>
+    jan.heeftBetaald({ op: '2026-10-05T09:00', bedrag: '63.48', aan: 'Albert Heijn' }),
+  );
+  await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
+  await bank.dan('ziet Jan onder 5 oktober eerst Bakkerij De Korenschoof −4,50 en daarna Albert Heijn −63,48', () =>
+    jan.verwachtTransactielijst([
+      {
+        datum: '2026-10-05',
+        transacties: [
+          { tegenpartij: 'Bakkerij De Korenschoof', bedrag: '-4.50' },
+          { tegenpartij: 'Albert Heijn', bedrag: '-63.48' },
+        ],
+      },
+    ]),
+  );
+});
+
 test('Rekening zonder transacties', async ({ bank }) => {
   const jan = bank.klant('Jan');
   await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>

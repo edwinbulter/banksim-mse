@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Base64;
 
 import nl.banksim.domain.rekening.Iban;
@@ -14,7 +15,8 @@ import org.junit.jupiter.api.Test;
 class CursorTests {
 
     static final Iban VAN_JAN = Iban.simBank(1L);
-    static final Positie POSITIE = new Positie(LocalDate.of(2026, 1, 17), 51L);
+    static final Positie POSITIE = new Positie(LocalDate.of(2026, 1, 17), OffsetDateTime.parse("2026-01-17T12:00+01:00"),
+            51L);
 
     private final Cursor cursor = new Cursor("test-sleutel-van-minstens-32-tekens");
 
@@ -40,7 +42,7 @@ class CursorTests {
         String echt = cursor.maak(VAN_JAN, POSITIE);
         String handtekening = echt.substring(echt.indexOf('.'));
         String anderePositie = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString("2026-01-17,1".getBytes(StandardCharsets.UTF_8));
+                .encodeToString("2026-01-17,2026-01-17T12:00+01:00,1".getBytes(StandardCharsets.UTF_8));
         assertThatThrownBy(() -> cursor.lees(VAN_JAN, anderePositie + handtekening)).isInstanceOf(OngeldigeCursor.class);
     }
 
@@ -57,10 +59,14 @@ class CursorTests {
         }
     }
 
-    /** Backlog fase 3.5: ook met een geldige handtekening is een inhoud zonder datum, id of komma onleesbaar. */
+    /**
+     * Backlog fase 3.5, ADR 0035: ook met een geldige handtekening is een inhoud zonder datum, tijdstip of id
+     * onleesbaar.
+     */
     @Test
     void weigertEenOndertekendeInhoudDieGeenPositieIs() throws Exception {
-        for (String inhoud : new String[] {"geen-datum,51", "2026-01-17,geen-id", "2026-01-17"}) {
+        for (String inhoud : new String[] {"geen-datum,2026-01-17T12:00+01:00,51", "2026-01-17,geen-tijdstip,51",
+                "2026-01-17,2026-01-17T12:00+01:00,geen-id", "2026-01-17,51"}) {
             assertThatThrownBy(() -> cursor.lees(VAN_JAN, ondertekend(VAN_JAN, inhoud))).as(inhoud)
                     .isInstanceOf(OngeldigeCursor.class);
         }

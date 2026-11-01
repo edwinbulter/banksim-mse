@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
 
@@ -15,7 +16,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * De cursor voor "Toon meer" (ADR 0011): {@code base64url(datum,id) "." base64url(HMAC-SHA256(iban,datum,id))}. Door
+ * De cursor voor "Toon meer" (ADR 0011, 0035): {@code base64url(datum,tijdstip,id) "."
+ * base64url(HMAC-SHA256(iban,datum,tijdstip,id))}. Door
  * het IBAN in de handtekening hoort een cursor bij één rekening. De sleutel komt uit het Secret bank-api.
  */
 @Component
@@ -35,13 +37,13 @@ class Cursor {
     }
 
     String maak(Iban iban, Positie positie) {
-        String inhoud = positie.datum() + "," + positie.id();
+        String inhoud = positie.datum() + "," + positie.tijdstip() + "," + positie.id();
         return ENCODER.encodeToString(bytes(inhoud)) + "." + ENCODER.encodeToString(handtekening(iban, inhoud));
     }
 
     /**
-     * Alleen een onleesbare cursor is een {@link OngeldigeCursor}: geen punt, geen base64, geen komma, geen datum of geen
-     * id. Een fout in de HMAC-configuratie is een fout van de bank en geen 400 (backlog fase 3.5).
+     * Alleen een onleesbare cursor is een {@link OngeldigeCursor}: geen punt, geen base64, niet drie delen, geen datum,
+     * geen tijdstip of geen id. Een fout in de HMAC-configuratie is een fout van de bank en geen 400 (backlog fase 3.5).
      */
     Positie lees(Iban iban, String cursor) {
         int punt = cursor.indexOf('.');
@@ -55,13 +57,13 @@ class Cursor {
             if (!MessageDigest.isEqual(gegeven, handtekening(iban, inhoud))) {
                 throw new OngeldigeCursor();
             }
-            String[] delen = inhoud.split(",", 2);
-            if (delen.length != 2) {
+            String[] delen = inhoud.split(",", 3);
+            if (delen.length != 3) {
                 throw new OngeldigeCursor();
             }
-            return new Positie(LocalDate.parse(delen[0]), Long.parseLong(delen[1]));
+            return new Positie(LocalDate.parse(delen[0]), OffsetDateTime.parse(delen[1]), Long.parseLong(delen[2]));
         } catch (IllegalArgumentException | DateTimeParseException e) {
-            // Base64 en het id gooien een IllegalArgumentException, de datum een DateTimeParseException.
+            // Base64 en het id gooien een IllegalArgumentException, de datum en het tijdstip een DateTimeParseException.
             throw new OngeldigeCursor();
         }
     }
