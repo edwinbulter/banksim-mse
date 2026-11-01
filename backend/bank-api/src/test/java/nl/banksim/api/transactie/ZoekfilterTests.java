@@ -52,7 +52,7 @@ class ZoekfilterTests {
         assertThatThrownBy(() -> Zoekfilter.van(Optional.empty(), Optional.of("100"), Optional.of("50"), Optional.empty(),
                 Optional.empty()))
                 .isInstanceOfSatisfying(OngeldigZoekfilter.class,
-                        fout -> assertThat(fout.probleem()).isEqualTo("ongeldig-bedragbereik"))
+                        fout -> assertThat(fout.probleem()).isEqualTo(ZoekProbleem.ONGELDIG_BEDRAGBEREIK))
                 .hasMessage("Bedrag van mag niet groter zijn dan Bedrag t/m");
     }
 
@@ -63,7 +63,7 @@ class ZoekfilterTests {
                     Optional.empty(), Optional.empty()))
                     .as(bedrag)
                     .isInstanceOfSatisfying(OngeldigZoekfilter.class,
-                            fout -> assertThat(fout.probleem()).isEqualTo("ongeldig-bedrag"));
+                            fout -> assertThat(fout.probleem()).isEqualTo(ZoekProbleem.ONGELDIG_BEDRAG));
         }
     }
 
@@ -76,11 +76,11 @@ class ZoekfilterTests {
         assertThat(filter.richting()).contains(Zoekfilter.Richting.INKOMEND);
         assertThatThrownBy(() -> Zoekfilter.van(Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("CONTANT"),
                 Optional.empty()))
-                .isInstanceOfSatisfying(OngeldigZoekfilter.class, fout -> assertThat(fout.probleem()).isEqualTo("ongeldig-type"));
+                .isInstanceOfSatisfying(OngeldigZoekfilter.class, fout -> assertThat(fout.probleem()).isEqualTo(ZoekProbleem.ONGELDIG_TYPE));
         assertThatThrownBy(() -> Zoekfilter.van(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
                 Optional.of("opzij")))
                 .isInstanceOfSatisfying(OngeldigZoekfilter.class,
-                        fout -> assertThat(fout.probleem()).isEqualTo("ongeldige-richting"));
+                        fout -> assertThat(fout.probleem()).isEqualTo(ZoekProbleem.ONGELDIGE_RICHTING));
     }
 
     /** De tekst is een letterlijke deeltekst: % en _ zijn geen jokertekens, \ is geen escape (injectie, slice 5). */

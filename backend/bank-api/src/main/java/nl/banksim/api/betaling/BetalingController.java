@@ -30,8 +30,8 @@ class BetalingController {
         if (sleutel == null) {
             throw new SleutelOntbreekt();
         }
-        betalen.betaal(gebruiker.gebruikersnaam(), sleutel, Iban.van(json.van()), Iban.van(json.naar()), json.naam(),
-                Bedrag.van(json.bedrag()), json.omschrijving(), json.betalingskenmerk(), json.extraOmschrijving());
+        betalen.betaal(gebruiker.gebruikersnaam(), sleutel, new Betaalopdracht(Iban.van(json.van()), Iban.van(json.naar()),
+                json.naam(), Bedrag.van(json.bedrag()), json.omschrijving(), json.betalingskenmerk(), json.extraOmschrijving()));
     }
 
     /** ADR 0010: het bedrag als string, bijvoorbeeld "25.00". De drie omschrijvende velden mogen ontbreken (FO). */

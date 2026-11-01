@@ -5,7 +5,6 @@ import java.util.Optional;
 import nl.banksim.api.grootboek.Grootboek;
 import nl.banksim.api.grootboek.LedgerService;
 import nl.banksim.api.simulatie.SimulationClock;
-import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.Contact;
 import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.grootboek.Partij;
@@ -40,25 +39,30 @@ class BetaalService {
      * rolt ook de sleutel terug, zodat een nieuwe poging opnieuw beoordeeld wordt.
      */
     @Transactional
-    void betaal(String gebruikersnaam, String sleutel, Iban van, Iban naar, String naam, Bedrag bedrag, String omschrijving,
-            String betalingskenmerk, String extraOmschrijving) {
-        String verzoek = VerzoekHash.van(van.toString(), naar.toString(), naam, bedrag.toString(),
-                String.valueOf(omschrijving), String.valueOf(betalingskenmerk), String.valueOf(extraOmschrijving));
+    void betaal(String gebruikersnaam, String sleutel, Betaalopdracht opdracht) {
+        Iban van = opdracht.van();
+        Iban naar = opdracht.naar();
+        String verzoek = VerzoekHash.van(van.toString(), naar.toString(), opdracht.naam(), opdracht.bedrag().toString(),
+                String.valueOf(opdracht.omschrijving()), String.valueOf(opdracht.betalingskenmerk()),
+                String.valueOf(opdracht.extraOmschrijving()));
         Optional<String> eerder = idempotentie.claim(sleutel, gebruikersnaam, verzoek);
         if (eerder.isPresent()) {
             if (!eerder.get().equals(verzoek)) {
-                throw new BetalingGeweigerd("sleutel-al-gebruikt", "Deze betaling is al met een ander verzoek verstuurd.");
+                throw new BetalingGeweigerd(Weigering.SLEUTEL_AL_GEBRUIKT,
+                        "Deze betaling is al met een ander verzoek verstuurd.");
             }
             return;
         }
         String eigenNaam = grootboek.naamBijEigenRekening(gebruikersnaam, van).orElseThrow(RekeningNietGevonden::new);
         Contact contact = contacten.vind(naar).orElseThrow(() ->
-                new BetalingGeweigerd("onbekend-contact", "Naar dit rekeningnummer kan niet worden betaald."));
-        if (!contact.naamPast(naam)) {
-            throw new BetalingGeweigerd("naam-past-niet", "De naam van de ontvanger hoort niet bij dit rekeningnummer.");
+                new BetalingGeweigerd(Weigering.ONBEKEND_CONTACT, "Naar dit rekeningnummer kan niet worden betaald."));
+        if (!contact.naamPast(opdracht.naam())) {
+            throw new BetalingGeweigerd(Weigering.NAAM_PAST_NIET,
+                    "De naam van de ontvanger hoort niet bij dit rekeningnummer.");
         }
         // De tegenpartij is de naam van het contact, niet de schrijfwijze van de klant.
-        ledger.boek(new Overboeking(new Partij(van, eigenNaam), new Partij(naar, contact.naam()), bedrag,
-                TransactieType.ONLINE_BANKIEREN, klok.nu(), omschrijving, betalingskenmerk, extraOmschrijving));
+        ledger.boek(new Overboeking(new Partij(van, eigenNaam), new Partij(naar, contact.naam()), opdracht.bedrag(),
+                TransactieType.ONLINE_BANKIEREN, klok.nu(), opdracht.omschrijving(), opdracht.betalingskenmerk(),
+                opdracht.extraOmschrijving()));
     }
 }

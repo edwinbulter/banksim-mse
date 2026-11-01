@@ -63,7 +63,7 @@ class TransactieController {
     @ExceptionHandler(OngeldigZoekfilter.class)
     ProblemDetail ongeldigZoekfilter(OngeldigZoekfilter fout) {
         ProblemDetail probleem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, fout.getMessage());
-        probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem()));
+        probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem().code()));
         return probleem;
     }
 

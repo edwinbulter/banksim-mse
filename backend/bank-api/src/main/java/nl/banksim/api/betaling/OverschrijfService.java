@@ -40,7 +40,8 @@ class OverschrijfService {
         Optional<String> eerder = idempotentie.claim(sleutel, gebruikersnaam, verzoek);
         if (eerder.isPresent()) {
             if (!eerder.get().equals(verzoek)) {
-                throw new BetalingGeweigerd("sleutel-al-gebruikt", "Deze overschrijving is al met een ander verzoek verstuurd.");
+                throw new BetalingGeweigerd(Weigering.SLEUTEL_AL_GEBRUIKT,
+                        "Deze overschrijving is al met een ander verzoek verstuurd.");
             }
             return;
         }

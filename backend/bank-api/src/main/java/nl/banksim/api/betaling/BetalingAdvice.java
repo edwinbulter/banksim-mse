@@ -17,14 +17,14 @@ class BetalingAdvice {
     @ExceptionHandler(BetalingGeweigerd.class)
     ProblemDetail geweigerd(BetalingGeweigerd fout) {
         ProblemDetail probleem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, fout.getMessage());
-        probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem()));
+        probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem().code()));
         return probleem;
     }
 
     /** ADR 0025: geen rekening komt onder € 0,00, ook een spaarrekening niet. */
     @ExceptionHandler(SaldoOntoereikend.class)
     ProblemDetail saldoOntoereikend(SaldoOntoereikend fout) {
-        return geweigerd(new BetalingGeweigerd("saldo-ontoereikend", fout.getMessage()));
+        return geweigerd(new BetalingGeweigerd(Weigering.SALDO_ONTOEREIKEND, fout.getMessage()));
     }
 
     /** ADR 0027: zonder sleutel geen betaling of overschrijving; zo boekt geen client per ongeluk zonder bescherming. */

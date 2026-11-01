@@ -25,11 +25,11 @@ record Zoekfilter(Optional<String> tekst, Optional<Bedrag> van, Optional<Bedrag>
         Optional<Bedrag> vanaf = ingevuld(van).map(Zoekfilter::bedrag);
         Optional<Bedrag> totEnMet = ingevuld(tm).map(Zoekfilter::bedrag);
         if (vanaf.isPresent() && totEnMet.isPresent() && vanaf.get().waarde().compareTo(totEnMet.get().waarde()) > 0) {
-            throw new OngeldigZoekfilter("ongeldig-bedragbereik", "Bedrag van mag niet groter zijn dan Bedrag t/m");
+            throw new OngeldigZoekfilter(ZoekProbleem.ONGELDIG_BEDRAGBEREIK, "Bedrag van mag niet groter zijn dan Bedrag t/m");
         }
         return new Zoekfilter(ingevuld(tekst), vanaf, totEnMet,
-                ingevuld(type).map(naam -> uitLijst(TransactieType.values(), naam, "ongeldig-type")),
-                ingevuld(richting).map(naam -> uitLijst(Richting.values(), naam, "ongeldige-richting")));
+                ingevuld(type).map(naam -> uitLijst(TransactieType.values(), naam, ZoekProbleem.ONGELDIG_TYPE)),
+                ingevuld(richting).map(naam -> uitLijst(Richting.values(), naam, ZoekProbleem.ONGELDIGE_RICHTING)));
     }
 
     /** "albert" → "%albert%", met %, _ en \ als gewone tekens (ESCAPE '\' in de query). */
@@ -59,10 +59,10 @@ record Zoekfilter(Optional<String> tekst, Optional<Bedrag> van, Optional<Bedrag>
         } catch (IllegalArgumentException e) {
             // hieronder
         }
-        throw new OngeldigZoekfilter("ongeldig-bedrag", "Geen geldig bedrag: " + invoer);
+        throw new OngeldigZoekfilter(ZoekProbleem.ONGELDIG_BEDRAG, "Geen geldig bedrag: " + invoer);
     }
 
-    private static <T extends Enum<T>> T uitLijst(T[] waarden, String naam, String probleem) {
+    private static <T extends Enum<T>> T uitLijst(T[] waarden, String naam, ZoekProbleem probleem) {
         return Arrays.stream(waarden).filter(waarde -> waarde.name().equalsIgnoreCase(naam)).findFirst()
                 .orElseThrow(() -> new OngeldigZoekfilter(probleem, "Onbekende waarde: " + naam));
     }

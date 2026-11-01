@@ -24,6 +24,8 @@ import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import nl.banksim.domain.transactie.TransactieType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -124,6 +126,17 @@ class TransactieControllerTests {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("urn:banksim:probleem:ongeldig-bedragbereik"))
                 .andExpect(jsonPath("$.detail").value("Bedrag van mag niet groter zijn dan Bedrag t/m"));
+        assertThat(AANROEPEN).isEmpty();
+    }
+
+    /** Backlog fase 5.2: de andere probleemtypes van het zoekfilter, als tekst, want de API belooft ze. */
+    @ParameterizedTest
+    @CsvSource({"van, vijftig, ongeldig-bedrag", "type, CONTANT, ongeldig-type", "richting, zijwaarts, ongeldige-richting"})
+    void eenOngeldigVeldGeeft400MetZijnProbleemtype(String veld, String waarde, String probleemtype) throws Exception {
+        AANROEPEN.clear();
+        mvc.perform(get("/api/rekeningen/" + VAN_JAN + "/transacties").with(gebruiker("jan-a1-1")).param(veld, waarde))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:" + probleemtype));
         assertThat(AANROEPEN).isEmpty();
     }
 
