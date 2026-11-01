@@ -253,6 +253,44 @@ class BetalingControllerTests {
         assertThat(grootboek.geschreven()).hasSize(1);
     }
 
+    /**
+     * Backlog fase 7.1: de velden zijn anders verdeeld, maar aan elkaar geplakt met "|" zijn ze gelijk. Toch een ander
+     * verzoek, dus 422.
+     */
+    @Test
+    void dezelfdeSleutelMetEenAndereVerdelingOverDeVeldenGeeft422() throws Exception {
+        String sleutel = UUID.randomUUID().toString();
+        mvc.perform(betaalverzoek(sleutel).content(betalingMet("\"omschrijving\": \"Etentje|ETEN-2026\"")))
+                .andExpect(status().isCreated());
+
+        mvc.perform(betaalverzoek(sleutel).content(betalingMet(
+                        "\"omschrijving\": \"Etentje\", \"betalingskenmerk\": \"ETEN-2026|null\"")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:sleutel-al-gebruikt"));
+
+        assertThat(grootboek.geschreven()).hasSize(1);
+    }
+
+    /** Backlog fase 7.1: geen omschrijving is iets anders dan de omschrijving "null". */
+    @Test
+    void dezelfdeSleutelMetDeOmschrijvingNullInPlaatsVanGeenGeeft422() throws Exception {
+        String sleutel = UUID.randomUUID().toString();
+        mvc.perform(betaalverzoek(sleutel).content(betalingMet(null))).andExpect(status().isCreated());
+
+        mvc.perform(betaalverzoek(sleutel).content(betalingMet("\"omschrijving\": \"null\"")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:banksim:probleem:sleutel-al-gebruikt"));
+
+        assertThat(grootboek.geschreven()).hasSize(1);
+    }
+
+    /** € 25,00 van Jan aan Sanne, met de gegeven omschrijvende velden als JSON, of zonder. */
+    private static String betalingMet(String velden) {
+        return """
+                {"van": "%s", "naar": "%s", "naam": "Sanne", "bedrag": "25.00"%s}""".formatted(
+                VAN_JAN, VAN_SANNE, velden == null ? "" : ", " + velden);
+    }
+
     /** Een betaalverzoek van Jan, met een eigen Idempotency-Key (ADR 0027). */
     private static MockHttpServletRequestBuilder betaalverzoek() {
         return betaalverzoek(UUID.randomUUID().toString());

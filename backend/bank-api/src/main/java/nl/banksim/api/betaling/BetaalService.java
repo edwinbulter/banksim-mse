@@ -43,8 +43,7 @@ class BetaalService {
         Iban van = opdracht.van();
         Iban naar = opdracht.naar();
         String verzoek = VerzoekHash.van(van.toString(), naar.toString(), opdracht.naam(), opdracht.bedrag().toString(),
-                String.valueOf(opdracht.omschrijving()), String.valueOf(opdracht.betalingskenmerk()),
-                String.valueOf(opdracht.extraOmschrijving()));
+                opdracht.omschrijving(), opdracht.betalingskenmerk(), opdracht.extraOmschrijving());
         Optional<String> eerder = idempotentie.claim(sleutel, gebruikersnaam, verzoek);
         if (eerder.isPresent()) {
             if (!eerder.get().equals(verzoek)) {
