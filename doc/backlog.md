@@ -151,7 +151,11 @@ Uit de vergelijking met Farley (31 oktober): vertrouw niet op mensen die code le
 
    Nieuwe tool, dus een ADR. Draai de contracttests zonder Spring-context waar het kan, dan maken ze PIT niet trager. Op de doorlooptijd scheelt het verder niets: ze lopen in de jobs `backend` en `frontend`, die ruim binnen PIT klaar zijn.
 3. ⛔ **Beslissing (vangrail): statische analyse van Java.** Er is geen Error Prone, SpotBugs of Checkstyle. Fouten die de compiler niet ziet, zoals een genegeerde returnwaarde of `equals` zonder `hashCode`, vallen alleen op als een test ze toevallig raakt. Kies een tool en de regels. Nieuwe tool, dus een ADR.
-4. **Vangrail: architectuurregels voor bank-bff en bank-seed.** Ze hebben alleen "geen systeemtijd". Bijvoorbeeld: bank-seed boekt alleen via de domeinregels (ADR 0003), net als "alleen `LedgerService` boekt" in bank-api. Elke regel één keer rood gezien.
+4. **Klaar: architectuurregels voor bank-bff en bank-seed.** Er stond al: geen systeemtijd (fase 2.4) en geen `synchronized` (bronscan, fase 2.3). Dat bank-bff niets van het domein en van bank-seed weet, en dat bank-api niets van bank-seed weet, dwingt Maven af: die afhankelijkheden bestaan niet. Twee gaten zijn gedicht:
+   - `GeenDrijvendeKommaTests` (ADR 0010) ook in bank-seed en bank-bff. bank-seed zet saldi en transacties klaar. Sabotage: een `double`-veld in `SeedCommando` en een `double`-parameter in `ApiRoute`, beide rood.
+   - `AlleenOpslagKentSqlTests` in bank-seed: alleen de klassen `Jdbc*` (en de applicatie, die ze opbouwt) gebruiken `JdbcClient`. Sabotage: een `JdbcClient`-veld in `SeedCommando`, rood.
+   - Geen verdere regels voor bank-bff: het is een doorgeefluik zonder eigen logica (ADR 0008). Wat daar bewaakt moet worden, is gedrag (`BffTests`), geen indeling.
+   - Niet gekozen: "bank-seed boekt via de domeinregels" als regel. bank-seed gebruikt `Bedrag` en `Iban` uit het domein, en de geldregel dekt de rest. Een externe transactie heeft maar één kant in de bank, dus `Overboeking` past daar niet.
 5. ⛔ **Beslissing: de skill `atdd` aanvullen.** De skill noemt architectuurchecks expliciet, maar linters en typecontrole alleen per stack en contracttests helemaal niet. Toch staat in §1 stap 4 dat test doubles op echte grenzen blijven. Voorstel:
    - §4, "Vangrails eerst": ook een linter en een strenge typecontrole per taal, in de commit stage;
    - §1 stap 4 of §4: elke test double op een grens tussen services heeft een contracttest;

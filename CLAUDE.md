@@ -51,7 +51,8 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Gelijktijdige overboekingen: geen deadlock, totaal behouden, nooit onder nul (ADR 0026) | `grootboek/GelijktijdigeOverboekingenTests` | ja, sabotage in 54eac60 |
 | Een betaling met dezelfde Idempotency-Key boekt één keer; de sleutel geldt per gebruiker (ADR 0027) | `BetalingControllerTests`, `JdbcIdempotentieTests` | ja, sabotage in 8140ffd |
 | Een overboeking heeft twee kanten die samen nul zijn (ADR 0024) | trigger in `db/migration/V6__grootboek.sql`, via `JdbcGrootboekTests` | ja, sabotage (fase 1 van de backlog) |
-| Geen `double`/`float` voor bedragen (ADR 0010) | `GeenDrijvendeKommaTests` | ja, sabotage in bank-api en bank-domain (fase 1) |
+| Geen `double`/`float` voor bedragen (ADR 0010) | `GeenDrijvendeKommaTests` in bank-api (ook bank-domain), bank-seed en bank-bff | ja, sabotage in alle vier de modules (fase 1 en 6.4) |
+| De SQL van bank-seed staat in de opslagklassen `Jdbc*`; de opdrachten werken via hun interfaces (cohesie) | `bank-seed/.../AlleenOpslagKentSqlTests` | ja, sabotage: een `JdbcClient` in `SeedCommando` (fase 6.4) |
 | Geen systeemtijd buiten de klok (ADR 0013): geen `now()` zonder `Clock`, geen `System.currentTimeMillis()`, de systeemklok alleen in `KlokConfig` | `GeenSysteemtijdTests` in bank-api (ook bank-domain), bank-seed en bank-bff | ja, sabotage in alle vier de modules (fase 1 en 2.4) |
 | Geen `synchronized`, niet op een methode en niet als blok, in alle modules van de backend (concurrency) | `GeenSynchronizedTests` (bronscan) | ja, sabotage in bank-seed en bank-bff (fase 2.3) |
 | Het domein kent geen framework (Spring, Jakarta, Jackson) | `bank-domain/.../architectuur/DomeinKentGeenFrameworkTests`; de pom heeft ook geen Spring | ja, sabotage: Spring in de pom en `@Component` (fase 2.2) |
