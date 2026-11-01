@@ -1,6 +1,7 @@
 package nl.banksim.bff;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -12,9 +13,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
 
 import com.sun.net.httpserver.HttpServer;
 import jakarta.servlet.http.Cookie;
@@ -36,7 +40,9 @@ import org.springframework.web.util.UriComponentsBuilder;
         "banksim.bff.public-url=https://bank-mse.localtest.me",
         "banksim.bff.keycloak.public-url=https://auth-mse.localtest.me",
         "banksim.bff.keycloak.internal-url=http://keycloak:8080",
-        "banksim.bff.keycloak.client-secret=geheim"})
+        "banksim.bff.keycloak.client-secret=geheim",
+        // Korter dan in application.yaml, zodat de test op een trage bank-api niet lang hoeft te wachten.
+        "spring.http.clients.read-timeout=500ms"})
 @AutoConfigureMockMvc
 class BffTests {
 
@@ -206,6 +212,21 @@ class BffTests {
     }
 
     /**
+     * Backlog fase 7.3: antwoordt bank-api niet op tijd, dan wacht de BFF niet onbeperkt, maar stopt hij na de
+     * read-timeout uit spring.http.clients. In MockMvc komt de fout als exception terug; de echte server maakt er een
+     * 500 van.
+     */
+    @Test
+    void wachtNietLangerDanDeReadTimeoutOpBankApi() {
+        long start = System.nanoTime();
+
+        assertThatThrownBy(() -> mvc.perform(get("/api/traag")
+                        .with(oauth2Login().clientRegistration(registraties.findByRegistrationId("keycloak")))))
+                .hasRootCauseInstanceOf(HttpTimeoutException.class);
+        assertThat(Duration.ofNanos(System.nanoTime() - start)).as("wachttijd").isLessThan(Duration.ofMillis(1500));
+    }
+
+    /**
      * Backlog fase 4.3, ADR 0027: de app stuurt per controlescherm een Idempotency-Key mee; de BFF geeft hem ongewijzigd
      * door, anders boekt bank-api een herhaalde betaling twee keer.
      */
@@ -231,6 +252,16 @@ class BffTests {
     private static HttpServer nepBankApi() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+            // Antwoordt pas na 2 seconden; langer dan de read-timeout van de test.
+            server.createContext("/api/traag", uitwisseling -> {
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                uitwisseling.sendResponseHeaders(200, -1);
+                uitwisseling.close();
+            });
             server.createContext("/", uitwisseling -> {
                 String authorization = uitwisseling.getRequestHeaders().getFirst("Authorization");
                 String cookie = uitwisseling.getRequestHeaders().getFirst("Cookie");
@@ -251,6 +282,7 @@ class BffTests {
                 uitwisseling.getResponseBody().write(body);
                 uitwisseling.close();
             });
+            server.setExecutor(Executors.newCachedThreadPool());
             server.start();
             return server;
         } catch (IOException e) {
