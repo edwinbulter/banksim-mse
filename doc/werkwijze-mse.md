@@ -13,7 +13,7 @@ Het eindpunt is dezelfde applicatie als in de originele repo: dezelfde schermen,
 | Backend | Java 21, Spring Boot 4.0.x, Spring Security, Spring JDBC (`JdbcClient`), Spring Modulith, Resilience4j, Bucket4j, Spring Session JDBC |
 | BFF | Spring Cloud Gateway (Server WebMVC) + Spring Security OAuth2 Client |
 | Identiteit en opslag | Keycloak, PostgreSQL met Flyway |
-| Frontend | Angular (standalone components, signals), TypeScript strict, `big.js`, ESLint, Vitest, OpenAPI-generator voor de client |
+| Frontend | Angular (standalone components, signals), TypeScript strict, ESLint, Vitest; bedragen als tekst (`geld/bedrag.ts`, ADR 0010); types uit het API-contract (`openapi-typescript`, ADR 0034) |
 | Backend-tests | JUnit 5, AssertJ, Testcontainers, jqwik, ArchUnit, Toxiproxy, PIT, openapi-diff |
 | Acceptatietests | **Playwright Test (TypeScript)** in `e2e/`, net als het origineel |
 | Build en deploy | Maven, npm, Jib, Helm, kind (OrbStack), ingress-nginx, GitHub Actions |
@@ -225,7 +225,7 @@ flowchart TB
 | Laag | Wat erin staat | Wat er níet in mag |
 | --- | --- | --- |
 | Testcases | Het voorbeeld in domeintaal, als stappen Gegeven / Als / Dan | URL's, selectors, JSON, SQL; imports buiten `dsl/`, `page`, `request` en `expect` (bewaakt door `scripts/lagen-check.sh`, ADR 0031) |
-| DSL | Methodes als `heeftBetaalrekening`, `betaalt`, `verwachtSaldo`; aliassen voor testdata; bedragen als string en vergeleken met `big.js` | Hoe het systeem wordt aangestuurd |
+| DSL | Methodes als `heeftBetaalrekening`, `betaalt`, `verwachtSaldo`; aliassen voor testdata; bedragen als tekst in domeinnotatie ("25.00"), exact vergeleken (ADR 0010) | Hoe het systeem wordt aangestuurd |
 | Protocol drivers | HTTP-calls via `APIRequestContext`, Playwright page objects, inloggen bij Keycloak; wachten tot het systeem klaar is en het protocol controleren (status, vorm van het antwoord) | Een uitkomst die per scenario kan verschillen, zoals of een betaling lukt: die geven ze terug, en de DSL beweert erover (ADR 0031) |
 | System under test | De echte, gedeployde applicatie | Test-only endpoints of testcode |
 
@@ -264,10 +264,10 @@ async gegeven(tekst: string, stap: () => Promise<unknown>) {
 
 - **Spec-taal:** Playwright Test in TypeScript met een interne DSL, binnen de stack van het origineel (ADR 0005). Er is geen Gherkin: de specs zelf zijn het leesbare voorbeeld. Wil je later toch `.feature`-bestanden, dan kan dat met één extra dev-dependency (`playwright-bdd`) op dezelfde DSL; dat is dan een nieuwe ADR.
 - **Twee drivers, één scenario:** `playwright.config.ts` heeft een project `rest` (optie `driver: 'rest'`, snel, geen browser) en de projecten `chromium`, `firefox` en `webkit` (optie `driver: 'ui'`). Hetzelfde scenario draait dus via de API en via de browser. Scenario's die alleen over de UI gaan ("De knop heet nu Verberg zoeken") krijgen de tag `@ui`; het project `rest` sluit die uit met `grepInvert: /@ui/`. `firefox` en `webkit` draaien alleen de scenario's met `@ui` of `@rook` (ADR 0019): het domeingedrag bewijzen `rest` en `chromium` al. Voegt een scenario iets aan het scherm toe, dan hoort er een `@ui`-scenario bij.
-- **Waar de REST driver op aanspreekt:** altijd via de ingress en de publieke API-paden, net als de browser. Zodra er in slice 6 een BFF en Keycloak zijn, logt een setup-project één keer per gebruiker in via het echte Keycloak-scherm en bewaart de sessie als `storageState`, zoals het origineel in `e2e/tests/auth.setup.ts` doet. De REST driver gebruikt die sessiecookie en het CSRF-token van de BFF. De driver roept `bank-api` nooit rechtstreeks aan; na de CFR-slices voor mTLS en NetworkPolicies zou dat ook niet meer kunnen.
-- **Isolatie:** elk scenario maakt zijn eigen rekeninghouders en rekeningen via de DSL. De DSL vertaalt een alias ("Jan") naar een unieke naam en IBAN per testrun. Zo zitten scenario's elkaars data niet in de weg en is de gedeelde datagen-seed niet nodig.
+- **Waar de REST driver op aanspreekt:** altijd via de ingress en de publieke API-paden, net als de browser. Er is geen setup-project: elke klant krijgt per scenario een eigen sessie. De REST driver volgt de redirects naar Keycloak en vult het inlogformulier in zonder browser; de UI driver logt in via het echte Keycloak-scherm. Daarna gebruikt de REST driver de sessiecookie en het CSRF-token van de BFF. De driver roept `bank-api` nooit rechtstreeks aan; na de CFR-slices voor mTLS en NetworkPolicies zou dat ook niet meer kunnen.
+- **Isolatie:** elk scenario maakt zijn eigen rekeninghouders en rekeningen via de DSL. De shell-driver (`drivers/shell/bank-seed.ts`) maakt van een alias ("Jan") een unieke gebruikersnaam met een prefix per testrun; de seed geeft er een eigen IBAN bij. Zo zitten scenario's elkaars data niet in de weg en is de gedeelde datagen-seed niet nodig.
 - **Testdata opzetten:** het FO heeft geen scherm om rekeninghouders, rekeningen of willekeurige historische boekingen (incasso, betaalautomaat) aan te maken; dat doet in het origineel alleen de datagenerator. Kies daarom in stap 0 of slice 1 één expliciet mechanisme en leg het vast in een ADR (`0003-testdata-via-seed-cli.md`). Voorstel: een kleine **seed-CLI** in Java, in een eigen Maven-module, die met de regels van `bank-domain` rekeninghouders, rekeningen en overboekingen in de database zet (en later ook Keycloak-gebruikers). De DSL start die als pod in `banksim-mse` via een kleine shell-driver (`kubectl run` vanuit Node; ADR 0003). Sinds ADR 0020 is dat één pod per Playwright-worker, die de opdrachten van stdin leest: alleen de eerste opdracht betaalt de opstart van pod en JVM. Er komt dus geen test-only endpoint in de applicatie zelf. In slice 11 groeit deze seed-CLI uit tot `bank-datagen`: dezelfde code, nu aangestuurd door profielen in plaats van door scenario's.
-- **Tijd:** scenario's zetten de simulatiedatum zelf (`bank.gegeven('de simulatiedatum is 5 oktober 2026', …)`), want BankSim heeft die functie toch nodig. De simulatiedatum geldt voor alle gebruikers tegelijk, dus unieke aliassen isoleren wel de data maar niet de klok. Scenario's die de datum zetten krijgen de tag `@simulatiedatum` en draaien in een aparte run met `--grep @simulatiedatum --workers=1`; de overige scenario's draaien parallel met `--grep-invert @simulatiedatum`. Dit is een bewuste afweging (ADR); het origineel draaide de hele suite met één worker.
+- **Tijd:** scenario's zetten de simulatiedatum zelf (`bank.gegeven('de simulatiedatum is 5 oktober 2026', …)`), want BankSim heeft die functie toch nodig. De simulatiedatum geldt voor alle gebruikers tegelijk, dus unieke aliassen isoleren wel de data maar niet de klok. Scenario's die de datum zetten krijgen de tag `@simulatiedatum`. Ze draaien in de projecten `simulatiedatum-rest` en `simulatiedatum-chromium`, met één worker, pas na alle andere projecten; de fixture wist de datum na elk zo'n scenario, ook als het faalde (ADR 0014). Het origineel draaide de hele suite met één worker.
 
 In de originele repo is `e2e/pages/*` (`LoginPagina`, `RekeningPagina`, `BetalenPagina`, …) de protocol-driver-laag; de specs in `e2e/tests/*` mengen testcase en DSL. Hier houd je die lagen vanaf het begin gescheiden.
 
@@ -275,14 +275,15 @@ In de originele repo is `e2e/pages/*` (`LoginPagina`, `RekeningPagina`, `Betalen
 
 ```text
 e2e/
-├── playwright.config.ts    projecten: setup, rest, chromium, firefox, webkit, infra
+├── playwright.config.ts    projecten: rest, chromium, firefox, webkit, simulatiedatum-rest, simulatiedatum-chromium, infra
 ├── specs/                  testcases: overzicht.spec.ts, betaalrekening.spec.ts, zoeken.spec.ts, …
 │   └── infra/              installatie.spec.ts, upgrade.spec.ts, netwerk.spec.ts (hoofdstuk 9)
-├── dsl/                    fixtures.ts, bank.ts, klant.ts, beheerder.ts, aliassen.ts, omgeving.ts
+├── dsl/                    fixtures.ts, bank.ts, klant.ts, beheerder.ts, bezoeker.ts, stappen.ts, omgeving.ts
 └── drivers/
     ├── rest/               RestDriver op APIRequestContext
-    ├── ui/                 UiDriver en page objects: LoginPagina, OverzichtPagina, …
+    ├── ui/                 UiDriver en page objects: InlogPagina, OverzichtPagina, …
     └── shell/              kubectl, helm en de scripts via child_process (seed-CLI, infra)
+api/                        het API-contract bank-api.yaml en de generator van de types (ADR 0034)
 ```
 
 ## 6. Architecture Decision Records
@@ -898,9 +899,9 @@ test('Uitloggen', { tag: '@rook' }, async ({ bank }) => {
 ```
 
 - **Binnenste lus:** API als OAuth2 resource server; `IngelogdeGebruiker` uit het JWT; eigenaarschap in elke rekeningquery; BFF met OIDC + PKCE, sessiecookie, CSRF (de BFF en CSRF bestaan sinds slice 1 en 3); frontend `SessionService`, guards en de interceptor voor een verlopen sessie.
-- **ADR's:** Keycloak; BFF in plaats van tokens in de browser; versleutelde sessie in PostgreSQL; andermans IBAN geeft 404.
+- **ADR's:** Keycloak; BFF in plaats van tokens in de browser; de sessie in het geheugen van de BFF, met één replica (ADR 0008; in PostgreSQL pas bij CFR Resilience); andermans IBAN geeft 404.
 - **Fitness functions:** ArchUnit: elke controller-methode heeft `@PreAuthorize` (deny by default); slicetests per endpoint: 401 zonder token, 403 met verkeerde rol, 404 op andermans IBAN; POST zonder CSRF-token geeft 403.
-- **Driver-impact:** alleen de protocol drivers en het setup-project leren inloggen; de specs van slice 1–5 veranderen niet. Dat is de toets of je lagen goed gescheiden zijn.
+- **Driver-impact:** alleen de protocol drivers leren inloggen; de specs van slice 1–5 veranderen niet. Dat is de toets of je lagen goed gescheiden zijn.
 - **Origineel:** `bank-bff/*`, `bank-api/security/*`, `deploy/banksim/files/realm-banksim.json`, `e2e/tests/auth.setup.ts`, `e2e/tests/inloggen.spec.ts`, `e2e/tests/toegang.spec.ts`.
 
 ### Slice 7 – Betalen
@@ -1562,7 +1563,7 @@ Waar komt elk onderdeel van de originele BankSim terug?
 
 | Originele e2e-spec (`e2e/tests/`) | Nieuwe spec (`e2e/specs/`) | Slice |
 | --- | --- | --- |
-| `auth.setup.ts` | setup-project met `storageState` | 6 |
+| `auth.setup.ts` | geen setup-project: de drivers loggen per klant in, in een eigen sessie | 6 |
 | `inloggen.spec.ts` | `inloggen.spec.ts` | 6 |
 | `betaalrekening.spec.ts` | `betaalrekening.spec.ts` | 2, 4 |
 | `zoeken.spec.ts` | `zoeken.spec.ts` | 5 |
