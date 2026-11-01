@@ -93,7 +93,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - `doc/werkwijze-mse.md`:
   - slices: hoofdstuk 7;
   - eisen die over de hele applicatie gaan: hoofdstuk 7, laatste deel;
-  - losse backlogpunten (uitgesteld werk met reden): hoofdstuk 7, sectie "Losse backlogpunten";
+  - losse backlogpunten (uitgesteld werk met reden): hoofdstuk 7, sectie "Losse backlogpunten"; een opgelost punt verhuist naar "Opgeloste losse backlogpunten", met datum, waar het is opgelost en de commit;
   - ADR-backlog: hoofdstuk 6;
   - infrastructuur: hoofdstuk 9;
   - traceerbaarheid naar het origineel: hoofdstuk 11;

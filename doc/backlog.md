@@ -15,7 +15,7 @@ Elk punt noemt de regel uit §4 en heeft een van twee soorten:
 
 Is een bevinding niet in de code gecontroleerd, dan staat er *(te verifiëren)* bij. Ga in dat geval eerst na of het klopt.
 
-Het uitgestelde werk van de slices blijft in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 7, sectie "Losse backlogpunten". Een punt dat daar al staat en hier is opgepakt, verdwijnt daar zodra het klaar is. Wat bij de audit is gevonden maar geen slop is, staat hier in fase 7: dan staat het werk uit de audit op één plek.
+Het uitgestelde werk van de slices blijft in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 7, sectie "Losse backlogpunten". Een punt dat daar al staat en hier is opgepakt, verhuist daar naar "Opgeloste losse backlogpunten" zodra het klaar is. Wat bij de audit is gevonden maar geen slop is, staat hier in fase 7: dan staat het werk uit de audit op één plek.
 
 ## Klaar
 
