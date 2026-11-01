@@ -15,7 +15,7 @@ Elk punt noemt de regel uit §4 en heeft een van twee soorten:
 
 Is een bevinding niet in de code gecontroleerd, dan staat er *(te verifiëren)* bij. Ga in dat geval eerst na of het klopt.
 
-Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 7, sectie "Losse backlogpunten". Een punt dat daar al staat en hier is opgepakt, verdwijnt daar zodra het klaar is.
+Het uitgestelde werk van de slices blijft in [werkwijze-mse.md](werkwijze-mse.md), hoofdstuk 7, sectie "Losse backlogpunten". Een punt dat daar al staat en hier is opgepakt, verdwijnt daar zodra het klaar is. Wat bij de audit is gevonden maar geen slop is, staat hier in fase 7: dan staat het werk uit de audit op één plek.
 
 ## Klaar
 
@@ -163,14 +163,14 @@ Uit de vergelijking met Farley (31 oktober): vertrouw niet op mensen die code le
    - `references/profiel-sjabloon.md`: de vraag naar linter en typecontrole bij Vangrails, een nieuw veld Contracten, en twee rijen in het lege sjabloon.
    - ⛔ Open: of deze aanvulling ook naar atdd-casus-1 gaat. Dat is een andere repository; daar gebeurt niets zonder opdracht.
 
-## Gevonden, maar geen slop
+## Fase 7: gevonden bij de audit, geen slop
 
-Deze punten vallen niet onder §4. Ze gaan naar de losse backlogpunten in werkwijze hoofdstuk 7.
+Deze punten vallen niet onder §4, maar zijn wel bij de audit gevonden. Het zijn gewone fouten en gaten: elk begint met een test die rood is, of met een scenario. In volgorde van belang.
 
-- *(te verifiëren)* **De BFF heeft geen time-outs naar `bank-api`.** `ApiRoute.bankApiClient` bouwt zelf een `JdkClientHttpRequestFactory`, en dan werken `spring.http.clients.connect-timeout` en `read-timeout` uit `application.yaml` waarschijnlijk niet.
-- **`VerzoekHash` kan botsen.** Hij plakt de velden aan elkaar met `|`, en een `null` wordt de tekst `"null"`. Twee verschillende verzoeken kunnen dan dezelfde hash krijgen, waardoor een 201 terugkomt in plaats van een 422.
-- **`SimulationClock.nu()` leest de datum en de tijd los van elkaar.** Rond middernacht, zonder simulatiedatum, kan het tijdstip dan een dag verschuiven.
-- **Het enum `Soort` mist `intern`,** terwijl de database die soort toestaat (`V11__rente.sql`).
-- **Werkwijze hoofdstuk 5 loopt achter op de code:**
-  - het noemt `big.js`, dat niet in `e2e/package.json` staat;
-  - het noemt `dsl/aliassen.ts` en een project `setup`, die geen van beide bestaan.
+1. **`VerzoekHash` kan botsen (ADR 0027).** Hij plakt de velden van een betaling aan elkaar met `|`, en een ontbrekend veld wordt de tekst `"null"`. Twee verschillende betalingen met dezelfde Idempotency-Key kunnen zo dezelfde hash krijgen, bijvoorbeeld een `|` in de omschrijving tegenover een leeg veld. Dan ziet bank-api de tweede als herhaling: hij antwoordt 201 en boekt niets, in plaats van 422 "sleutel-al-gebruikt".
+2. **`SimulationClock.nu()` leest de datum en de tijd los van elkaar.** Rond middernacht, zonder simulatiedatum, kan het tijdstip van een boeking dan een dag verschuiven: de datum van vóór middernacht met de tijd van erna.
+3. *(te verifiëren)* **De BFF heeft geen time-outs naar `bank-api`.** `ApiRoute.bankApiClient` bouwt zelf een `JdkClientHttpRequestFactory`, en dan werken `spring.http.clients.connect-timeout` en `read-timeout` uit `application.yaml` waarschijnlijk niet. Een hangende bank-api houdt dan elke aanvraag van de BFF vast.
+4. **Het enum `Soort` mist `intern`,** terwijl de database die soort toestaat (`V11__rente.sql`, de rekening van BankSim voor de rente). Een klant heeft geen interne rekening, dus het overzicht raakt het nu niet; een andere query met `Soort.van` wel.
+5. **Werkwijze hoofdstuk 5 loopt achter op de code:**
+   - het noemt `big.js`, dat niet in `e2e/package.json` staat;
+   - het noemt `dsl/aliassen.ts` en een project `setup`, die geen van beide bestaan.
