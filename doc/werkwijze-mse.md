@@ -1217,7 +1217,6 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Integratietest van de realm met Testcontainers | Zie hoofdstuk 9.1 | Bij de volgende realm-wijziging (slice 6 of 10) |
 | Herstart van PostgreSQL en Keycloak behoudt de data | Zie hoofdstuk 9.4 | CFR Resilience |
 | Mutation testing van de frontend met Stryker | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend meer logica krijgt (slice 7) |
-| Nooit rood ná de rentecorrecties (TO §6): `LedgerService` controleert de opname vóór de correcties, dus minder rente kan een latere opname alsnog onder nul brengen | ADR 0030, Gevolgen; het scenario van S9.1 gaat er niet over | Een eigen scenario: opname in het verleden van bijna het hele saldo, met een latere opname |
 | Een rentecorrectie vergrendelt de renterekening van BankSim pas ná de spaarrekening. Sluit de nachtelijke afsluiting tegelijk dezelfde spaarrekening af, en ligt de IBAN van BankSim daarvoor in de volgorde (ADR 0026), dan kan PostgreSQL een deadlock melden en één van beide terugdraaien | Zeldzaam: de afsluiting draait om 00:05 en slaat afgesloten maanden over; geen test (S9.1) | Een gelijktijdigheidstest zoals `GelijktijdigeOverboekingenTests`, met opnames in het verleden en de afsluiting tegelijk |
 
 #### Opgeloste losse backlogpunten
@@ -1226,6 +1225,7 @@ Wat hierboven stond en is opgelost, met waar je het terugvindt. Het nieuwste sta
 
 | Datum | Punt | Opgelost in | Commit |
 | --- | --- | --- | --- |
+| 2026-11-01 | Nooit rood ná de rentecorrecties (TO §6) | Bleek al afgedwongen: een correctie gaat zelf via `LedgerService`. ADR 0036; `RenteServiceTests.eenOpnameWaarvanDeCorrectiesDeSpaarrekeningRoodZoudenMakenWordtGeweigerd` | 98bd5ad |
 | 2026-11-01 | Zoeken op omschrijving (FO: "Naam, bedrag, IBAN of omschrijving") | Scenario "Zoeken op omschrijving" in `zoeken.spec.ts`; het tekstveld zoekt ook in de omschrijving | f555937 |
 | 2026-11-01 | Zoeken op bedrag in het tekstveld | Scenario "Zoeken op bedrag 63,48 in het tekstveld"; een bedrag vindt alleen precies dat bedrag | f555937 |
 | 2026-11-01 | Binnen één dag sorteren op tijdstip in plaats van op volgorde van boeken | ADR 0035; scenario "Binnen een dag staat de laatste transactie bovenaan, ook als ze eerder is geboekt" | 79f62c9 |
