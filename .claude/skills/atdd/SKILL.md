@@ -42,7 +42,9 @@ Eén iteratie is één voorbeeld, van scenario tot groene pipeline. ⛔ markeert
    2. **Groen.** Schrijf de kleinste code die de test laat slagen.
    3. **Refactor.** Alleen op groen, als aparte stap. Refactor ook de tests. De vangrails (§4) draaien mee; een rode vangrail wijst op een ontwerpfout in de code, niet in de vangrail.
 
-   Ga zo een laag naar binnen tot alle lagen echt bestaan. Test doubles blijven alleen staan op echte grenzen, zoals tijd, externe systemen of het netwerk.
+   Ga zo een laag naar binnen tot alle lagen echt bestaan. Een test double (een nep-versie van een onderdeel) blijft alleen staan op een echte grens: de klok, een extern systeem of een andere service.
+
+   Zo'n double doet wat jij denkt dat de andere kant doet. Verandert de echte kant, dan merkt de double dat niet, en blijft de test groen terwijl het in productie misgaat. Staat de double voor een andere service, dan moet een contracttest controleren dat de echte service nog doet wat de double nadoet (§4).
 5. **Architectuurkeuze nodig?** Schrijf dan een ADR-concept volgens [references/adr-sjabloon.md](references/adr-sjabloon.md), met opties, gevolgen en Bewaking.
    ⛔ De gebruiker beslist en zet de status op Geaccepteerd. Een nieuwe library of tool is altijd een ADR-kandidaat.
 6. **Lokaal verifiëren.**
@@ -94,7 +96,11 @@ Zie voor de uitwerking in een stack bijvoorbeeld [references/stack-playwright-ts
 
 Kwaliteit controleer je niet achteraf met een review. Je dwingt haar af met fitness functions in de testsuite, en de pipeline bewaakt ze. Zo geldt een ontwerpregel pas als een test hem afdwingt.
 
-- **Vangrails eerst.** Ze staan er vóór de eerste functionaliteit, als eerste deel van stap 0. Minimaal: de laagindeling, een domein zonder framework, en de verboden die het profiel noemt.
+- **Vangrails eerst.** Ze staan er vóór de eerste functionaliteit, als eerste deel van stap 0. Minimaal:
+  - de laagindeling en een domein zonder framework;
+  - per taal een linter of statische analyse, en een strenge typecontrole, die bij een melding de build breken;
+  - de verboden die het profiel noemt.
+- **Een contract op elke grens tussen services.** Test elke kant tegen hetzelfde contract, bijvoorbeeld een OpenAPI-specificatie: de aanbieder controleert zijn echte antwoorden ertegen, de afnemer haalt er zijn types of testdata uit. Zonder contract test elke kant tegen zijn eigen aanname, en ziet pas de acceptance stage een breuk. Controleer ook dat elk endpoint in het contract staat.
 - **Elke vangrail één keer rood.** Sabotage: schrijf tijdelijk code die de regel overtreedt, laat de melding zien en haal de code weer weg. Commit de sabotage niet; noem haar onder **Sabotage** in het commitbericht. Een vangrail die nooit rood was, bewijst niets.
 - **Elke vangrail staat in het profiel,** met de test die hem bewaakt. Een nieuwe vangrail of tool is een ADR-kandidaat.
 - **Draai ze in de commit stage.** Een vangrail die alleen lokaal draait, is een advies.

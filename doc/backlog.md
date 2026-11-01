@@ -156,12 +156,12 @@ Uit de vergelijking met Farley (31 oktober): vertrouw niet op mensen die code le
    - `AlleenOpslagKentSqlTests` in bank-seed: alleen de klassen `Jdbc*` (en de applicatie, die ze opbouwt) gebruiken `JdbcClient`. Sabotage: een `JdbcClient`-veld in `SeedCommando`, rood.
    - Geen verdere regels voor bank-bff: het is een doorgeefluik zonder eigen logica (ADR 0008). Wat daar bewaakt moet worden, is gedrag (`BffTests`), geen indeling.
    - Niet gekozen: "bank-seed boekt via de domeinregels" als regel. bank-seed gebruikt `Bedrag` en `Iban` uit het domein, en de geldregel dekt de rest. Een externe transactie heeft maar één kant in de bank, dus `Overboeking` past daar niet.
-5. ⛔ **Beslissing: de skill `atdd` aanvullen.** De skill noemt architectuurchecks expliciet, maar linters en typecontrole alleen per stack en contracttests helemaal niet. Toch staat in §1 stap 4 dat test doubles op echte grenzen blijven. Voorstel:
-   - §4, "Vangrails eerst": ook een linter en een strenge typecontrole per taal, in de commit stage;
-   - §1 stap 4 of §4: elke test double op een grens tussen services heeft een contracttest;
-   - `references/profiel-sjabloon.md`: een vraag naar de grenzen tussen services en het contract dat elke grens bewaakt.
-
-   De skill komt uit atdd-casus-1. Bepaal of de aanvulling daar ook naartoe gaat.
+5. **Klaar: de skill `atdd` aangevuld** (`.claude/skills/atdd/`):
+   - §1 stap 4: een test double doet wat jij denkt dat de andere kant doet; staat hij voor een andere service, dan controleert een contracttest dat de echte service nog doet wat de double nadoet.
+   - §4 "Vangrails eerst": ook per taal een linter of statische analyse en een strenge typecontrole, die bij een melding de build breken.
+   - §4 nieuw: "Een contract op elke grens tussen services", met de aanbieder die zijn antwoorden controleert, de afnemer die er zijn types of testdata uit haalt, en een controle dat elk endpoint in het contract staat.
+   - `references/profiel-sjabloon.md`: de vraag naar linter en typecontrole bij Vangrails, een nieuw veld Contracten, en twee rijen in het lege sjabloon.
+   - ⛔ Open: of deze aanvulling ook naar atdd-casus-1 gaat. Dat is een andere repository; daar gebeurt niets zonder opdracht.
 
 ## Gevonden, maar geen slop
 
