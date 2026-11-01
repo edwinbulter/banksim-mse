@@ -34,7 +34,7 @@ public record Iban(String waarde) {
     private static int rest(String iban) {
         String herschikt = iban.substring(4) + iban.substring(0, 4);
         StringBuilder cijfers = new StringBuilder();
-        herschikt.chars().forEach(c -> cijfers.append(Character.getNumericValue(c)));
+        herschikt.chars().forEach(c -> cijfers.append(Character.digit(c, 36)));
         return new BigInteger(cijfers.toString()).mod(NEGENENNEGENTIG).intValue();
     }
 

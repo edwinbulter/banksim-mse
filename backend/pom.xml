@@ -38,6 +38,7 @@
         <!-- ADR 0018: mutation testing; de JUnit-plugin moet bij de JUnit-versie van Spring Boot passen -->
         <pitest-maven.version>1.30.1</pitest-maven.version>
         <pitest-junit5-plugin.version>1.2.3</pitest-junit5-plugin.version>
+        <error-prone.version>2.50.0</error-prone.version>
 
         <!-- Distroless Java 21, draait als non-root -->
         <jib.from.image>gcr.io/distroless/java21-debian13:nonroot@sha256:0a1f5a75661918de9c0813f287f651c3bf2d6dd752eada5f084eb0c1f14ced9e</jib.from.image>
@@ -136,5 +137,28 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- ADR 0033: elke waarschuwing van Error Prone of javac breekt de build -->
+                    <failOnWarning>true</failOnWarning>
+                    <compilerArgs combine.children="append">
+                        <arg>-XDcompilePolicy=simple</arg>
+                        <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
+                        <arg>--should-stop=ifError=FLOW</arg>
+                        <arg>-Xplugin:ErrorProne</arg>
+                    </compilerArgs>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>com.google.errorprone</groupId>
+                            <artifactId>error_prone_core</artifactId>
+                            <version>${error-prone.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 </project>

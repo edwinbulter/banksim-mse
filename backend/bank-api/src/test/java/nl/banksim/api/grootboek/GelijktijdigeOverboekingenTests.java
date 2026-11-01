@@ -81,7 +81,8 @@ class GelijktijdigeOverboekingenTests {
         var fouten = new ConcurrentLinkedQueue<Throwable>();
         ExecutorService draden = Executors.newFixedThreadPool(20);
         for (Overboeking overboeking : overboekingen) {
-            draden.submit(() -> {
+            // execute en geen submit: een fout zou in een Future verdwijnen; hier komt hij in fouten terecht.
+            draden.execute(() -> {
                 try {
                     start.await();
                     ledger.boek(overboeking);

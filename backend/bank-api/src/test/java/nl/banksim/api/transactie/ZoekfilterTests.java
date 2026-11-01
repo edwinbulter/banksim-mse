@@ -3,6 +3,7 @@ package nl.banksim.api.transactie;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Locale;
 import java.util.Optional;
 
 import nl.banksim.domain.geld.Bedrag;
@@ -99,5 +100,23 @@ class ZoekfilterTests {
                 Optional.empty(), Optional.empty());
 
         assertThat(filter.ibanPatroon()).contains("%NL91ABNA0417%");
+    }
+
+    /**
+     * Backlog fase 6.3 (Error Prone, StringCaseLocaleUsage): ook op een machine met een Turkse locale wordt "ingb" "INGB",
+     * en niet "İNGB" met een hoofdletter i met punt.
+     */
+    @Test
+    void eenIbanInKleineLettersWordtHoofdlettersOokInEenTurkseLocale() {
+        Locale standaard = Locale.getDefault();
+        Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+        try {
+            Zoekfilter filter = Zoekfilter.van(Optional.of("nl12 ingb"), Optional.empty(), Optional.empty(), Optional.empty(),
+                    Optional.empty());
+
+            assertThat(filter.ibanPatroon()).contains("%NL12INGB%");
+        } finally {
+            Locale.setDefault(standaard);
+        }
     }
 }

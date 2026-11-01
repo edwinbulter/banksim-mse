@@ -9,6 +9,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,7 @@ class KeycloakLoginsTests {
 
     @Test
     void haaltEenTokenMetHetServiceAccountEnMaaktDeGebruikerMetWachtwoord() {
-        String basic = Base64.getEncoder().encodeToString("bank-seed:client-geheim".getBytes());
+        String basic = Base64.getEncoder().encodeToString("bank-seed:client-geheim".getBytes(StandardCharsets.UTF_8));
         keycloak.expect(requestTo("http://keycloak:8080/realms/banksim-mse/protocol/openid-connect/token"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Basic " + basic))

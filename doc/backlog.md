@@ -150,7 +150,11 @@ Uit de vergelijking met Farley (31 oktober): vertrouw niet op mensen die code le
    - of een contracttest per consument.
 
    Nieuwe tool, dus een ADR. Draai de contracttests zonder Spring-context waar het kan, dan maken ze PIT niet trager. Op de doorlooptijd scheelt het verder niets: ze lopen in de jobs `backend` en `frontend`, die ruim binnen PIT klaar zijn.
-3. ⛔ **Beslissing (vangrail): statische analyse van Java.** Er is geen Error Prone, SpotBugs of Checkstyle. Fouten die de compiler niet ziet, zoals een genegeerde returnwaarde of `equals` zonder `hashCode`, vallen alleen op als een test ze toevallig raakt. Kies een tool en de regels. Nieuwe tool, dus een ADR.
+3. **Klaar (ADR 0033): statische analyse van Java met Error Prone.** De standaardcontroles, en elke melding breekt de build (`failOnWarning`). Een spike gaf op de bestaande code 0 fouten en 9 waarschuwingen; die zijn opgelost:
+   - **Een echte fout:** `Zoekfilter` gebruikte `toUpperCase()` zonder `Locale`. Op een machine met een Turkse locale werd "nl12 ingb" "NL12İNGB", en vond het zoeken op IBAN niets. `ZoekfilterTests.eenIbanInKleineLettersWordtHoofdlettersOokInEenTurkseLocale` was eerst rood met `%NL12İNGB%`.
+   - `Iban` gebruikt `Character.digit(c, 36)` in plaats van `Character.getNumericValue`.
+   - In tests: een expliciete tekenset, `execute` in plaats van een genegeerde `Future`, en een Javadoc op de goede plek. `BffProperties` en `SeedProperties` kregen een samenvattende regel.
+   - Compileren duurt ongeveer 5 seconden langer. Sabotage: `toLowerCase()` zonder `Locale` in `VersieController` brak de build met `[StringCaseLocaleUsage]`.
 4. **Klaar: architectuurregels voor bank-bff en bank-seed.** Er stond al: geen systeemtijd (fase 2.4) en geen `synchronized` (bronscan, fase 2.3). Dat bank-bff niets van het domein en van bank-seed weet, en dat bank-api niets van bank-seed weet, dwingt Maven af: die afhankelijkheden bestaan niet. Twee gaten zijn gedicht:
    - `GeenDrijvendeKommaTests` (ADR 0010) ook in bank-seed en bank-bff. bank-seed zet saldi en transacties klaar. Sabotage: een `double`-veld in `SeedCommando` en een `double`-parameter in `ApiRoute`, beide rood.
    - `AlleenOpslagKentSqlTests` in bank-seed: alleen de klassen `Jdbc*` (en de applicatie, die ze opbouwt) gebruiken `JdbcClient`. Sabotage: een `JdbcClient`-veld in `SeedCommando`, rood.

@@ -5,6 +5,8 @@ import java.net.URI;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
+ * De instellingen van de BFF onder {@code banksim.bff}.
+ *
  * @param publicUrl publieke URL van de bank-app, bijvoorbeeld {@code https://bank-mse.localtest.me}
  * @param apiUrl    interne URL van bank-api
  * @param keycloak  de browser gebruikt de publieke URL van Keycloak, de BFF de interne
@@ -13,6 +15,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record BffProperties(URI publicUrl, URI apiUrl, Keycloak keycloak) {
 
     /**
+     * Keycloak, zoals de browser en de BFF het bereiken.
+     *
      * @param publicUrl    publieke basis-URL van Keycloak, ook de basis van de issuer
      * @param internalUrl  interne basis-URL via cluster-DNS
      * @param realm        realm-naam

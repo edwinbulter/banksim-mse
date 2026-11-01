@@ -63,11 +63,11 @@ class TransactieControllerTests {
     @Autowired
     Cursor cursor;
 
-    @Test
     /**
      * S4.1: ook type, tijdstip in Europe/Amsterdam, Van en Naar; zonder IBAN (betaalautomaat) is het iban null. S7.1:
      * omschrijving en betalingskenmerk, null als ze er niet zijn.
      */
+    @Test
     void geeftDeEerstePaginaVan50MetDatumEnBedragAlsStringEnZonderVolgendeAanHetEind() throws Exception {
         AANROEPEN.clear();
         mvc.perform(get("/api/rekeningen/" + OOK_VAN_JAN + "/transacties").with(gebruiker("jan-a1-1")))

@@ -57,6 +57,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Geen `synchronized`, niet op een methode en niet als blok, in alle modules van de backend (concurrency) | `GeenSynchronizedTests` (bronscan) | ja, sabotage in bank-seed en bank-bff (fase 2.3) |
 | Het domein kent geen framework (Spring, Jakarta, Jackson) | `bank-domain/.../architectuur/DomeinKentGeenFrameworkTests`; de pom heeft ook geen Spring | ja, sabotage: Spring in de pom en `@Component` (fase 2.2) |
 | Mutatiescore minimaal 95% per module (ADR 0018) | PIT, `make mutatie` | – |
+| Statische analyse van Java: geen enkele melding van Error Prone of javac (ADR 0033) | Error Prone met `failOnWarning` in `backend/pom.xml`; elke build | ja, sabotage: `toLowerCase()` zonder `Locale` (fase 6.3) |
 | Alles in namespace `banksim-mse`, geen geheimen in de chart (ADR 0004, 0009) | `scripts/iac-check.sh` (yq) | ja, sabotage: ClusterRole, andere namespace, letterlijk wachtwoord (fase 1) |
 | De frontend is streng getypeerd, ook in de templates | `"strict"` en `"strictTemplates"` in `frontend/tsconfig.json`, via de build en Vitest | ja, sabotage: een verkeerd type in een template, een `any` en een `null` (fase 2.6) |
 | Geen `parseFloat`, `parseInt`, `Number()` of unaire `+` voor bedragen (ADR 0010) | `frontend/eslint.config.js` | ja, sabotage: alle vijf vormen (fase 1) |
@@ -81,6 +82,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - De eerste installatie duurt langer: Keycloak start, en de Job `keycloak-config` maakt daarna de realm aan.
 - Een wijziging aan de realm hoort in `deploy/banksim-mse/files/realm-banksim-mse.json`. De Job `keycloak-config` past hem toe bij elke installatie, ook op een bestaande realm (ADR 0017). Geheimen in die JSON hebben de vorm `$(env:NAAM)`, niet `${NAAM}`. Draai na zo'n wijziging de scenario's eerst op je bestaande installatie: CI installeert altijd vers, en ziet een ontbrekend recht dus niet.
 - De simulatiedatum geldt voor de hele bank. Blijft hij na een afgebroken run staan, dan falen andere scenario's op saldo of datum. De fixture wist hem na elk `@simulatiedatum`-scenario; controleer bij twijfel tabel `instelling` in database `bank`.
+- Error Prone (ADR 0033) heeft de JVM-opties in `backend/.mvn/jvm.config` nodig; zonder die opties start hij niet op JDK 21. IntelliJ leest dat bestand niet: faalt het compileren daar en in `make backend-test` niet, of andersom, kijk dan eerst daar.
 - De valkuilen van de tools (helm-unittest, yq, shellcheck, de webhook van ingress-nginx) staan in `.claude/skills/atdd/references/stack-helm-bats.md`.
 
 **Backlog en achtergrond**

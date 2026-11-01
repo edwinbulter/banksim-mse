@@ -1,6 +1,7 @@
 package nl.banksim.api.transactie;
 
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Optional;
 
 import nl.banksim.api.sql.Like;
@@ -39,7 +40,7 @@ record Zoekfilter(Optional<String> tekst, Optional<Bedrag> van, Optional<Bedrag>
 
     /** Het IBAN mag met spaties en in kleine letters: "nl91 abna" → "%NL91ABNA%". */
     Optional<String> ibanPatroon() {
-        return tekst.map(waarde -> bevat(waarde.replace(" ", "").toUpperCase()));
+        return tekst.map(waarde -> bevat(waarde.replace(" ", "").toUpperCase(Locale.ROOT)));
     }
 
     private static String bevat(String tekst) {
