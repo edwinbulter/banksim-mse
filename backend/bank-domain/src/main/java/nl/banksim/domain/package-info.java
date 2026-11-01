@@ -1,5 +1,5 @@
 /**
- * Domeinregels van BankSim zonder framework-afhankelijkheden. Leeg in het walking skeleton; slice 1 voegt
- * {@code Money} en {@code Iban} toe (doc/werkwijze-mse.md, hoofdstuk 7).
+ * De domeinregels van BankSim, zonder framework: geld, rekeningen, het grootboek, transacties en rente.
+ * {@code DomeinKentGeenFrameworkTests} bewaakt dat er geen Spring, Jakarta of Jackson in komt.
  */
 package nl.banksim.domain;

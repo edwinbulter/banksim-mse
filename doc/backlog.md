@@ -124,16 +124,16 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 
 ## Fase 5: YAGNI en modern Java
 
-1. **Harde regel (YAGNI): ongebruikte code weg.**
-   - ⛔ Productiecode die alleen tests gebruiken: `Zoekfilter.GEEN` en de constructor van `Overboeking` met vijf argumenten. Kies tussen twee wegen: verplaatsen naar een testhulp, of laten staan als bewuste gemaksconstructie.
-   - De kolom `idempotency_sleutel.aangemaakt_op`. Hij heeft `DEFAULT now()`, dus de tijd van de database in plaats van de `SimulationClock`, en niemand leest hem.
-   - De interface `RenteOpslag`: één implementatie en geen testdouble.
-   - `prettier` in `frontend/package.json` en `.prettierrc`: geen script draait hem.
-   - De verouderde `bank-domain/.../package-info.java`.
+1. **Klaar: ongebruikte code weg (YAGNI).**
+   - De interface `RenteOpslag` is weg: één implementatie en geen testdouble. De klasse met de JDBC-code heet nu zelf `RenteOpslag` (test: `RenteOpslagTests`).
+   - `prettier` en `.prettierrc` zijn weg uit de frontend; geen script draaide hem.
+   - `bank-domain/.../package-info.java` beschrijft wat er nu in het domein zit, in plaats van het walking skeleton.
+   - ⛔ Besloten: **laten staan.** `Zoekfilter.GEEN` en de constructor van `Overboeking` met vijf argumenten worden alleen door tests gebruikt, maar drukken een begrip uit ("geen filter", "een overboeking zonder omschrijving"). Naar een testhulp verplaatsen voegt een omweg toe. Geen slop.
+   - ⛔ Besloten: **laten staan.** De kolom `idempotency_sleutel.aangemaakt_op` leest nu niemand, maar het opruimen van oude sleutels (losse backlogpunten) heeft hem nodig. Dat hij de tijd van de database gebruikt in plaats van de `SimulationClock`, klopt daarvoor: bewaren is technisch, geen banktijd.
 2. **Harde regel (modern Java):**
    - De probleemcodes in `BetalingGeweigerd` en `OngeldigZoekfilter` worden een enum in plaats van losse strings.
    - `BetaalService.betaal` met negen parameters krijgt een command-record.
-3. *(te verifiëren)* **Harde regel (modern Java): één stijl voor ontbrekende waarden.** `Transactie`, `Zoekfilter`, `Partij` en `Boeking` gebruiken `Optional` in records, en `Overboeking` gebruikt nullable strings.
+3. **Klaar (⛔ besloten: zo laten): de stijl voor ontbrekende waarden.** `Partij`, `Zoekfilter` en `Pagina` gebruiken `Optional` als veld van een record; `Overboeking` gebruikt `null` voor omschrijving, betalingskenmerk en extra omschrijving. Dat verschil is bewust: `Overboeking` volgt de kolommen die in de database `null` mogen zijn en het FO ("indien aanwezig"), en zijn Javadoc zegt dat. Alles naar één stijl omzetten raakt veel code voor weinig winst.
 
 ## Fase 6: geautomatiseerde controles vóór productie (Farley)
 

@@ -28,7 +28,7 @@ import org.testcontainers.utility.DockerImageName;
  * afgesloten maand.
  */
 @Testcontainers
-class JdbcRenteOpslagTests {
+class RenteOpslagTests {
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName
@@ -37,7 +37,7 @@ class JdbcRenteOpslagTests {
 
     static final Iban SPAAR_JAN = Iban.van("NL94SIMB0000000001");
 
-    static JdbcRenteOpslag opslag;
+    static RenteOpslag opslag;
     static TransactionTemplate transactie;
 
     /**
@@ -49,7 +49,7 @@ class JdbcRenteOpslagTests {
         var dataSource = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         Flyway.configure().dataSource(dataSource).load().migrate();
         JdbcClient jdbc = JdbcClient.create(dataSource);
-        opslag = new JdbcRenteOpslag(jdbc);
+        opslag = new RenteOpslag(jdbc);
         transactie = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('jan', 'Jan')").update();
         jdbc.sql("""
