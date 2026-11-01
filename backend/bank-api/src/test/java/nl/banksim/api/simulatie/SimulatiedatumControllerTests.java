@@ -93,6 +93,29 @@ class SimulatiedatumControllerTests {
         assertThat(opgeslagen.lees()).isEmpty();
     }
 
+    /** Backlog fase 4.3: dezelfde PUT nog een keer, bijvoorbeeld na een time-out, geeft hetzelfde resultaat. */
+    @Test
+    void tweeKeerDezelfdeDatumZettenIsEenKeerZetten() throws Exception {
+        for (int keer = 0; keer < 2; keer++) {
+            mvc.perform(put("/api/beheer/simulatiedatum").with(beheerder())
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"datum\": \"2026-10-05\"}"))
+                    .andExpect(status().isNoContent());
+        }
+
+        assertThat(opgeslagen.lees()).contains(LocalDate.of(2026, 10, 5));
+    }
+
+    @Test
+    void tweeKeerWissenIsEenKeerWissen() throws Exception {
+        opgeslagen.zet(LocalDate.of(2026, 10, 5));
+
+        for (int keer = 0; keer < 2; keer++) {
+            mvc.perform(delete("/api/beheer/simulatiedatum").with(beheerder())).andExpect(status().isNoContent());
+        }
+
+        assertThat(opgeslagen.lees()).isEmpty();
+    }
+
     @Test
     void eenOngeldigeDatumGeeft400EnVerandertNiets() throws Exception {
         mvc.perform(put("/api/beheer/simulatiedatum").with(beheerder())

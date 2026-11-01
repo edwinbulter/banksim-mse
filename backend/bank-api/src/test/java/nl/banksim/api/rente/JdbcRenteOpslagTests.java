@@ -3,6 +3,10 @@ package nl.banksim.api.rente;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
@@ -11,13 +15,18 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-/** ADR 0028, tegen PostgreSQL met de migraties van bank-api: de dagsaldi waarover de rente gaat. */
+/**
+ * ADR 0028, tegen PostgreSQL met de migraties van bank-api: de dagsaldi waarover de rente gaat, en het markeren van een
+ * afgesloten maand.
+ */
 @Testcontainers
 class JdbcRenteOpslagTests {
 
@@ -29,6 +38,7 @@ class JdbcRenteOpslagTests {
     static final Iban SPAAR_JAN = Iban.van("NL94SIMB0000000001");
 
     static JdbcRenteOpslag opslag;
+    static TransactionTemplate transactie;
 
     /**
      * Jan opent met € 1.000,00. Vóór 1 oktober: rente en een inleg. In oktober: een inleg op de 1e, een opname op de
@@ -40,6 +50,7 @@ class JdbcRenteOpslagTests {
         Flyway.configure().dataSource(dataSource).load().migrate();
         JdbcClient jdbc = JdbcClient.create(dataSource);
         opslag = new JdbcRenteOpslag(jdbc);
+        transactie = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         jdbc.sql("INSERT INTO rekeninghouder (gebruikersnaam, naam) VALUES ('jan', 'Jan')").update();
         jdbc.sql("""
                 INSERT INTO rekening (iban, rekeninghouder_id, soort, openingssaldo, geopend_op)
@@ -69,5 +80,40 @@ class JdbcRenteOpslagTests {
     void deRenteVanDeMaandZelfTeltNietMee() {
         assertThat(opslag.dagsaldi(SPAAR_JAN, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31)).getLast())
                 .isEqualTo(new DagSaldo(LocalDate.of(2026, 10, 31), Bedrag.van("1122.00")));
+    }
+
+    /**
+     * Backlog fase 4.3: de nachtelijke afsluiting en een PUT van de beheerder sluiten tegelijk dezelfde maand af. De
+     * tweede wacht op de unieke sleutel van de eerste, en ziet daarna dat de maand al gemarkeerd is (ADR 0028).
+     */
+    @Test
+    void tweeGelijktijdigeAfsluitingenMarkerenDeMaandEenKeer() throws Exception {
+        YearMonth september = YearMonth.of(2026, 9);
+        var eersteHeeftGemarkeerd = new CountDownLatch(1);
+        var eersteMagStoppen = new CountDownLatch(1);
+        CompletableFuture<Boolean> eerste = CompletableFuture.supplyAsync(() -> transactie.execute(status -> {
+            boolean gemarkeerd = opslag.markeer(SPAAR_JAN, september);
+            eersteHeeftGemarkeerd.countDown();
+            wacht(eersteMagStoppen);
+            return gemarkeerd;
+        }));
+        assertThat(eersteHeeftGemarkeerd.await(10, TimeUnit.SECONDS)).isTrue();
+
+        CompletableFuture<Boolean> tweede = CompletableFuture.supplyAsync(() ->
+                transactie.execute(status -> opslag.markeer(SPAAR_JAN, september)));
+        Thread.sleep(500);
+        assertThat(tweede).as("tweede wacht op de eerste").isNotDone();
+
+        eersteMagStoppen.countDown();
+        assertThat(eerste.get(10, TimeUnit.SECONDS)).isTrue();
+        assertThat(tweede.get(10, TimeUnit.SECONDS)).isFalse();
+    }
+
+    private static void wacht(CountDownLatch latch) {
+        try {
+            latch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

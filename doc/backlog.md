@@ -116,11 +116,11 @@ Het uitgestelde werk dat geen slop is, blijft in [werkwijze-mse.md](werkwijze-ms
 1. **Klaar: seed-opdracht `klant` atomair (⛔ besloten: een duidelijke fout bij herhaling, geen echte idempotentie).** `SeedKlantAanmaker` schrijft de rekeninghouder en maakt de login in één databasetransactie. Mislukt Keycloak, dan wordt de rekeninghouder teruggedraaid. Een herhaling stopt vóór Keycloak met "Klant jan bestaat al", zonder dubbele data. `SeedKlantAanmakerDatabaseTests` (PostgreSQL) was eerst rood: na een mislukte login stond de rekeninghouder er nog (`count` 1), en een herhaling gaf een kale `DuplicateKeyException`. Echte idempotentie (een herhaling maakt de klant af) is niet gekozen: de e2e-tests gebruiken unieke aliassen, dus het komt niet voor (YAGNI).
    - Eén klein gat blijft: mislukt de commit van de database ná een gelukte login, dan blijft er een login zonder rekeninghouder.
 2. **Klaar (⛔ besloten): `spaarrekening`, `transactie` en `transacties` blijven gewone opdrachten.** Ze hebben geen business-sleutel; twee keer is bewust twee keer, zoals twee keer hetzelfde bedrag inleggen. Dat staat in het Javadoc van `SeedCommando`. Wel boekt `transacties` nu alles of niets (`JdbcTransacties.boekAlle`, één databasetransactie). `JdbcTransactiesTests.boekAlleBoektNietsAlsEenVanDeBoekingenFaalt` was eerst rood: de eerste boeking bleef staan.
-3. **Vangrail (idempotentie): "twee keer is één keer"-tests** waar ze ontbreken:
-   - twee keer `PUT /api/beheer/simulatiedatum` en twee keer `DELETE`, op controllerniveau;
-   - gelijktijdig `markeer` in `JdbcRenteOpslag`: de nachtelijke afsluiting tegelijk met een `PUT` van de beheerder;
-   - de BFF stuurt de header `Idempotency-Key` door naar `bank-api`. Alleen een e2e-scenario bewijst dat nu.
-   - de claim op de sleutel wordt teruggedraaid na een weigering, getest met Postgres op `BetaalService` en `OverschrijfService`. Dat staat al in de losse backlogpunten.
+3. **Klaar: "twee keer is één keer"-tests** waar ze ontbraken. Ze waren groen op de bestaande code; elk is met sabotage rood gezien.
+   - Twee keer `PUT` en twee keer `DELETE /api/beheer/simulatiedatum` (`SimulatiedatumControllerTests`), en twee keer wissen tegen PostgreSQL (`JdbcSimulatiedatumRepositoryTests`). Sabotage: `wis` faalt als er niets te wissen is.
+   - Gelijktijdig `markeer` in `JdbcRenteOpslagTests`: de tweede transactie wacht op de unieke sleutel van de eerste en krijgt daarna `false`. Sabotage: zonder `ON CONFLICT DO NOTHING` een `DuplicateKeyException`.
+   - De BFF stuurt `Idempotency-Key` ongewijzigd door (`BffTests`). Sabotage: de header weghalen in `ApiRoute`.
+   - Na een weigering kan dezelfde sleutel opnieuw, voor betalen en overschrijven, tegen PostgreSQL met de echte services (`SleutelNaWeigeringTests`). Sabotage: de claim in een eigen transactie (`REQUIRES_NEW`) gaf bij de tweede poging 422 "sleutel-al-gebruikt". Het losse backlogpunt daarover is weg.
 
 ## Fase 5: YAGNI en modern Java
 

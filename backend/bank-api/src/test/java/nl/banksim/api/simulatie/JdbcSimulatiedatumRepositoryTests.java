@@ -61,4 +61,14 @@ class JdbcSimulatiedatumRepositoryTests {
 
         assertThat(repository.lees()).isEmpty();
     }
+
+    /** Backlog fase 4.3: twee keer wissen is één keer wissen, ook als er al niets meer stond. */
+    @Test
+    void tweeKeerWissenIsEenKeerWissen() {
+        repository.zet(LocalDate.of(2026, 10, 5));
+        repository.wis();
+        repository.wis();
+
+        assertThat(repository.lees()).isEmpty();
+    }
 }

@@ -45,6 +45,7 @@ class BffTests {
     static final List<String> COOKIES = new CopyOnWriteArrayList<>();
     static final List<String> UPGRADES = new CopyOnWriteArrayList<>();
     static final List<String> TRANSFER_ENCODINGS = new CopyOnWriteArrayList<>();
+    static final List<String> IDEMPOTENCY_KEYS = new CopyOnWriteArrayList<>();
 
     @DynamicPropertySource
     static void bankApi(DynamicPropertyRegistry properties) {
@@ -63,6 +64,7 @@ class BffTests {
         COOKIES.clear();
         UPGRADES.clear();
         TRANSFER_ENCODINGS.clear();
+        IDEMPOTENCY_KEYS.clear();
     }
 
     @AfterAll
@@ -203,7 +205,29 @@ class BffTests {
         assertThat(sessie.isInvalid()).isFalse();
     }
 
-    /** Geeft het pad terug en onthoudt welke Authorization-, Cookie-, Upgrade- en Transfer-Encoding-header binnenkwamen. */
+    /**
+     * Backlog fase 4.3, ADR 0027: de app stuurt per controlescherm een Idempotency-Key mee; de BFF geeft hem ongewijzigd
+     * door, anders boekt bank-api een herhaalde betaling twee keer.
+     */
+    @Test
+    void stuurtDeIdempotencyKeyDoorNaarBankApi() throws Exception {
+        Cookie token = mvc.perform(get("/api/versie")).andReturn().getResponse().getCookie("XSRF-TOKEN");
+        IDEMPOTENCY_KEYS.clear();
+
+        mvc.perform(post("/api/betalingen")
+                        .cookie(token)
+                        .header("X-XSRF-TOKEN", token.getValue())
+                        .header("Idempotency-Key", "3f2b8c1e-0d4a-4e6b-9a7c-5d1e2f3a4b5c")
+                        .contentType("application/json").content("{}")
+                        .with(oauth2Login().clientRegistration(registraties.findByRegistrationId("keycloak"))))
+                .andExpect(status().isOk());
+        assertThat(IDEMPOTENCY_KEYS).containsExactly("3f2b8c1e-0d4a-4e6b-9a7c-5d1e2f3a4b5c");
+    }
+
+    /**
+     * Geeft het pad terug en onthoudt welke Authorization-, Cookie-, Upgrade-, Transfer-Encoding- en
+     * Idempotency-Key-header binnenkwamen.
+     */
     private static HttpServer nepBankApi() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
@@ -212,6 +236,7 @@ class BffTests {
                 String cookie = uitwisseling.getRequestHeaders().getFirst("Cookie");
                 String upgrade = uitwisseling.getRequestHeaders().getFirst("Upgrade");
                 String transferEncoding = uitwisseling.getRequestHeaders().getFirst("Transfer-Encoding");
+                String idempotencyKey = uitwisseling.getRequestHeaders().getFirst("Idempotency-Key");
                 // Eerst de (lege, chunked) body lezen, zoals een echte server: antwoorden terwijl de client nog verstuurt,
                 // is een race die deze test niet hoort te testen.
                 uitwisseling.getRequestBody().readAllBytes();
@@ -219,6 +244,7 @@ class BffTests {
                 COOKIES.add(cookie == null ? "" : cookie);
                 UPGRADES.add(upgrade == null ? "" : upgrade);
                 TRANSFER_ENCODINGS.add(transferEncoding == null ? "" : transferEncoding);
+                IDEMPOTENCY_KEYS.add(idempotencyKey == null ? "" : idempotencyKey);
                 byte[] body = ("{\"pad\":\"" + uitwisseling.getRequestURI().getPath() + "\"}").getBytes(StandardCharsets.UTF_8);
                 uitwisseling.getResponseHeaders().add("Content-Type", "application/json");
                 uitwisseling.sendResponseHeaders(200, body.length);
