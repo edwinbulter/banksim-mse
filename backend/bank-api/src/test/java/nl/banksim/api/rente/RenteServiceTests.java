@@ -1,6 +1,7 @@
 package nl.banksim.api.rente;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -9,6 +10,7 @@ import java.util.List;
 
 import nl.banksim.api.PostgresTestDatabase;
 import nl.banksim.api.grootboek.LedgerService;
+import nl.banksim.api.grootboek.SaldoOntoereikend;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.grootboek.Partij;
@@ -199,6 +201,27 @@ class RenteServiceTests {
         assertThat(mutaties(spaar)).filteredOn(mutatie -> mutatie.contains("Rentecorrectie")).containsExactly(
                 "2026-02-28 -1.15 RENTE BankSim Rentecorrectie februari",
                 "2026-03-31 -2.55 RENTE BankSim Rentecorrectie maart");
+    }
+
+    /**
+     * ADR 0036, nooit rood ná de correcties (TO §6): op 1 april blijft er € 1.000,00 over, en daarna neemt Jan op 15
+     * februari € 1.000,00 op. Zonder correcties komt het laagste saldo precies op € 0,00; de correcties (−1,15 en −2,55)
+     * zouden de spaarrekening rood maken. Ook een correctie is een boeking via LedgerService, met "nooit rood": de
+     * opname wordt geweigerd, en de opname en haar correcties worden samen teruggedraaid (ADR 0030).
+     */
+    @Test
+    void eenOpnameWaarvanDeCorrectiesDeSpaarrekeningRoodZoudenMakenWordtGeweigerd() {
+        String spaar = spaarrekening("rente-30", 3040L, "5000.00", "2026-01-01");
+        String betaal = rekening("rente-30b", 3041L, "betaal", "0.00", null);
+        rente.sluitAf(LocalDate.of(2026, 3, 31));
+        ledger.boek(Overboeking.opname(new Partij(Iban.van(spaar), "Jan"), new Partij(Iban.van(betaal), "Jan"),
+                Bedrag.van("4037.08"), LocalDateTime.of(2026, 4, 1, 10, 0), "Opname"));
+
+        assertThatThrownBy(() -> ledger.boek(Overboeking.opname(new Partij(Iban.van(spaar), "Jan"),
+                new Partij(Iban.van(betaal), "Jan"), Bedrag.van("1000.00"), LocalDateTime.of(2026, 2, 15, 10, 0), "Opname")))
+                .isInstanceOf(SaldoOntoereikend.class);
+
+        assertThat(mutaties(spaar)).noneMatch(mutatie -> mutatie.startsWith("2026-02-15") || mutatie.contains("Rentecorrectie"));
     }
 
     /** Hetzelfde voorbeeld met een inleg: februari 12,69 en maart 15,35, correcties +1,15 en +2,55, van BankSim. */

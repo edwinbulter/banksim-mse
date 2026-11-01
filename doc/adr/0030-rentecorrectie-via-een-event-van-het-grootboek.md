@@ -1,7 +1,7 @@
 # 0030. De rentecorrectie volgt op een event van het grootboek, in dezelfde transactie
 
 Datum: 2026-10-27
-Status: Geaccepteerd
+Status: Geaccepteerd; de Gevolgen over "nooit rood ná de correcties" zijn aangevuld door [0036](0036-nooit-rood-geldt-ook-voor-rentecorrecties.md)
 
 ## Context
 Scenario "Opname in het verleden corrigeert de latere rente" (S9.1, `e2e/specs/overschrijven.spec.ts`, `@simulatiedatum`):
