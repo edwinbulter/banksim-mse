@@ -21,7 +21,7 @@ import type { Rekening } from './overzicht';
       <section aria-label="Naar">Naar: {{ naar().naam }} {{ naar().iban }}</section>
       <label for="overschrijven-bedrag">Bedrag (€)</label>
       <input id="overschrijven-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
-      <button type="submit">Overschrijven</button>
+      <button type="submit" [disabled]="!klaar()">Overschrijven</button>
     </form>
     @if (melding(); as melding) {
       <p role="alert">{{ melding }}</p>
@@ -46,6 +46,8 @@ export class OverschrijvenScherm {
   private readonly spaar = computed(() => ({ naam: 'Spaarrekening', iban: this.iban() }));
   protected readonly van = computed(() => (this.richting() === 'inleggen' ? this.betaal() : this.spaar()));
   protected readonly naar = computed(() => (this.richting() === 'inleggen' ? this.spaar() : this.betaal()));
+  /** Pas als de rekeningen geladen zijn, staan Van en Naar allebei vast; eerder zou de API een lege IBAN krijgen. */
+  protected readonly klaar = computed(() => this.van().iban !== '' && this.naar().iban !== '');
   protected readonly bedrag = signal('');
 
   /** De melding van de API bij een geweigerde overschrijving (RFC 9457), zoals "Saldo ontoereikend: …". */

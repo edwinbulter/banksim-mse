@@ -776,4 +776,16 @@ describe('App', () => {
     expect(genavigeerd).toEqual([]);
     expect(knop(pagina, 'Uitloggen')).toBeDefined();
   });
+
+  /** Zonder de rekeningen is Van of Naar nog leeg; "Overschrijven" kan dan nog niet (gevonden door de e2e-test zonder herkansing). */
+  it('kan pas overschrijven als de rekeningen geladen zijn (S9.1)', async () => {
+    const pagina = await start('/spaarrekeningen/NL67SIMB0000000002/opnemen');
+
+    expect(knop(pagina, 'Overschrijven')?.disabled).toBe(true);
+    await rekeningen({
+      status: 200,
+      body: [...JAN, { soort: 'spaar', iban: 'NL67SIMB0000000002', saldo: '5000.00' }],
+    });
+    expect(knop(pagina, 'Overschrijven')?.disabled).toBe(false);
+  });
 });
