@@ -3,7 +3,6 @@ package nl.banksim.api.simulatie;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 
 /**
@@ -23,9 +22,14 @@ public class SimulationClock {
         this.simulatiedatum = simulatiedatum;
     }
 
-    /** Het tijdstip voor de bank: "vandaag" met de huidige tijd, in Europe/Amsterdam (S7.1, FO). */
+    /**
+     * Het tijdstip voor de bank: "vandaag" met de huidige tijd, in Europe/Amsterdam (S7.1, FO). De klok wordt één keer
+     * gelezen: twee keer lezen kon rond middernacht de datum van vóór en de tijd van na middernacht geven, bijna een dag
+     * te vroeg (backlog fase 7.2).
+     */
     public LocalDateTime nu() {
-        return vandaag().atTime(LocalTime.now(klok.withZone(BANK)));
+        LocalDateTime echt = LocalDateTime.now(klok.withZone(BANK));
+        return simulatiedatum.lees().map(datum -> datum.atTime(echt.toLocalTime())).orElse(echt);
     }
 
     public LocalDate vandaag() {

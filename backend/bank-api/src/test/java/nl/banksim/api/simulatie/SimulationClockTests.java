@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
@@ -63,5 +64,51 @@ class SimulationClockTests {
         var klok = new SimulationClock(Clock.fixed(Instant.parse("2026-10-21T23:30:00Z"), ZoneId.of("UTC")), opgeslagen);
 
         assertThat(klok.nu()).isEqualTo(LocalDateTime.of(2026, 10, 22, 1, 30));
+    }
+
+    /**
+     * Backlog fase 7.2: tikt de klok tussen twee keer aflezen over middernacht, dan hoort "nu" bij één van beide
+     * momenten, niet de datum van vóór middernacht met de tijd van erna (bijna een dag te vroeg).
+     */
+    @Test
+    void nuLeestDeKlokEenKeerOokRondMiddernacht() {
+        Instant voor = Instant.parse("2026-10-21T21:59:59.999Z");
+        Instant na = Instant.parse("2026-10-21T22:00:00Z");
+        var klok = new SimulationClock(new TikkendeKlok(voor, na), opgeslagen);
+
+        assertThat(klok.nu()).isIn(LocalDateTime.of(2026, 10, 21, 23, 59, 59, 999_000_000), LocalDateTime.of(2026, 10, 22, 0, 0));
+    }
+
+    /** Geeft bij elke aflezing het volgende moment, en daarna steeds het laatste; ook na withZone telt dezelfde teller. */
+    private static final class TikkendeKlok extends Clock {
+
+        private final Instant[] momenten;
+        private final AtomicInteger aflezing;
+        private final ZoneId zone;
+
+        TikkendeKlok(Instant... momenten) {
+            this(momenten, new AtomicInteger(), ZoneId.of("UTC"));
+        }
+
+        private TikkendeKlok(Instant[] momenten, AtomicInteger aflezing, ZoneId zone) {
+            this.momenten = momenten;
+            this.aflezing = aflezing;
+            this.zone = zone;
+        }
+
+        @Override
+        public Instant instant() {
+            return momenten[Math.min(aflezing.getAndIncrement(), momenten.length - 1)];
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return zone;
+        }
+
+        @Override
+        public Clock withZone(ZoneId andereZone) {
+            return new TikkendeKlok(momenten, aflezing, andereZone);
+        }
     }
 }
