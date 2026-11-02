@@ -112,7 +112,7 @@ Unittests ontstaan in de binnenste lus van de double loop: rood, groen, refactor
 - **Dekking:** een test controleert dat elk endpoint van `bank-api` in de specificatie staat.
 - **Gebruiker:** de frontend krijgt zijn types uit de specificatie, door generatie. De pipeline faalt als de gegenereerde types niet bij de specificatie passen. Een veld dat anders heet, wordt dan een compileerfout in de frontend.
 
-**Waar.** De specificatie staat in `api/`, de gegenereerde types in de frontend.
+**Waar.** De specificatie staat in `api/`, de gegenereerde types in de frontend. Hoe de backend en de frontend het contract gebruiken, en hoe je de API wijzigt, staat in [`api/README.md`](../api/README.md).
 
 **Wat het niet vangt.** Gedrag dat niet in een schema past, zoals welke rekening je mag zien. Dat testen de integratie- en acceptatietests.
 
