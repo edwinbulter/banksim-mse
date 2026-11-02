@@ -16,3 +16,4 @@ export type Versie = Schemas['Versie'];
 export type Betaling = Schemas['Betaling'];
 export type Overschrijving = Schemas['Overschrijving'];
 export type RekeninghouderInBeheer = Schemas['RekeninghouderInBeheer'];
+export type Ik = Schemas['Ik'];

@@ -1,9 +1,18 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import type { RekeninghouderInBeheer } from '../bank-driver';
+import type { RekeninghouderInBeheer, Uitkomst } from '../bank-driver';
 
 /** S10.1 (FO "Admin scherm"): de tabel met rekeninghouders en het zoekveld. */
 export class BeheerPagina {
   constructor(private readonly page: Page) {}
+
+  /** Via het adres, zoals een gebruiker het intypt. Gelukt: het beheerscherm; geweigerd: het eigen overzicht. */
+  async open(): Promise<Uitkomst> {
+    await this.page.goto('/beheer');
+    const beheer = this.page.getByRole('heading', { name: 'Beheer' });
+    const overzicht = this.page.getByRole('heading', { name: /^Welkom/ });
+    await expect(beheer.or(overzicht)).toBeVisible();
+    return (await beheer.isVisible()) ? 'gelukt' : 'geweigerd';
+  }
 
   async zoek(tekst: string): Promise<RekeninghouderInBeheer[]> {
     await this.page.goto('/beheer');

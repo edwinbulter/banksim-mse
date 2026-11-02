@@ -247,6 +247,16 @@ export class Klant {
     });
   }
 
+  /** S10.1: als klant naar het beheerscherm; de bank mag weigeren, de weigering volgt uit verwachtGeenToegangTotBeheer. */
+  async opentBeheer(): Promise<void> {
+    await this.logtIn();
+    this.uitkomst = await (await this.sessie()).openBeheer();
+  }
+
+  async verwachtGeenToegangTotBeheer(): Promise<void> {
+    expect(this.uitkomst, `beheerscherm voor ${this.alias}`).toBe('geweigerd');
+  }
+
   async opentBetaalrekening(): Promise<void> {
     await this.opentOverzicht();
     await (await this.sessie()).openRekening(this.vereisGegevens().iban);

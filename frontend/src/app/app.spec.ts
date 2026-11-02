@@ -2,7 +2,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Location } from '@angular/common';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import type { Contact, LopendeRente, Pagina, Rekening, RekeninghouderInBeheer, Transactie } from './api/schemas';
+import type { Contact, Ik, LopendeRente, Pagina, Rekening, RekeninghouderInBeheer, Transactie } from './api/schemas';
 import { App } from './app';
 import { appConfig } from './app.config';
 import { Browser } from './browser';
@@ -33,6 +33,19 @@ describe('App', () => {
     fixture.detectChanges();
     http.expectOne('/api/versie').flush({ versie: '1.2.3' });
     await TestBed.inject(Router).navigateByUrl(url);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  /** ADR 0037: de portier van /beheer vraagt eerst wie de gebruiker is; de navigatie wacht op dat antwoord. */
+  async function naarBeheer(beheerder: boolean): Promise<HTMLElement> {
+    fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    http.expectOne('/api/versie').flush({ versie: '1.2.3' });
+    const navigatie = TestBed.inject(Router).navigateByUrl('/beheer');
+    await new Promise((verder) => setTimeout(verder)); // de router start de portier asynchroon
+    http.expectOne('/api/ik').flush({ gebruikersnaam: beheerder ? 'beheerder' : 'jan', beheerder } satisfies Ik);
+    await navigatie;
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
   }
@@ -795,7 +808,7 @@ describe('App', () => {
 
   /** S10.1 (FO "Admin scherm"): de beheerder zoekt op naam of rekeningnummer en ziet de rekeninghouders met hun saldi. */
   it('toont de gevonden rekeninghouders met hun rekeningen en saldi op het beheerscherm (S10.1)', async () => {
-    const pagina = await start('/beheer');
+    const pagina = await naarBeheer(true);
     vulIn(pagina, 'Naam of rekeningnummer', 'NL94 SIMB');
     knop(pagina, 'Zoeken')?.click();
     await ververs();
@@ -814,7 +827,7 @@ describe('App', () => {
   });
 
   it('meldt het als het beheerscherm niemand vindt (S10.1)', async () => {
-    const pagina = await start('/beheer');
+    const pagina = await naarBeheer(true);
     vulIn(pagina, 'Naam of rekeningnummer', 'Jumbo');
     knop(pagina, 'Zoeken')?.click();
     await ververs();
@@ -823,5 +836,22 @@ describe('App', () => {
     await ververs();
 
     expect(pagina.textContent).toContain('Geen rekeninghouders gevonden.');
+  });
+
+  /** ADR 0037: de portier is navigatie, geen beveiliging; een klant komt op zijn eigen overzicht. */
+  it('stuurt een klant van het beheerscherm naar zijn overzicht', async () => {
+    const pagina = await naarBeheer(false);
+    await rekeningen({ status: 200, body: [] });
+
+    expect(TestBed.inject(Router).url).toBe('/');
+    expect(pagina.querySelector('h2')?.textContent).toBe('Welkom');
+    expect(pagina.textContent).not.toContain('Naam of rekeningnummer');
+  });
+
+  it('laat een beheerder door naar het beheerscherm', async () => {
+    const pagina = await naarBeheer(true);
+
+    expect(TestBed.inject(Router).url).toBe('/beheer');
+    expect(pagina.querySelector('h2')?.textContent).toBe('Beheer');
   });
 });

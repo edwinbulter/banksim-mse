@@ -24,6 +24,20 @@ paths:
               schema:
                 $ref: "#/components/schemas/Versie"
 
+  /api/ik:
+    get:
+      operationId: ik
+      summary: Wie de ingelogde gebruiker is, en of hij beheerder is; voor de navigatie van de frontend (ADR 0037).
+      responses:
+        "200":
+          description: Uit het token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ik"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+
   /api/rekeningen:
     get:
       operationId: rekeningen
@@ -302,6 +316,17 @@ components:
         versie:
           type: string
           example: 1a4e15f
+
+    Ik:
+      type: object
+      additionalProperties: false
+      required: [gebruikersnaam, beheerder]
+      properties:
+        gebruikersnaam:
+          type: string
+        beheerder:
+          description: De realm-rol beheerder (ADR 0015); alleen voor de weergave, de API beslist zelf over toegang
+          type: boolean
 
     Rekening:
       type: object

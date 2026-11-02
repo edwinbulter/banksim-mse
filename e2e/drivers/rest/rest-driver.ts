@@ -372,6 +372,14 @@ export class RestDriver implements BankDriver {
     }));
   }
 
+  /** S10.1: 200 is gelukt, 403 is geweigerd (ADR 0031); elke andere status is een fout. */
+  async openBeheer(): Promise<Uitkomst> {
+    const antwoord = await this.request.get('/api/beheer/rekeninghouders');
+    if (antwoord.status() === 403) return 'geweigerd';
+    expect(antwoord.status(), `GET /api/beheer/rekeninghouders: ${(await antwoord.text()).slice(0, 300)}`).toBe(200);
+    return 'gelukt';
+  }
+
   /** S10.1: als beheerder; een 200 met een lijst is het protocol (ADR 0031). */
   async zoekRekeninghouders(tekst: string): Promise<RekeninghouderInBeheer[]> {
     const antwoord = await this.request.get('/api/beheer/rekeninghouders', { params: { zoek: tekst } });

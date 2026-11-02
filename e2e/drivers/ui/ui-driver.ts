@@ -224,6 +224,10 @@ export class UiDriver implements BankDriver {
   }
 
   /** Er is nog geen scherm (S10.2): via de API, met de cookies van deze browser. */
+  async openBeheer(): Promise<Uitkomst> {
+    return this.beheer.open();
+  }
+
   async zoekRekeninghouders(tekst: string): Promise<RekeninghouderInBeheer[]> {
     return this.beheer.zoek(tekst);
   }

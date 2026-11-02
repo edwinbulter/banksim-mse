@@ -217,6 +217,11 @@ export interface BankDriver {
   lopendeRente(): Promise<string>;
   /** S10.1, als beheerder: zoeken op naam of rekeningnummer; geeft de gevonden rekeninghouders, hoogstens 50. */
   zoekRekeninghouders(tekst: string): Promise<RekeninghouderInBeheer[]>;
+  /**
+   * S10.1: het beheerscherm openen. Gelukt: de rekeninghouders zijn te zien. Geweigerd: via de API een 403, in de
+   * browser het eigen overzicht in plaats van het beheerscherm.
+   */
+  openBeheer(): Promise<Uitkomst>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */
   zetSimulatiedatum(datum: string): Promise<Uitkomst>;
   /** De simulatiedatum wissen: de bank draait weer op vandaag. */

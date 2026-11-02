@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ik": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Wie de ingelogde gebruiker is, en of hij beheerder is; voor de navigatie van de frontend (ADR 0037). */
+        get: operations["ik"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/rekeningen": {
         parameters: {
             query?: never;
@@ -175,6 +192,11 @@ export interface components {
             /** @example 1a4e15f */
             versie: string;
         };
+        Ik: {
+            gebruikersnaam: string;
+            /** @description De realm-rol beheerder (ADR 0015); alleen voor de weergave, de API beslist zelf over toegang */
+            beheerder: boolean;
+        };
         Rekening: {
             /** @enum {string} */
             soort: "betaal" | "spaar";
@@ -325,6 +347,27 @@ export interface operations {
                     "application/json": components["schemas"]["Versie"];
                 };
             };
+        };
+    };
+    ik: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Uit het token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ik"];
+                };
+            };
+            401: components["responses"]["NietIngelogd"];
         };
     };
     rekeningen: {

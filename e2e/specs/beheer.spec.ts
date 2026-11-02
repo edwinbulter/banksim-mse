@@ -18,3 +18,13 @@ test('De beheerder vindt een klant met de saldi van zijn rekeningen', async ({ b
     beheerder.verwachtRekeninghouder(jan, { saldo: '1842.17', spaarsaldo: '12405.63' }),
   );
 });
+
+/** S10.1, ADR 0022: beheer is alleen voor de rol beheerder; een klant komt op zijn eigen overzicht. */
+test('Klant kan niet bij beheer', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening({ saldo: '100.00' }));
+  await bank.als('Jan het beheerscherm probeert te openen', () => jan.opentBeheer());
+  await bank.dan('komt Jan op zijn eigen overzicht, en ziet hij geen rekeninghouders', () =>
+    jan.verwachtGeenToegangTotBeheer(),
+  );
+});
