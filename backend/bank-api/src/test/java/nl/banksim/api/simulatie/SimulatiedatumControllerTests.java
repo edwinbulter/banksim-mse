@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
@@ -22,6 +24,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /** S3.1, ADR 0013: de beheerder zet of wist de simulatiedatum. */
@@ -45,6 +48,31 @@ class SimulatiedatumControllerTests {
     void leeg() {
         opgeslagen.wis();
         afgesloten.clear();
+    }
+
+    /** S10.2: het beheerscherm toont de datum waarop de bank staat. */
+    @Test
+    void geeftDeSimulatiedatum() throws Exception {
+        opgeslagen.zet(LocalDate.of(2026, 10, 5));
+
+        mvc.perform(get("/api/beheer/simulatiedatum").with(beheerder()))
+                .andExpect(status().isOk())
+                .andExpect(content().json("""
+                        {"datum": "2026-10-05"}""", JsonCompareMode.STRICT));
+    }
+
+    /** Zonder simulatiedatum staat de bank op vandaag, hier 22 oktober 2026 (de vaste klok). */
+    @Test
+    void zonderSimulatiedatumGeeftVandaag() throws Exception {
+        mvc.perform(get("/api/beheer/simulatiedatum").with(beheerder()))
+                .andExpect(status().isOk())
+                .andExpect(content().json("""
+                        {"datum": "2026-10-22"}""", JsonCompareMode.STRICT));
+    }
+
+    @Test
+    void eenKlantKrijgtDeSimulatiedatumNiet() throws Exception {
+        mvc.perform(get("/api/beheer/simulatiedatum").with(klant())).andExpect(status().isForbidden());
     }
 
     /** ADR 0028: na het zetten sluit de bank de maanden af tot en met de nieuwe datum. */

@@ -198,7 +198,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** De datum waarop de bank staat; zonder simulatiedatum is dat vandaag (S10.2, ADR 0013). */
+        get: operations["simulatiedatum"];
         /** De beheerder zet de bank op een gekozen datum; daarna sluit de bank de maanden af (S3.1, ADR 0013). */
         put: operations["zetSimulatiedatum"];
         post?: never;
@@ -653,6 +654,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RekeninghouderInBeheer"][];
+                };
+            };
+            401: components["responses"]["NietIngelogd"];
+            403: components["responses"]["GeenRecht"];
+        };
+    };
+    simulatiedatum: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description De datum */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Simulatiedatum"];
                 };
             };
             401: components["responses"]["NietIngelogd"];

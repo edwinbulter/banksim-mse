@@ -139,6 +139,10 @@ export interface BankDriver {
    * browser geen knop "Betalen".
    */
   betaalInBeheer(): Promise<Uitkomst>;
+  /** S10.2: als beheerder de simulatiedatum zetten op het beheerscherm; via REST is dat dezelfde PUT als zetSimulatiedatum. */
+  zetSimulatiedatumOpScherm(datum: string): Promise<Uitkomst>;
+  /** S10.2: de datum waarop de bank staat ("2026-10-05"), zoals de beheerder hem ziet. */
+  simulatiedatum(): Promise<string>;
   /** S10.1: als beheerder de spaarrekening van een klant openen, alleen-lezen; daarna leest spaarmutaties() de lijst. */
   openSpaarrekeningInBeheer(iban: string): Promise<void>;
   /**

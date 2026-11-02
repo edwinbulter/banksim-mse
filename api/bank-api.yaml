@@ -294,6 +294,20 @@ paths:
           $ref: "#/components/responses/GeenRecht"
 
   /api/beheer/simulatiedatum:
+    get:
+      operationId: simulatiedatum
+      summary: De datum waarop de bank staat; zonder simulatiedatum is dat vandaag (S10.2, ADR 0013).
+      responses:
+        "200":
+          description: De datum
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Simulatiedatum"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "403":
+          $ref: "#/components/responses/GeenRecht"
     put:
       operationId: zetSimulatiedatum
       summary: De beheerder zet de bank op een gekozen datum; daarna sluit de bank de maanden af (S3.1, ADR 0013).

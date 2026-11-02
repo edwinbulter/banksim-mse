@@ -13,6 +13,7 @@ export class Beheerder {
   private driver?: BankDriver;
   private schermDriver?: BankDriver;
   private gevonden: RekeninghouderInBeheer[] = [];
+  private gezochtOp?: string;
 
   constructor(
     private readonly maakDriver: () => Promise<BankDriver>,
@@ -20,9 +21,15 @@ export class Beheerder {
     private readonly seed: BankSeed,
   ) {}
 
+  /** S10.2: op het beheerscherm, in het protocol van het project; via REST is dat de API. */
   async zetSimulatiedatum(datum: string): Promise<void> {
-    const driver = await this.ingelogd();
-    expect(await driver.zetSimulatiedatum(datum), 'simulatiedatum zetten als beheerder').toBe('gelukt');
+    const driver = await this.opHetScherm();
+    expect(await driver.zetSimulatiedatumOpScherm(datum), 'simulatiedatum zetten als beheerder').toBe('gelukt');
+  }
+
+  /** De datum waarop de bank staat ("vandaag" voor de bank, ADR 0013). */
+  async verwachtSimulatiedatum(datum: string): Promise<void> {
+    expect(await (await this.opHetScherm()).simulatiedatum(), 'simulatiedatum op het beheerscherm').toBe(datum);
   }
 
   /** Inloggen in het protocol van het project, zoals de beheerder dat doet. */
@@ -38,12 +45,18 @@ export class Beheerder {
   /** S10.1: zoeken op het rekeningnummer van de klant; dat is uniek, de naam in de testdata niet. */
   async zoektRekeninghouder(klant: Klant): Promise<void> {
     this.gevonden = await (await this.opHetScherm()).zoekRekeninghouders(klant.iban());
+    this.gezochtOp = klant.iban();
   }
 
-  /** Precies deze klant gevonden, met zijn rekeningen en de saldi op de simulatiedatum. */
-  async verwachtRekeninghouder(klant: Klant, { saldo, spaarsaldo }: { saldo: string; spaarsaldo: string }): Promise<void> {
+  /**
+   * Precies deze klant gevonden, met zijn rekeningen en de saldi op de simulatiedatum. Zonder spaarsaldo heeft de klant
+   * geen spaarrekening. Is er nog niet op deze klant gezocht, dan zoekt de beheerder eerst.
+   */
+  async verwachtRekeninghouder(klant: Klant, { saldo, spaarsaldo }: { saldo: string; spaarsaldo?: string }): Promise<void> {
+    if (this.gezochtOp !== klant.iban()) await this.zoektRekeninghouder(klant);
+    const spaarrekening = spaarsaldo === undefined ? null : klant.spaarrekeningnummer();
     expect(this.gevonden, `rekeninghouders gevonden op ${klant.iban()}`).toEqual([
-      { naam: klant.naam(), betaalrekening: klant.iban(), saldo, spaarrekening: klant.spaarrekeningnummer(), spaarsaldo },
+      { naam: klant.naam(), betaalrekening: klant.iban(), saldo, spaarrekening, spaarsaldo: spaarsaldo ?? null },
     ]);
   }
 

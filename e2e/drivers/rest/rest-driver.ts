@@ -131,6 +131,16 @@ export class RestDriver implements BankDriver {
     await this.laadPagina(this.transactiepad(iban));
   }
 
+  async zetSimulatiedatumOpScherm(datum: string): Promise<Uitkomst> {
+    return this.zetSimulatiedatum(datum);
+  }
+
+  async simulatiedatum(): Promise<string> {
+    const antwoord = await this.request.get('/api/beheer/simulatiedatum');
+    expect(antwoord.status(), `GET /api/beheer/simulatiedatum: ${(await antwoord.text()).slice(0, 300)}`).toBe(200);
+    return ((await antwoord.json()) as { datum: string }).datum;
+  }
+
   async openSpaarrekeningInBeheer(iban: string): Promise<void> {
     await this.openRekeningInBeheer(iban);
     const pad = `/api/beheer/rekeningen/${iban}/lopende-rente`;

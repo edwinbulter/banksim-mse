@@ -361,6 +361,13 @@ describe('App', () => {
     expect(genavigeerd).toEqual([keycloak]);
   });
   /** Vult het veld met dit label in, zoals een gebruiker typt. */
+  function veld(pagina: HTMLElement, label: string): HTMLInputElement {
+    const id = [...pagina.querySelectorAll('label')].find((l) => l.textContent?.trim() === label)?.htmlFor;
+    const gevonden = id ? pagina.querySelector<HTMLInputElement>(`#${id}`) : null;
+    if (!gevonden) throw new Error(`Geen veld met label ${label}`);
+    return gevonden;
+  }
+
   function vulIn(pagina: HTMLElement, label: string, waarde: string): void {
     const id = [...pagina.querySelectorAll('label')].find((l) => l.textContent?.trim() === label)?.htmlFor;
     const veld = id ? pagina.querySelector<HTMLInputElement>(`#${id}`) : null;
@@ -928,5 +935,31 @@ describe('App', () => {
     expect(link(pagina, 'Inleggen')).toBeUndefined();
     expect(link(pagina, 'Opnemen')).toBeUndefined();
     expect(link(pagina, 'Beheer')?.getAttribute('href')).toBe('/beheer');
+  });
+
+  /** S10.2 (FO "Admin scherm"): de datumkiezer toont de datum waarop de bank staat. */
+  it('toont op het beheerscherm de simulatiedatum in de datumkiezer (S10.2)', async () => {
+    const pagina = await naarBeheer(true);
+    http.expectOne('/api/beheer/simulatiedatum').flush({ datum: '2026-10-05' });
+    await ververs();
+
+    expect(veld(pagina, 'Simulatiedatum').value).toBe('2026-10-05');
+  });
+
+  /** S10.2: "Toepassen" slaat de datum centraal op; die geldt direct voor alle gebruikers. */
+  it('zet met Toepassen de simulatiedatum en meldt dat (S10.2)', async () => {
+    const pagina = await naarBeheer(true);
+    http.expectOne('/api/beheer/simulatiedatum').flush({ datum: '2026-10-22' });
+    await ververs();
+    vulIn(pagina, 'Simulatiedatum', '2026-10-05');
+    knop(pagina, 'Toepassen')?.click();
+    await ververs();
+
+    const zetten = http.expectOne({ method: 'PUT', url: '/api/beheer/simulatiedatum' });
+    expect(zetten.request.body).toEqual({ datum: '2026-10-05' });
+    zetten.flush(null, { status: 204, statusText: 'No Content' });
+    await ververs();
+
+    expect(pagina.querySelector('[role="status"]')?.textContent?.trim()).toBe('Simulatiedatum toegepast.');
   });
 });

@@ -14,6 +14,25 @@ export class BeheerPagina {
     return (await beheer.isVisible()) ? 'gelukt' : 'geweigerd';
   }
 
+  /** S10.2 (FO): de datumkiezer en "Toepassen"; gelukt als het scherm het toepassen meldt, geweigerd bij een melding. */
+  async zetSimulatiedatum(datum: string): Promise<Uitkomst> {
+    await this.page.goto('/beheer');
+    await this.page.getByLabel('Simulatiedatum', { exact: true }).fill(datum);
+    await this.page.getByRole('button', { name: 'Toepassen' }).click();
+    const toegepast = this.page.getByRole('status').filter({ hasText: 'Simulatiedatum toegepast.' });
+    const melding = this.page.getByRole('alert');
+    await expect(toegepast.or(melding)).toBeVisible();
+    return (await toegepast.isVisible()) ? 'gelukt' : 'geweigerd';
+  }
+
+  /** De datum in de datumkiezer, zodra het scherm hem geladen heeft. */
+  async simulatiedatum(): Promise<string> {
+    await this.page.goto('/beheer');
+    const veld = this.page.getByLabel('Simulatiedatum', { exact: true });
+    await expect(veld).not.toHaveValue('');
+    return veld.inputValue();
+  }
+
   /** Zoeken op het rekeningnummer en in de tabel op de betaalrekening klikken, zoals de beheerder dat doet. */
   async openRekening(iban: string): Promise<void> {
     await this.zoek(iban);

@@ -106,6 +106,14 @@ export class UiDriver implements BankDriver {
     await this.beheer.openRekening(iban);
   }
 
+  async zetSimulatiedatumOpScherm(datum: string): Promise<Uitkomst> {
+    return this.beheer.zetSimulatiedatum(datum);
+  }
+
+  async simulatiedatum(): Promise<string> {
+    return this.beheer.simulatiedatum();
+  }
+
   async openSpaarrekeningInBeheer(iban: string): Promise<void> {
     await this.beheer.openSpaarrekening(iban);
   }
