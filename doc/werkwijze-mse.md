@@ -1207,7 +1207,7 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | --- | --- | --- |
 | Het aantal resultaten ("12 resultaten", FO) | Niet in S5.1 meegenomen | Eigen scenario in `zoeken.spec.ts` |
 | `pg_trgm`-index voor zoeken | Geen test kan de prestatie nu eisen | Zie de ADR-backlog (hoofdstuk 6): slice 11 of een prestatie-eis |
-| `npm audit`: 2 kwetsbaarheden (1 low, 1 high) in `vite` via `@angular/build` (gezien op 2026-10-23); de oplossing van npm is een breaking downgrade naar `@angular/build` 22.1.9 | Een Angular-update hoort bij een eigen wijziging met de commit stage als vangnet | CFR Supply chain (`npm audit` in CI), of eerder bij een Angular-patch |
+| `npm audit`: 18 kwetsbaarheden met niveau moderate in de lint-keten van de frontend (`minimatch` via `eslint`, `typescript-eslint` en `angular-eslint`), en 3 in de generator in `api/` (`openapi-typescript`), gezien op 2026-11-02 | Alleen gereedschap voor lint en genereren, niet in de app. npm stelt alleen downgrades voor (`typescript-eslint` 8.14, `openapi-typescript` 6) | CFR Supply chain (`npm audit` in CI), of bij een nieuwe versie van die tools |
 | Rotatie van de cursorsleutel (ADR 0011) | Geen test: een cursor van vóór de rotatie geeft 400, en dat is nooit gecontroleerd | Een installatiescenario met `--rotate`, of CFR Resilience |
 | Webkit in CI: twee scenario's van `betaalrekening.spec.ts` liepen in de time-out van 30 s (één bij de klik op `#kc-login` van Keycloak) en slaagden bij de herkansing (run 40021127418) | Eén keer gezien; lokaal nooit. Sinds backlog fase 3.7 is er geen herkansing meer, dus komt het terug, dan is de pipeline rood | Dan onderzoeken met de trace uit het Playwright-rapport |
 | Opruimen van oude Idempotency-Keys (tabel `idempotency_sleutel`, ADR 0027), op de kolom `aangemaakt_op` | De tabel groeit met elke betaling; bij de huidige omvang klein | Slice 11 (generator, realistische data) of een prestatie-eis |
@@ -1225,6 +1225,7 @@ Wat hierboven stond en is opgelost, met waar je het terugvindt. Het nieuwste sta
 
 | Datum | Punt | Opgelost in | Commit |
 | --- | --- | --- | --- |
+| 2026-11-02 | `npm audit`: de kwetsbaarheid met niveau high in `vite` (en low in `@angular/build`) | `npm audit fix` zonder `--force`: `@angular/build` 22.2.5 met `vite` 8.3.5; geen breaking change meer nodig | COMMIT |
 | 2026-11-01 | Nooit rood ná de rentecorrecties (TO §6) | Bleek al afgedwongen: een correctie gaat zelf via `LedgerService`. ADR 0036; `RenteServiceTests.eenOpnameWaarvanDeCorrectiesDeSpaarrekeningRoodZoudenMakenWordtGeweigerd` | 98bd5ad |
 | 2026-11-01 | Zoeken op omschrijving (FO: "Naam, bedrag, IBAN of omschrijving") | Scenario "Zoeken op omschrijving" in `zoeken.spec.ts`; het tekstveld zoekt ook in de omschrijving | f555937 |
 | 2026-11-01 | Zoeken op bedrag in het tekstveld | Scenario "Zoeken op bedrag 63,48 in het tekstveld"; een bedrag vindt alleen precies dat bedrag | f555937 |
