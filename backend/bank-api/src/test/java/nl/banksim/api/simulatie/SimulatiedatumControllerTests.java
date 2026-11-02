@@ -50,15 +50,16 @@ class SimulatiedatumControllerTests {
         afgesloten.clear();
     }
 
-    /** S10.2: het beheerscherm toont de datum waarop de bank staat. */
+    /** S10.2: het beheerscherm toont de datum waarop de bank staat, en welke datums beschikbaar zijn (FO). */
     @Test
-    void geeftDeSimulatiedatum() throws Exception {
+    void geeftDeSimulatiedatumMetDeHistorie() throws Exception {
         opgeslagen.zet(LocalDate.of(2026, 10, 5));
 
         mvc.perform(get("/api/beheer/simulatiedatum").with(beheerder()))
                 .andExpect(status().isOk())
                 .andExpect(content().json("""
-                        {"datum": "2026-10-05"}""", JsonCompareMode.STRICT));
+                        {"datum": "2026-10-05", "eerste": "2021-10-01", "laatste": "2026-12-31"}""",
+                        JsonCompareMode.STRICT));
     }
 
     /** Zonder simulatiedatum staat de bank op vandaag, hier 22 oktober 2026 (de vaste klok). */
@@ -67,7 +68,8 @@ class SimulatiedatumControllerTests {
         mvc.perform(get("/api/beheer/simulatiedatum").with(beheerder()))
                 .andExpect(status().isOk())
                 .andExpect(content().json("""
-                        {"datum": "2026-10-22"}""", JsonCompareMode.STRICT));
+                        {"datum": "2026-10-22", "eerste": "2021-10-01", "laatste": "2026-12-31"}""",
+                        JsonCompareMode.STRICT));
     }
 
     @Test
@@ -152,6 +154,47 @@ class SimulatiedatumControllerTests {
                 .andExpect(status().isBadRequest());
 
         assertThat(opgeslagen.lees()).isEmpty();
+    }
+
+    /** S10.2 (FO): de datumkiezer is begrensd tot de historie, van 1 oktober 2021 t/m 31 december 2026. */
+    @Test
+    void eenDatumVoorDeHistorieGeeft400MetDeGrenzenEnVerandertNiets() throws Exception {
+        mvc.perform(put("/api/beheer/simulatiedatum").with(beheerder())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"datum\": \"2021-09-30\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("""
+                        {"type": "urn:banksim:probleem:ongeldige-invoer", "status": 400,
+                         "detail": "Kies een datum van 1 oktober 2021 t/m 31 december 2026."}"""));
+
+        assertThat(opgeslagen.lees()).isEmpty();
+        assertThat(afgesloten).isEmpty();
+    }
+
+    @Test
+    void eenDatumNaDeHistorieGeeft400() throws Exception {
+        mvc.perform(put("/api/beheer/simulatiedatum").with(beheerder())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"datum\": \"2027-01-01\"}"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(opgeslagen.lees()).isEmpty();
+    }
+
+    @Test
+    void deEersteDagVanDeHistorieMag() throws Exception {
+        mvc.perform(put("/api/beheer/simulatiedatum").with(beheerder())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"datum\": \"2021-10-01\"}"))
+                .andExpect(status().isNoContent());
+
+        assertThat(opgeslagen.lees()).contains(LocalDate.of(2021, 10, 1));
+    }
+
+    @Test
+    void deLaatsteDagVanDeHistorieMag() throws Exception {
+        mvc.perform(put("/api/beheer/simulatiedatum").with(beheerder())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"datum\": \"2026-12-31\"}"))
+                .andExpect(status().isNoContent());
+
+        assertThat(opgeslagen.lees()).contains(LocalDate.of(2026, 12, 31));
     }
 
     @Test

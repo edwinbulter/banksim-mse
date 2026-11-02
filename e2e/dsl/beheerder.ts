@@ -1,5 +1,12 @@
 import { expect } from '@playwright/test';
-import type { BankDriver, RekeninghouderInBeheer, Spaarmutatie, TransactiesOpDatum, Zoekopdracht } from '../drivers/bank-driver';
+import type {
+  BankDriver,
+  RekeninghouderInBeheer,
+  Spaarmutatie,
+  TransactiesOpDatum,
+  Uitkomst,
+  Zoekopdracht,
+} from '../drivers/bank-driver';
 import type { BankSeed, GeseedeBeheerder } from '../drivers/shell/bank-seed';
 import { type Klant, vandaagInAmsterdam } from './klant';
 
@@ -14,6 +21,7 @@ export class Beheerder {
   private schermDriver?: BankDriver;
   private gevonden: RekeninghouderInBeheer[] = [];
   private gezochtOp?: string;
+  private uitkomst?: Uitkomst;
 
   constructor(
     private readonly maakDriver: () => Promise<BankDriver>,
@@ -25,6 +33,19 @@ export class Beheerder {
   async zetSimulatiedatum(datum: string): Promise<void> {
     const driver = await this.opHetScherm();
     expect(await driver.zetSimulatiedatumOpScherm(datum), 'simulatiedatum zetten als beheerder').toBe('gelukt');
+  }
+
+  /** Zoals zetSimulatiedatum, maar de bank mag weigeren; de weigering volgt uit verwachtGeweigerd. */
+  async probeertSimulatiedatumTeZetten(datum: string): Promise<void> {
+    this.uitkomst = await (await this.opHetScherm()).zetSimulatiedatumOpScherm(datum);
+  }
+
+  /** S10.2 (FO): de datumkiezer is begrensd; de melding noemt wat beschikbaar is ("1 oktober 2021 t/m 31 december 2026"). */
+  async verwachtGeweigerd(beschikbaar: string): Promise<void> {
+    expect(this.uitkomst, 'simulatiedatum zetten als beheerder').toBe('geweigerd');
+    expect(await (await this.opHetScherm()).simulatiedatumMelding(), 'melding op het beheerscherm').toBe(
+      `Kies een datum van ${beschikbaar}.`,
+    );
   }
 
   /** S10.2: "Terug naar vandaag" op het beheerscherm; via REST is dat de DELETE. */

@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { RekeninghouderInBeheer, Simulatiedatum } from './api/schemas';
+import type { RekeninghouderInBeheer, Simulatiedatum, SimulatiedatumInBeheer } from './api/schemas';
+import { datumInTekst } from './datum/datumregel';
 import { meldingBij } from './fout';
 import { bedragVoorWeergave } from './geld/bedrag';
 
@@ -14,11 +15,21 @@ import { bedragVoorWeergave } from './geld/bedrag';
   imports: [RouterLink],
   template: `
     <h2>Beheer</h2>
-    <form aria-label="Simulatiedatum zetten" (submit)="$event.preventDefault(); zetSimulatiedatum()">
+    <form aria-label="Simulatiedatum zetten" novalidate (submit)="$event.preventDefault(); zetSimulatiedatum()">
       <label for="beheer-simulatiedatum">Simulatiedatum</label>
-      <input id="beheer-simulatiedatum" type="date" [value]="simulatiedatum()" (input)="simulatiedatum.set(waarde($event))" />
+      <input
+        id="beheer-simulatiedatum"
+        type="date"
+        [value]="simulatiedatum()"
+        [min]="historie()?.eerste ?? ''"
+        [max]="historie()?.laatste ?? ''"
+        (input)="simulatiedatum.set(waarde($event))"
+      />
       <button type="submit">Toepassen</button>
       <button type="button" (click)="terugNaarVandaag()">Terug naar vandaag</button>
+      @if (beschikbaar(); as beschikbaar) {
+        <p>Beschikbaar: {{ beschikbaar }}</p>
+      }
     </form>
     @if (status(); as status) {
       <p role="status">{{ status }}</p>
@@ -64,6 +75,13 @@ export class BeheerScherm {
 
   /** S10.2: de datum waarop de bank staat, als "2026-10-05"; leeg tot hij geladen is. */
   protected readonly simulatiedatum = signal('');
+  /** S10.2 (FO): de eerste en laatste dag waarop de bank kan staan, zoals de API ze geeft. */
+  protected readonly historie = signal<Pick<SimulatiedatumInBeheer, 'eerste' | 'laatste'> | undefined>(undefined);
+  /** "1 oktober 2021 t/m 31 december 2026". */
+  protected readonly beschikbaar = computed(() => {
+    const historie = this.historie();
+    return historie && `${datumInTekst(historie.eerste)} t/m ${datumInTekst(historie.laatste)}`;
+  });
   /** Wat er na Toepassen of Terug naar vandaag gebeurd is. */
   protected readonly status = signal<string | undefined>(undefined);
   protected readonly tekst = signal('');
@@ -75,10 +93,19 @@ export class BeheerScherm {
     this.laadSimulatiedatum();
   }
 
-  /** "Toepassen" (FO): de datum geldt direct voor alle gebruikers. */
+  /**
+   * "Toepassen" (FO): de datum geldt direct voor alle gebruikers. Een datum buiten de historie gaat niet naar de bank; die
+   * weigert hem ook zelf. Datums als "2026-10-05" vergelijken als tekst in de goede volgorde.
+   */
   protected zetSimulatiedatum(): void {
     this.melding.set(undefined);
     this.status.set(undefined);
+    const datum = this.simulatiedatum();
+    const historie = this.historie();
+    if (historie && (datum < historie.eerste || datum > historie.laatste)) {
+      this.melding.set(`Kies een datum van ${this.beschikbaar()}.`);
+      return;
+    }
     this.http.put('/api/beheer/simulatiedatum', { datum: this.simulatiedatum() } satisfies Simulatiedatum).subscribe({
       next: () => this.status.set('Simulatiedatum toegepast.'),
       error: (fout) => this.melding.set(meldingBij(fout)),
@@ -99,8 +126,11 @@ export class BeheerScherm {
   }
 
   private laadSimulatiedatum(): void {
-    this.http.get<Simulatiedatum>('/api/beheer/simulatiedatum').subscribe({
-      next: ({ datum }) => this.simulatiedatum.set(datum),
+    this.http.get<SimulatiedatumInBeheer>('/api/beheer/simulatiedatum').subscribe({
+      next: ({ datum, eerste, laatste }) => {
+        this.simulatiedatum.set(datum);
+        this.historie.set({ eerste, laatste });
+      },
       error: (fout) => this.melding.set(meldingBij(fout)),
     });
   }

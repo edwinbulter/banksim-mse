@@ -132,3 +132,16 @@ test('De beheerder zet de bank terug naar vandaag', { tag: '@simulatiedatum' }, 
     beheerder.verwachtRekeninghouder(jan, { saldo: '175.00' }),
   );
 });
+
+/** S10.2 (FO "Admin scherm"): de datumkiezer is begrensd tot de historie van de bank; de API weigert een datum erbuiten. */
+test('De beheerder kan geen simulatiedatum vóór de historie zetten', { tag: '@simulatiedatum' }, async ({ bank }) => {
+  const beheerder = bank.beheerder();
+  await bank.gegeven('de bank staat op 5 oktober 2026', () => beheerder.zetSimulatiedatum('2026-10-05'));
+  await bank.als('de beheerder de simulatiedatum op 30 september 2021 zet', () =>
+    beheerder.probeertSimulatiedatumTeZetten('2021-09-30'),
+  );
+  await bank.dan('wordt dat geweigerd: beschikbaar is 1 oktober 2021 t/m 31 december 2026', () =>
+    beheerder.verwachtGeweigerd('1 oktober 2021 t/m 31 december 2026'),
+  );
+  await bank.en('staat de bank nog op 5 oktober 2026', () => beheerder.verwachtSimulatiedatum('2026-10-05'));
+});

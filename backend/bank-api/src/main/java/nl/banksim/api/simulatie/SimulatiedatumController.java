@@ -24,11 +24,11 @@ class SimulatiedatumController {
         this.klok = klok;
     }
 
-    /** S10.2: de datum waarop de bank staat; zonder simulatiedatum is dat vandaag (ADR 0013). */
+    /** S10.2: de datum waarop de bank staat; zonder simulatiedatum is dat vandaag (ADR 0013). Met de {@link Historie}. */
     @GetMapping("/api/beheer/simulatiedatum")
     @PreAuthorize("hasRole('beheerder')")
-    SimulatiedatumJson simulatiedatum() {
-        return new SimulatiedatumJson(klok.vandaag());
+    SimulatiedatumInBeheerJson simulatiedatum() {
+        return new SimulatiedatumInBeheerJson(klok.vandaag(), Historie.FO.eerste(), Historie.FO.laatste());
     }
 
     @PutMapping("/api/beheer/simulatiedatum")
@@ -46,6 +46,10 @@ class SimulatiedatumController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void wis() {
         simulatie.wis();
+    }
+
+    /** De datumkiezer van het beheerscherm begrenst zich met {@code eerste} en {@code laatste} (FO). */
+    record SimulatiedatumInBeheerJson(LocalDate datum, LocalDate eerste, LocalDate laatste) {
     }
 
     /** {@code {"datum": "2026-10-05"}}; een andere notatie geeft 400. */

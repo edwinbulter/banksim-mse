@@ -2,7 +2,16 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Location } from '@angular/common';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import type { Contact, Ik, LopendeRente, Pagina, Rekening, RekeninghouderInBeheer, Transactie } from './api/schemas';
+import type {
+  Contact,
+  Ik,
+  LopendeRente,
+  Pagina,
+  Rekening,
+  RekeninghouderInBeheer,
+  SimulatiedatumInBeheer,
+  Transactie,
+} from './api/schemas';
 import { App } from './app';
 import { appConfig } from './app.config';
 import { Browser } from './browser';
@@ -56,6 +65,11 @@ describe('App', () => {
     await navigatie;
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
+  }
+
+  /** Het antwoord op GET /api/beheer/simulatiedatum, met de historie uit het FO. */
+  function bankOp(datum: string): SimulatiedatumInBeheer {
+    return { datum, eerste: '2021-10-01', laatste: '2026-12-31' };
   }
 
   async function ververs(): Promise<void> {
@@ -940,7 +954,7 @@ describe('App', () => {
   /** S10.2 (FO "Admin scherm"): de datumkiezer toont de datum waarop de bank staat. */
   it('toont op het beheerscherm de simulatiedatum in de datumkiezer (S10.2)', async () => {
     const pagina = await naarBeheer(true);
-    http.expectOne('/api/beheer/simulatiedatum').flush({ datum: '2026-10-05' });
+    http.expectOne('/api/beheer/simulatiedatum').flush(bankOp('2026-10-05'));
     await ververs();
 
     expect(veld(pagina, 'Simulatiedatum').value).toBe('2026-10-05');
@@ -949,7 +963,7 @@ describe('App', () => {
   /** S10.2: "Toepassen" slaat de datum centraal op; die geldt direct voor alle gebruikers. */
   it('zet met Toepassen de simulatiedatum en meldt dat (S10.2)', async () => {
     const pagina = await naarBeheer(true);
-    http.expectOne('/api/beheer/simulatiedatum').flush({ datum: '2026-10-22' });
+    http.expectOne('/api/beheer/simulatiedatum').flush(bankOp('2026-10-22'));
     await ververs();
     vulIn(pagina, 'Simulatiedatum', '2026-10-05');
     knop(pagina, 'Toepassen')?.click();
@@ -963,17 +977,60 @@ describe('App', () => {
     expect(pagina.querySelector('[role="status"]')?.textContent?.trim()).toBe('Simulatiedatum toegepast.');
   });
 
+  /** S10.2 (FO "Admin scherm"): de datumkiezer is begrensd tot de historie, en zegt welke datums beschikbaar zijn. */
+  it('begrenst de datumkiezer tot de historie en toont die (S10.2)', async () => {
+    const pagina = await naarBeheer(true);
+    http.expectOne('/api/beheer/simulatiedatum').flush(bankOp('2026-10-05'));
+    await ververs();
+
+    expect(veld(pagina, 'Simulatiedatum').min).toBe('2021-10-01');
+    expect(veld(pagina, 'Simulatiedatum').max).toBe('2026-12-31');
+    expect(pagina.textContent).toContain('Beschikbaar: 1 oktober 2021 t/m 31 december 2026');
+  });
+
+  /** S10.2: een datum buiten de historie weigert het scherm zelf; de bank weigert hem ook (de API beslist). */
+  it('weigert met Toepassen een datum buiten de historie zonder de bank te vragen (S10.2)', async () => {
+    const pagina = await naarBeheer(true);
+    http.expectOne('/api/beheer/simulatiedatum').flush(bankOp('2026-10-05'));
+    await ververs();
+    vulIn(pagina, 'Simulatiedatum', '2021-09-30');
+    knop(pagina, 'Toepassen')?.click();
+    await ververs();
+
+    http.expectNone({ method: 'PUT', url: '/api/beheer/simulatiedatum' });
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe(
+      'Kies een datum van 1 oktober 2021 t/m 31 december 2026.',
+    );
+  });
+
+  it('toont de melding van de bank als die de simulatiedatum weigert (S10.2)', async () => {
+    const pagina = await naarBeheer(true);
+    http.expectOne('/api/beheer/simulatiedatum').flush(bankOp('2026-10-05'));
+    await ververs();
+    vulIn(pagina, 'Simulatiedatum', '2026-12-31');
+    knop(pagina, 'Toepassen')?.click();
+    await ververs();
+
+    http
+      .expectOne({ method: 'PUT', url: '/api/beheer/simulatiedatum' })
+      .flush({ detail: 'Kies een andere datum.' }, { status: 400, statusText: 'Bad Request' });
+    await ververs();
+
+    expect(pagina.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Kies een andere datum.');
+    expect(pagina.querySelector('[role="status"]')).toBeNull();
+  });
+
   /** S10.2 (FO): "Terug naar vandaag" wist de simulatiedatum en toont daarna de datum waarop de bank nu staat. */
   it('zet met Terug naar vandaag de bank op vandaag en toont die datum (S10.2)', async () => {
     const pagina = await naarBeheer(true);
-    http.expectOne('/api/beheer/simulatiedatum').flush({ datum: '2026-10-05' });
+    http.expectOne('/api/beheer/simulatiedatum').flush(bankOp('2026-10-05'));
     await ververs();
     knop(pagina, 'Terug naar vandaag')?.click();
     await ververs();
 
     http.expectOne({ method: 'DELETE', url: '/api/beheer/simulatiedatum' }).flush(null, { status: 204, statusText: 'No Content' });
     await ververs();
-    http.expectOne({ method: 'GET', url: '/api/beheer/simulatiedatum' }).flush({ datum: '2026-11-02' });
+    http.expectOne({ method: 'GET', url: '/api/beheer/simulatiedatum' }).flush(bankOp('2026-11-02'));
     await ververs();
 
     expect(veld(pagina, 'Simulatiedatum').value).toBe('2026-11-02');

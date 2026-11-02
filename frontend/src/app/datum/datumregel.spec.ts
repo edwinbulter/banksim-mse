@@ -1,4 +1,4 @@
-import { datumregel } from './datumregel';
+import { datumInTekst, datumregel } from './datumregel';
 
 /** S2.1: de transactielijst groepeert per datum onder een kop als "Vrijdag 2 oktober 2026". */
 describe('datumregel', () => {
@@ -14,5 +14,19 @@ describe('datumregel', () => {
   it('weigert iets anders dan een datum als "2026-10-02"', () => {
     expect(() => datumregel('2-10-2026')).toThrow('2-10-2026');
     expect(() => datumregel('2026-02-30')).toThrow('2026-02-30');
+  });
+});
+
+/** S10.2 (FO "Admin scherm"): "Beschikbaar: 1 oktober 2021 t/m 31 december 2026". */
+describe('datumInTekst', () => {
+  it.each([
+    ['2021-10-01', '1 oktober 2021'],
+    ['2026-12-31', '31 december 2026'],
+  ])('%s wordt %s', (datum, tekst) => {
+    expect(datumInTekst(datum)).toBe(tekst);
+  });
+
+  it('weigert iets anders dan een datum als "2026-10-02"', () => {
+    expect(() => datumInTekst('2026-02-30')).toThrow('2026-02-30');
   });
 });

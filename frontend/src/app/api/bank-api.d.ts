@@ -200,7 +200,7 @@ export interface paths {
         };
         /** De datum waarop de bank staat; zonder simulatiedatum is dat vandaag (S10.2, ADR 0013). */
         get: operations["simulatiedatum"];
-        /** De beheerder zet de bank op een gekozen datum; daarna sluit de bank de maanden af (S3.1, ADR 0013). */
+        /** De beheerder zet de bank op een gekozen datum; daarna sluit de bank de maanden af (S3.1, ADR 0013). Een datum buiten de historie geeft 400 (S10.2). */
         put: operations["zetSimulatiedatum"];
         post?: never;
         /** De bank draait weer op vandaag (S3.1). */
@@ -301,6 +301,20 @@ export interface components {
         Simulatiedatum: {
             /** Format: date */
             datum: string;
+        };
+        SimulatiedatumInBeheer: {
+            /** Format: date */
+            datum: string;
+            /**
+             * Format: date
+             * @description De eerste dag van de historie; een eerdere datum weigert de bank (S10.2)
+             */
+            eerste: string;
+            /**
+             * Format: date
+             * @description De laatste dag van de historie; een latere datum weigert de bank (S10.2)
+             */
+            laatste: string;
         };
         /** @description RFC 9457; `type` is urn:banksim:probleem:<code>, `detail` de melding voor de klant */
         Probleem: {
@@ -669,13 +683,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description De datum */
+            /** @description De datum, en de datums waarop de beheerder de bank kan zetten */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Simulatiedatum"];
+                    "application/json": components["schemas"]["SimulatiedatumInBeheer"];
                 };
             };
             401: components["responses"]["NietIngelogd"];

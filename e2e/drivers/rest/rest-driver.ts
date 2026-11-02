@@ -27,6 +27,8 @@ export class RestDriver implements BankDriver {
   /** Het pad waarlangs de rekening geopend is: van de klant, of alleen-lezen in beheer (ADR 0038). */
   private transactiepad = (iban: string) => `/api/rekeningen/${iban}/transacties`;
   private geladen: Pagina['transacties'] = [];
+  /** S10.2: de melding van de bank bij de laatste geweigerde simulatiedatum. */
+  private simulatiedatumweigering?: string;
   /** De lopende rente van de geopende spaarrekening (S8.1). */
   private lopend?: string;
   private volgende: string | null = null;
@@ -132,7 +134,13 @@ export class RestDriver implements BankDriver {
   }
 
   async zetSimulatiedatumOpScherm(datum: string): Promise<Uitkomst> {
-    return this.zetSimulatiedatum(datum);
+    const { uitkomst, melding } = await wijzigSimulatiedatum(this.request, () => this.cookies(), datum);
+    this.simulatiedatumweigering = melding;
+    return uitkomst;
+  }
+
+  async simulatiedatumMelding(): Promise<string | undefined> {
+    return this.simulatiedatumweigering;
   }
 
   async wisSimulatiedatumOpScherm(): Promise<Uitkomst> {
@@ -444,11 +452,15 @@ export class RestDriver implements BankDriver {
   }
 
   async zetSimulatiedatum(datum: string): Promise<Uitkomst> {
-    return wijzigSimulatiedatum(this.request, async () => (await this.request.storageState()).cookies, datum);
+    return (await wijzigSimulatiedatum(this.request, () => this.cookies(), datum)).uitkomst;
   }
 
   async wisSimulatiedatum(): Promise<Uitkomst> {
-    return wijzigSimulatiedatum(this.request, async () => (await this.request.storageState()).cookies, null);
+    return (await wijzigSimulatiedatum(this.request, () => this.cookies(), null)).uitkomst;
+  }
+
+  private async cookies(): Promise<{ name: string; value: string }[]> {
+    return (await this.request.storageState()).cookies;
   }
 
   private async laadPagina(pad: string): Promise<void> {

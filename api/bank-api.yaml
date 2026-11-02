@@ -299,18 +299,18 @@ paths:
       summary: De datum waarop de bank staat; zonder simulatiedatum is dat vandaag (S10.2, ADR 0013).
       responses:
         "200":
-          description: De datum
+          description: De datum, en de datums waarop de beheerder de bank kan zetten
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Simulatiedatum"
+                $ref: "#/components/schemas/SimulatiedatumInBeheer"
         "401":
           $ref: "#/components/responses/NietIngelogd"
         "403":
           $ref: "#/components/responses/GeenRecht"
     put:
       operationId: zetSimulatiedatum
-      summary: De beheerder zet de bank op een gekozen datum; daarna sluit de bank de maanden af (S3.1, ADR 0013).
+      summary: De beheerder zet de bank op een gekozen datum; daarna sluit de bank de maanden af (S3.1, ADR 0013). Een datum buiten de historie geeft 400 (S10.2).
       requestBody:
         required: true
         content:
@@ -563,6 +563,23 @@ components:
       required: [datum]
       properties:
         datum:
+          type: string
+          format: date
+
+    SimulatiedatumInBeheer:
+      type: object
+      additionalProperties: false
+      required: [datum, eerste, laatste]
+      properties:
+        datum:
+          type: string
+          format: date
+        eerste:
+          description: De eerste dag van de historie; een eerdere datum weigert de bank (S10.2)
+          type: string
+          format: date
+        laatste:
+          description: De laatste dag van de historie; een latere datum weigert de bank (S10.2)
           type: string
           format: date
 

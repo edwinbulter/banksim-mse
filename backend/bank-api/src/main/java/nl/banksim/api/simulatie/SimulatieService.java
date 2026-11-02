@@ -25,7 +25,11 @@ class SimulatieService {
         this.klok = klok;
     }
 
+    /** Een datum buiten de {@link Historie} weigert de bank in de taal van de beheerder (400, ProbleemAdvice). */
     void zet(LocalDate datum) {
+        if (!Historie.FO.bevat(datum)) {
+            throw new IllegalArgumentException(Historie.FO.melding());
+        }
         simulatiedatum.zet(datum);
         maandafsluiting.sluitAf(klok.vandaag());
     }

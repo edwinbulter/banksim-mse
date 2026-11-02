@@ -118,6 +118,10 @@ export class UiDriver implements BankDriver {
     return this.beheer.simulatiedatum();
   }
 
+  async simulatiedatumMelding(): Promise<string | undefined> {
+    return this.beheer.melding();
+  }
+
   async openSpaarrekeningInBeheer(iban: string): Promise<void> {
     await this.beheer.openSpaarrekening(iban);
   }
@@ -268,10 +272,10 @@ export class UiDriver implements BankDriver {
   }
 
   async zetSimulatiedatum(datum: string): Promise<Uitkomst> {
-    return wijzigSimulatiedatum(this.page.request, () => this.page.context().cookies(), datum);
+    return (await wijzigSimulatiedatum(this.page.request, () => this.page.context().cookies(), datum)).uitkomst;
   }
 
   async wisSimulatiedatum(): Promise<Uitkomst> {
-    return wijzigSimulatiedatum(this.page.request, () => this.page.context().cookies(), null);
+    return (await wijzigSimulatiedatum(this.page.request, () => this.page.context().cookies(), null)).uitkomst;
   }
 }

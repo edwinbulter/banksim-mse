@@ -18,3 +18,4 @@ export type Overschrijving = Schemas['Overschrijving'];
 export type RekeninghouderInBeheer = Schemas['RekeninghouderInBeheer'];
 export type Ik = Schemas['Ik'];
 export type Simulatiedatum = Schemas['Simulatiedatum'];
+export type SimulatiedatumInBeheer = Schemas['SimulatiedatumInBeheer'];

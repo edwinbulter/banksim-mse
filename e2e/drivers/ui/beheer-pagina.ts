@@ -35,6 +35,12 @@ export class BeheerPagina {
     return (await terug.isVisible()) ? 'gelukt' : 'geweigerd';
   }
 
+  /** De melding op het beheerscherm, zonder het opnieuw te laden; undefined als er geen is. */
+  async melding(): Promise<string | undefined> {
+    const melding = this.page.getByRole('alert');
+    return (await melding.isVisible()) ? ((await melding.textContent()) ?? '').trim() : undefined;
+  }
+
   /** De datum in de datumkiezer, zodra het scherm hem geladen heeft. */
   async simulatiedatum(): Promise<string> {
     await this.page.goto('/beheer');

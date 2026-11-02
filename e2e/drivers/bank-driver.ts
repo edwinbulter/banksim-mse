@@ -143,6 +143,8 @@ export interface BankDriver {
   zetSimulatiedatumOpScherm(datum: string): Promise<Uitkomst>;
   /** S10.2: "Terug naar vandaag" op het beheerscherm; via REST is dat dezelfde DELETE als wisSimulatiedatum. */
   wisSimulatiedatumOpScherm(): Promise<Uitkomst>;
+  /** S10.2: de melding bij de laatste geweigerde simulatiedatum op het beheerscherm, anders undefined. */
+  simulatiedatumMelding(): Promise<string | undefined>;
   /** S10.2: de datum waarop de bank staat ("2026-10-05"), zoals de beheerder hem ziet. */
   simulatiedatum(): Promise<string>;
   /** S10.1: als beheerder de spaarrekening van een klant openen, alleen-lezen; daarna leest spaarmutaties() de lijst. */
