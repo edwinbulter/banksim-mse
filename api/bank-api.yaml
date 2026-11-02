@@ -182,6 +182,30 @@ paths:
         "422":
           $ref: "#/components/responses/Geweigerd"
 
+  /api/beheer/rekeninghouders:
+    get:
+      operationId: rekeninghouders
+      summary: De beheerder zoekt rekeninghouders op naam of rekeningnummer, met hun saldi op vandaag (S10.1).
+      parameters:
+        - name: zoek
+          in: query
+          description: Een deel van de naam, of van het rekeningnummer van de betaal- of spaarrekening (met of zonder spaties)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hoogstens 50 rekeninghouders met een betaalrekening, op naam
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RekeninghouderInBeheer"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "403":
+          $ref: "#/components/responses/GeenRecht"
+
   /api/beheer/simulatiedatum:
     put:
       operationId: zetSimulatiedatum
@@ -398,6 +422,28 @@ components:
           type: string
         bedrag:
           type: string
+
+    RekeninghouderInBeheer:
+      type: object
+      additionalProperties: false
+      required: [naam, betaalrekening, saldo, spaarrekening, spaarsaldo]
+      properties:
+        naam:
+          type: string
+        betaalrekening:
+          $ref: "#/components/schemas/Iban"
+        saldo:
+          $ref: "#/components/schemas/Bedrag"
+        spaarrekening:
+          description: Null zonder spaarrekening
+          type: string
+          nullable: true
+          pattern: '^NL\d{2}[A-Z]{4}\d{10}$'
+        spaarsaldo:
+          description: Null zonder spaarrekening
+          type: string
+          nullable: true
+          pattern: '^-?\d+\.\d{2}$'
 
     Simulatiedatum:
       type: object

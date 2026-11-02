@@ -164,6 +164,12 @@ export class Klant {
     return this.alias;
   }
 
+  /** Het IBAN van de spaarrekening uit "Gegeven" (S10.1). */
+  spaarrekeningnummer(): string {
+    if (!this.spaarIban) throw new Error(`${this.alias} heeft geen spaarrekening: begin met heeftSpaarrekening`);
+    return this.spaarIban;
+  }
+
   /** Het IBAN van de betaalrekening uit "Gegeven", voor de verwachting bij Van of Naar. */
   iban(): string {
     return this.vereisGegevens().iban;

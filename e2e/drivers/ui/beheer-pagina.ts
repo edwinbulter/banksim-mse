@@ -1,0 +1,39 @@
+import { expect, type Locator, type Page } from '@playwright/test';
+import type { RekeninghouderInBeheer } from '../bank-driver';
+
+/** S10.1 (FO "Admin scherm"): de tabel met rekeninghouders en het zoekveld. */
+export class BeheerPagina {
+  constructor(private readonly page: Page) {}
+
+  async zoek(tekst: string): Promise<RekeninghouderInBeheer[]> {
+    await this.page.goto('/beheer');
+    await this.page.getByLabel('Naam of rekeningnummer').fill(tekst);
+    await this.page.getByRole('button', { name: 'Zoeken' }).click();
+    const tabel = this.page.getByRole('table', { name: 'Rekeninghouders' });
+    await expect(tabel.getByRole('row').nth(1).or(this.page.getByText('Geen rekeninghouders gevonden.'))).toBeVisible();
+    const rijen = await tabel.getByRole('row').all();
+    return Promise.all(rijen.slice(1).map(leesRij));
+  }
+}
+
+/** Een regel: naam, betaalrekening, saldo, spaarrekening, spaarsaldo; terug naar domeinnotatie. */
+async function leesRij(rij: Locator): Promise<RekeninghouderInBeheer> {
+  const [naam, betaalrekening, saldo, spaarrekening, spaarsaldo] = await rij.getByRole('cell').allTextContents();
+  return {
+    naam: naam.trim(),
+    betaalrekening: zonderSpaties(betaalrekening),
+    saldo: bedrag(saldo),
+    spaarrekening: spaarrekening.trim() === '' ? null : zonderSpaties(spaarrekening),
+    spaarsaldo: spaarsaldo.trim() === '' ? null : bedrag(spaarsaldo),
+  };
+}
+
+function zonderSpaties(tekst: string): string {
+  return tekst.replace(/\s/g, '');
+}
+
+/** "€ 1.842,17" of "−€ 5,00" terug naar "1842.17" of "-5.00", zonder te rekenen. */
+function bedrag(tekst: string): string {
+  const deel = /(−|-)?\s?€\s?([\d.]+,\d{2})/.exec(tekst);
+  return deel ? `${deel[1] ? '-' : ''}${deel[2].replace(/\./g, '').replace(',', '.')}` : tekst.trim();
+}

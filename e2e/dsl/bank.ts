@@ -20,6 +20,8 @@ export class Bank extends Stappen {
     private readonly maakBeheerderDriver: () => Promise<BankDriver>,
     /** Een driver met een eigen sessie in hetzelfde protocol (REST of browser), voor een tweede klant (S7.1). */
     private readonly maakKlantDriver: () => Promise<BankDriver>,
+    /** Hetzelfde voor de beheerder op het beheerscherm (S10.1); de simulatiedatum zet hij tot S10.2 via de API. */
+    private readonly maakBeheerschermDriver: () => Promise<BankDriver>,
   ) {
     super(stap);
   }
@@ -29,7 +31,7 @@ export class Bank extends Stappen {
   }
 
   beheerder(): Beheerder {
-    this.eenBeheerder ??= new Beheerder(this.maakBeheerderDriver, this.seed);
+    this.eenBeheerder ??= new Beheerder(this.maakBeheerderDriver, this.maakBeheerschermDriver, this.seed);
     return this.eenBeheerder;
   }
 

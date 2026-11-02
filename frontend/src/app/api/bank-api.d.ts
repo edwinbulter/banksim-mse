@@ -123,6 +123,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/beheer/rekeninghouders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** De beheerder zoekt rekeninghouders op naam of rekeningnummer, met hun saldi op vandaag (S10.1). */
+        get: operations["rekeninghouders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/beheer/simulatiedatum": {
         parameters: {
             query?: never;
@@ -214,6 +231,15 @@ export interface components {
             van: string;
             naar: string;
             bedrag: string;
+        };
+        RekeninghouderInBeheer: {
+            naam: string;
+            betaalrekening: components["schemas"]["Iban"];
+            saldo: components["schemas"]["Bedrag"];
+            /** @description Null zonder spaarrekening */
+            spaarrekening: string | null;
+            /** @description Null zonder spaarrekening */
+            spaarsaldo: string | null;
         };
         Simulatiedatum: {
             /** Format: date */
@@ -465,6 +491,31 @@ export interface operations {
             401: components["responses"]["NietIngelogd"];
             404: components["responses"]["NietGevonden"];
             422: components["responses"]["Geweigerd"];
+        };
+    };
+    rekeninghouders: {
+        parameters: {
+            query?: {
+                /** @description Een deel van de naam, of van het rekeningnummer van de betaal- of spaarrekening (met of zonder spaties) */
+                zoek?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hoogstens 50 rekeninghouders met een betaalrekening, op naam */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RekeninghouderInBeheer"][];
+                };
+            };
+            401: components["responses"]["NietIngelogd"];
+            403: components["responses"]["GeenRecht"];
         };
     };
     zetSimulatiedatum: {

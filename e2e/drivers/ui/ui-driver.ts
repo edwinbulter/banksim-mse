@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import type {
+  RekeninghouderInBeheer,
   BankDriver,
   Betaalopdracht,
   MaximaleLengtes,
@@ -13,6 +14,7 @@ import type {
   Zoekopdracht,
 } from '../bank-driver';
 import { wijzigSimulatiedatum } from '../simulatiedatum';
+import { BeheerPagina } from './beheer-pagina';
 import { BetaalrekeningPagina } from './betaalrekening-pagina';
 import { BetalenPagina } from './betalen-pagina';
 import { InlogPagina } from './inlog-pagina';
@@ -26,6 +28,7 @@ export class UiDriver implements BankDriver {
   private readonly start: StartPagina;
   private readonly inlog: InlogPagina;
   private readonly overzicht: OverzichtPagina;
+  private readonly beheer: BeheerPagina;
   private readonly betaalrekening: BetaalrekeningPagina;
   private readonly zoeken: ZoekenPagina;
   private readonly betalen: BetalenPagina;
@@ -36,6 +39,7 @@ export class UiDriver implements BankDriver {
     this.start = new StartPagina(page);
     this.inlog = new InlogPagina(page);
     this.overzicht = new OverzichtPagina(page);
+    this.beheer = new BeheerPagina(page);
     this.betaalrekening = new BetaalrekeningPagina(page);
     this.zoeken = new ZoekenPagina(page);
     this.betalen = new BetalenPagina(page);
@@ -220,6 +224,10 @@ export class UiDriver implements BankDriver {
   }
 
   /** Er is nog geen scherm (S10.2): via de API, met de cookies van deze browser. */
+  async zoekRekeninghouders(tekst: string): Promise<RekeninghouderInBeheer[]> {
+    return this.beheer.zoek(tekst);
+  }
+
   async zetSimulatiedatum(datum: string): Promise<Uitkomst> {
     return wijzigSimulatiedatum(this.page.request, () => this.page.context().cookies(), datum);
   }

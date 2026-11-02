@@ -116,6 +116,15 @@ export interface Overschrijfopdracht {
  */
 export type Uitkomst = 'gelukt' | 'geweigerd';
 
+/** S10.1: een regel op het beheerscherm; bedragen in domeinnotatie, zonder spaarrekening null. */
+export interface RekeninghouderInBeheer {
+  naam: string;
+  betaalrekening: string;
+  saldo: string;
+  spaarrekening: string | null;
+  spaarsaldo: string | null;
+}
+
 /** Wat de DSL van het systeem nodig heeft. De REST- en de UI-driver implementeren dit elk op hun eigen manier. */
 export interface BankDriver {
   openStartpagina(): Promise<void>;
@@ -206,6 +215,8 @@ export interface BankDriver {
   neemOp(opdracht: Overschrijfopdracht): Promise<Uitkomst>;
   /** De lopende rente van de geopende spaarrekening, in domeinnotatie ("12.36"). */
   lopendeRente(): Promise<string>;
+  /** S10.1, als beheerder: zoeken op naam of rekeningnummer; geeft de gevonden rekeninghouders, hoogstens 50. */
+  zoekRekeninghouders(tekst: string): Promise<RekeninghouderInBeheer[]>;
   /** De simulatiedatum ("2026-10-05") zetten met de eigen sessie; tot S10.2 via de API, ook in de UI-driver. */
   zetSimulatiedatum(datum: string): Promise<Uitkomst>;
   /** De simulatiedatum wissen: de bank draait weer op vandaag. */

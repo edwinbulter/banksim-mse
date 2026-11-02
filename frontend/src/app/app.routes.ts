@@ -1,3 +1,4 @@
+import { BeheerScherm } from './beheer-scherm';
 import type { Routes } from '@angular/router';
 import { BetaalrekeningScherm } from './betaalrekening-scherm';
 import { BetalenScherm } from './betalen-scherm';
@@ -13,5 +14,6 @@ export const routes: Routes = [
   { path: 'spaarrekeningen/:iban', component: SpaarrekeningScherm },
   { path: 'spaarrekeningen/:iban/inleggen', component: OverschrijvenScherm, data: { richting: 'inleggen' } },
   { path: 'spaarrekeningen/:iban/opnemen', component: OverschrijvenScherm, data: { richting: 'opnemen' } },
+  { path: 'beheer', component: BeheerScherm },
   { path: '**', redirectTo: '' },
 ];

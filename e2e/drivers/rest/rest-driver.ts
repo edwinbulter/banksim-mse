@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type APIRequestContext, type APIResponse } from '@playwright/test';
 import type {
+  RekeninghouderInBeheer,
   BankDriver,
   Betaalopdracht,
   MaximaleLengtes,
@@ -369,6 +370,13 @@ export class RestDriver implements BankDriver {
       omschrijving: omschrijving ?? tegenpartij,
       bedrag,
     }));
+  }
+
+  /** S10.1: als beheerder; een 200 met een lijst is het protocol (ADR 0031). */
+  async zoekRekeninghouders(tekst: string): Promise<RekeninghouderInBeheer[]> {
+    const antwoord = await this.request.get('/api/beheer/rekeninghouders', { params: { zoek: tekst } });
+    expect(antwoord.status(), `GET /api/beheer/rekeninghouders: ${(await antwoord.text()).slice(0, 300)}`).toBe(200);
+    return (await antwoord.json()) as RekeninghouderInBeheer[];
   }
 
   async zetSimulatiedatum(datum: string): Promise<Uitkomst> {

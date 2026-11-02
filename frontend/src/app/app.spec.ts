@@ -2,7 +2,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Location } from '@angular/common';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import type { Contact, LopendeRente, Pagina, Rekening, Transactie } from './api/schemas';
+import type { Contact, LopendeRente, Pagina, Rekening, RekeninghouderInBeheer, Transactie } from './api/schemas';
 import { App } from './app';
 import { appConfig } from './app.config';
 import { Browser } from './browser';
@@ -791,5 +791,37 @@ describe('App', () => {
       body: [...JAN, { soort: 'spaar', iban: 'NL67SIMB0000000002', saldo: '5000.00' }],
     });
     expect(knop(pagina, 'Overschrijven')?.disabled).toBe(false);
+  });
+
+  /** S10.1 (FO "Admin scherm"): de beheerder zoekt op naam of rekeningnummer en ziet de rekeninghouders met hun saldi. */
+  it('toont de gevonden rekeninghouders met hun rekeningen en saldi op het beheerscherm (S10.1)', async () => {
+    const pagina = await start('/beheer');
+    vulIn(pagina, 'Naam of rekeningnummer', 'NL94 SIMB');
+    knop(pagina, 'Zoeken')?.click();
+    await ververs();
+
+    http.expectOne('/api/beheer/rekeninghouders?zoek=NL94%20SIMB').flush([
+      { naam: 'Jan', betaalrekening: 'NL94SIMB0000000001', saldo: '1842.17', spaarrekening: 'NL67SIMB0000000002', spaarsaldo: '12405.63' },
+      { naam: 'Piet', betaalrekening: 'NL40SIMB0000000003', saldo: '5.00', spaarrekening: null, spaarsaldo: null },
+    ] satisfies RekeninghouderInBeheer[]);
+    await ververs();
+
+    const rijen = [...(pagina.querySelector('table[aria-label="Rekeninghouders"]')?.querySelectorAll('tbody tr') ?? [])];
+    expect(rijen.map((rij) => [...rij.querySelectorAll('td')].map((cel) => cel.textContent?.trim()))).toEqual([
+      ['Jan', 'NL94SIMB0000000001', '€ 1.842,17', 'NL67SIMB0000000002', '€ 12.405,63'],
+      ['Piet', 'NL40SIMB0000000003', '€ 5,00', '', ''],
+    ]);
+  });
+
+  it('meldt het als het beheerscherm niemand vindt (S10.1)', async () => {
+    const pagina = await start('/beheer');
+    vulIn(pagina, 'Naam of rekeningnummer', 'Jumbo');
+    knop(pagina, 'Zoeken')?.click();
+    await ververs();
+
+    http.expectOne('/api/beheer/rekeninghouders?zoek=Jumbo').flush([]);
+    await ververs();
+
+    expect(pagina.textContent).toContain('Geen rekeninghouders gevonden.');
   });
 });
