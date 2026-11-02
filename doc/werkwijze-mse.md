@@ -1225,7 +1225,7 @@ Wat hierboven stond en is opgelost, met waar je het terugvindt. Het nieuwste sta
 
 | Datum | Punt | Opgelost in | Commit |
 | --- | --- | --- | --- |
-| 2026-11-02 | `npm audit`: de kwetsbaarheid met niveau high in `vite` (en low in `@angular/build`) | `npm audit fix` zonder `--force`: `@angular/build` 22.2.5 met `vite` 8.3.5; geen breaking change meer nodig | COMMIT |
+| 2026-11-02 | `npm audit`: de kwetsbaarheid met niveau high in `vite` (en low in `@angular/build`) | `npm audit fix` zonder `--force`: `@angular/build` 22.2.5 met `vite` 8.3.5; geen breaking change meer nodig | 9d6a968 |
 | 2026-11-01 | Nooit rood ná de rentecorrecties (TO §6) | Bleek al afgedwongen: een correctie gaat zelf via `LedgerService`. ADR 0036; `RenteServiceTests.eenOpnameWaarvanDeCorrectiesDeSpaarrekeningRoodZoudenMakenWordtGeweigerd` | 98bd5ad |
 | 2026-11-01 | Zoeken op omschrijving (FO: "Naam, bedrag, IBAN of omschrijving") | Scenario "Zoeken op omschrijving" in `zoeken.spec.ts`; het tekstveld zoekt ook in de omschrijving | f555937 |
 | 2026-11-01 | Zoeken op bedrag in het tekstveld | Scenario "Zoeken op bedrag 63,48 in het tekstveld"; een bedrag vindt alleen precies dat bedrag | f555937 |
