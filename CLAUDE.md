@@ -50,6 +50,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Het grootboek kent de rente-code niet; die luistert naar `OverboekingGeboekt` (ADR 0030) | `GrootboekKentRenteNietTests` | ja, sabotage (S9.1, rentecorrectie) |
 | Elk endpoint heeft `@PreAuthorize`; zonder token 401, als klant 403 op beheer (ADR 0022) | `ToegangPerEndpointTests`, `AlleEndpointsTests` | ja, e0cddec |
 | Gelijktijdige overboekingen: geen deadlock, totaal behouden, nooit onder nul (ADR 0026) | `grootboek/GelijktijdigeOverboekingenTests` | ja, sabotage in 54eac60 |
+| Een opname of inleg en de maandafsluiting op dezelfde spaarrekening: geen deadlock, en de rente telt de boeking mee, in beide volgordes (ADR 0039) | `rente/GelijktijdigeRenteTests` | ja, sabotage: de foreign key van `rentebijschrijving` weg, alle drie de tests rood |
 | Een betaling met dezelfde Idempotency-Key boekt één keer; de sleutel geldt per gebruiker (ADR 0027) | `BetalingControllerTests`, `JdbcIdempotentieTests` | ja, sabotage in 8140ffd |
 | Een overboeking heeft twee kanten die samen nul zijn (ADR 0024) | trigger in `db/migration/V6__grootboek.sql`, via `JdbcGrootboekTests` | ja, sabotage (fase 1 van de backlog) |
 | Geen `double`/`float` voor bedragen (ADR 0010) | `GeenDrijvendeKommaTests` in bank-api (ook bank-domain), bank-seed en bank-bff | ja, sabotage in alle vier de modules (fase 1 en 6.4) |

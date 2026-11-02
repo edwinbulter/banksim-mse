@@ -123,6 +123,7 @@ De uitwerking per stack, met werkende regels, staat in `references/stack-*.md`.
 ## 5. Werken met AI (jij)
 
 - Neem per stap **één falend scenario** als opdracht, met de relevante ADR's en de bestaande code. Lees niet het hele functionele ontwerp in om alles tegelijk te bouwen.
+- **Vertaal gangbare vaktermen niet.** Schrijf foreign key, deadlock en commit, niet vreemde sleutel, impasse of vastlegging. Domeintermen volgen de taal van het profiel; vaktermen de taal waarin ontwikkelaars ze gebruiken.
 - **Stel voor, besluit niet.** Scenario's, verwachte waarden en ADR-beslissingen zijn van de gebruiker.
 - **Laat elke rode test zien**, met de foutmelding, vóór je de code schrijft. Dan kan de gebruiker volgen dat de test echt iets bewijst.
 - Refactoren is een **aparte stap**, nooit verstopt in een groen-stap.

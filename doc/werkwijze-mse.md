@@ -1217,7 +1217,6 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Integratietest van de realm met Testcontainers | Zie hoofdstuk 9.1 | Bij de volgende realm-wijziging (slice 6 of 10) |
 | Herstart van PostgreSQL en Keycloak behoudt de data | Zie hoofdstuk 9.4 | CFR Resilience |
 | Mutation testing van de frontend met Stryker | Zie de ADR-backlog (hoofdstuk 6) | Zodra de frontend meer logica krijgt (slice 7) |
-| Een opname of inleg in een maand die al rente heeft (de simulatiedatum staat terug), vergrendelt de spaarrekening en daarna, voor de rentecorrectie, de renterekening van BankSim. Een afsluiting die nieuwe maanden voor dezelfde spaarrekening afsluit, vergrendelt ze in IBAN-volgorde (ADR 0026): de renterekening eerst. Gebeurt dat precies tegelijk, dan meldt PostgreSQL een deadlock en draait één van beide terug | Nagegaan op 2026-11-02: de nachtelijke afsluiting kan niet botsen, want als de datum terugstaat, zijn alle maanden tot dan al afgesloten. Alleen de beheerder die de datum vooruitzet, voorbij de vorige verste datum, precies tijdens zo'n opname of inleg. Er raakt niets kwijt en niets blijft hangen; opnieuw versturen lukt | Een gelijktijdigheidstest met latches (zoals bij ADR 0026), en de afsluiting eerst de spaarrekening laten vergrendelen; bij het beheerscherm van slice 10 (S10.2) of CFR Resilience |
 | De grenzen van de simulatiedatum (1 oktober 2021 t/m 31 december 2026) zijn vaste datums uit het FO, in `simulatie/Historie.java`; het FO wil "de eerste dag van de fake data en de laatste gegenereerde dag". "Terug naar vandaag" is niet begrensd: na 31 december 2026 staat de bank daarmee buiten de historie | De fake data bestaat pas na de generator van S11.1; de scenario's maken nu hun eigen data | S11.1: de grenzen uit de gegenereerde data halen, achter `GET /api/beheer/simulatiedatum` (`eerste`, `laatste`) |
 
 #### Opgeloste losse backlogpunten
@@ -1226,6 +1225,7 @@ Wat hierboven stond en is opgelost, met waar je het terugvindt. Het nieuwste sta
 
 | Datum | Punt | Opgelost in | Commit |
 | --- | --- | --- | --- |
+| 2026-11-02 | Mogelijke deadlock tussen een opname of inleg met rentecorrectie en de maandafsluiting | Bleek er niet te zijn: de foreign key van `rentebijschrijving` naar `rekening` laat ze op elkaar wachten, en voorkomt ook rente over een saldo zonder de boeking. Er is geen productiegedrag veranderd. ADR 0039; `GelijktijdigeRenteTests` | deze commit |
 | 2026-11-02 | `npm audit`: de kwetsbaarheid met niveau high in `vite` (en low in `@angular/build`) | `npm audit fix` zonder `--force`: `@angular/build` 22.2.5 met `vite` 8.3.5; geen breaking change meer nodig | 9d6a968 |
 | 2026-11-01 | Nooit rood ná de rentecorrecties (TO §6) | Bleek al afgedwongen: een correctie gaat zelf via `LedgerService`. ADR 0036; `RenteServiceTests.eenOpnameWaarvanDeCorrectiesDeSpaarrekeningRoodZoudenMakenWordtGeweigerd` | 98bd5ad |
 | 2026-11-01 | Zoeken op omschrijving (FO: "Naam, bedrag, IBAN of omschrijving") | Scenario "Zoeken op omschrijving" in `zoeken.spec.ts`; het tekstveld zoekt ook in de omschrijving | f555937 |

@@ -30,7 +30,16 @@ class MaandRente {
         this.ledger = ledger;
     }
 
-    /** Bijgeschreven op de laatste dag van de maand, als "Rente januari"; zonder rente alleen vastgelegd. */
+    /**
+     * Schrijft de rente bij op de laatste dag van de maand, als "Rente januari". Zonder rente legt hij de maand alleen vast.
+     *
+     * <p>Het vastleggen moet de eerste stap blijven (ADR 0039). Die INSERT vraagt via de foreign key een lock op de rij
+     * van de spaarrekening. Een opname of inleg en de afsluiting wachten daardoor op elkaar:
+     * <ul>
+     * <li>Is de opname of inleg al bezig, dan wacht de afsluiting hier, en telt de rente de boeking daarna mee.
+     * <li>Komt de opname of inleg later, dan wacht die tot de afsluiting klaar is, en boekt daarna een rentecorrectie.
+     * </ul>
+     */
     @Transactional
     public void boek(Spaarrekening rekening, YearMonth maand) {
         if (!opslag.markeer(rekening.iban(), maand)) {
