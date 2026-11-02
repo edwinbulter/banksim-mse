@@ -3,14 +3,14 @@
 De test zet een nagebootste Keycloak op en stuurt één echt ondertekend JWT door de echte beveiligingsketen van
 `bank-api`. Het enige dat wordt nagebootst is Keycloak zelf. Hieronder de stappen in de volgorde waarin ze gebeuren.
 
-## 1. Opbouw: een sleutel en een nep-Keycloak (statische velden)
+## 1. Opbouw: een sleutel en een nep-Keycloak (statische fields)
 
 - **`SLEUTEL`**: een RSA-sleutelpaar van 2048 bits met key-id `"sleutel"` (`sleutel()`). De private key ondertekent
   de tokens. De public key gaat naar de nep-Keycloak.
 - **`KEYCLOAK`**: een JDK-`HttpServer` op een willekeurige vrije poort (`jwks()`). Op `/certs` geeft hij een JWK Set
   terug met alleen de **public** key. Keycloak doet hetzelfde op `/realms/<realm>/protocol/openid-connect/certs`.
 
-Dit zijn statische velden. Ze bestaan dus al voordat Spring de context opbouwt, en dat moet ook, want de properties in
+Dit zijn statische fields. Ze bestaan dus al voordat Spring de context opbouwt, en dat moet ook, want de properties in
 stap 2 hebben de poort nodig.
 
 ## 2. Spring koppelen aan die nep-Keycloak (`@DynamicPropertySource`)

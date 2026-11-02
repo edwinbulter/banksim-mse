@@ -48,7 +48,7 @@ Het uitgestelde werk van de slices blijft in [werkwijze-mse.md](werkwijze-mse.md
 
 1. **Klaar: elke bestaande vangrail is één keer rood gezien.** De sabotage is telkens weer weggehaald.
    - De trigger in `V6__grootboek.sql`, uitgezet: vier tests in `JdbcGrootboekTests` werden rood (één kant, drie kanten, som niet nul, dezelfde rekening).
-   - `GeenDrijvendeKommaTests` en `GeenSysteemtijdTests`: een veld `double` en een aanroep van `LocalDate.now()`, in `bank-api` en in `bank-domain`.
+   - `GeenDrijvendeKommaTests` en `GeenSysteemtijdTests`: een field `double` en een aanroep van `LocalDate.now()`, in `bank-api` en in `bank-domain`.
    - `scripts/iac-check.sh`: een `ClusterRole`, een `ConfigMap` in namespace `banksim` en een letterlijk `DB_PASSWORD` werden elk tegengehouden.
    - De eslint-regels van ADR 0010: `parseFloat`, `parseInt`, `Number()`, `Number.parseFloat` en de unaire `+` gaven elk een fout.
 2. **Klaar: de werkwijze is gelijkgetrokken met de skill.** De DoD in hoofdstuk 12 eist nu dat elke nieuwe vangrail één keer rood is gezien. Hoofdstuk 10 verwijst naar §6 van de skill, en hoofdstuk 6 naar deze backlog.
@@ -134,7 +134,7 @@ Het uitgestelde werk van de slices blijft in [werkwijze-mse.md](werkwijze-mse.md
    - De probleemcodes zijn enums: `Weigering` (betaling) en `ZoekProbleem` (transactie), met de code van het probleemtype letterlijk per waarde, want de API belooft hem. Een tikfout in een `new BetalingGeweigerd("…")` kan niet meer.
    - Drie codes van het zoekfilter (`ongeldig-bedrag`, `ongeldig-type`, `ongeldige-richting`) werden alleen in `ZoekfilterTests` als tekst gecontroleerd; die test gebruikt nu de enum. `TransactieControllerTests.eenOngeldigVeldGeeft400MetZijnProbleemtype` controleert ze nu als URN. Sabotage: "ongeldig-richting" in de enum maakte hem rood.
    - `BetaalService.betaal` krijgt een `Betaalopdracht` (record) in plaats van negen parameters.
-3. **Klaar (⛔ besloten: zo laten): de stijl voor ontbrekende waarden.** `Partij`, `Zoekfilter` en `Pagina` gebruiken `Optional` als veld van een record; `Overboeking` gebruikt `null` voor omschrijving, betalingskenmerk en extra omschrijving. Dat verschil is bewust: `Overboeking` volgt de kolommen die in de database `null` mogen zijn en het FO ("indien aanwezig"), en zijn Javadoc zegt dat. Alles naar één stijl omzetten raakt veel code voor weinig winst.
+3. **Klaar (⛔ besloten: zo laten): de stijl voor ontbrekende waarden.** `Partij`, `Zoekfilter` en `Pagina` gebruiken `Optional` als field van een record; `Overboeking` gebruikt `null` voor omschrijving, betalingskenmerk en extra omschrijving. Dat verschil is bewust: `Overboeking` volgt de kolommen die in de database `null` mogen zijn en het FO ("indien aanwezig"), en zijn Javadoc zegt dat. Alles naar één stijl omzetten raakt veel code voor weinig winst.
 
 ## Fase 6: geautomatiseerde controles vóór productie (Farley)
 
@@ -152,8 +152,8 @@ Uit de vergelijking met Farley (31 oktober): vertrouw niet op mensen die code le
    - In tests: een expliciete tekenset, `execute` in plaats van een genegeerde `Future`, en een Javadoc op de goede plek. `BffProperties` en `SeedProperties` kregen een samenvattende regel.
    - Compileren duurt ongeveer 5 seconden langer. Sabotage: `toLowerCase()` zonder `Locale` in `VersieController` brak de build met `[StringCaseLocaleUsage]`.
 4. **Klaar: architectuurregels voor bank-bff en bank-seed.** Er stond al: geen systeemtijd (fase 2.4) en geen `synchronized` (bronscan, fase 2.3). Dat bank-bff niets van het domein en van bank-seed weet, en dat bank-api niets van bank-seed weet, dwingt Maven af: die afhankelijkheden bestaan niet. Twee gaten zijn gedicht:
-   - `GeenDrijvendeKommaTests` (ADR 0010) ook in bank-seed en bank-bff. bank-seed zet saldi en transacties klaar. Sabotage: een `double`-veld in `SeedCommando` en een `double`-parameter in `ApiRoute`, beide rood.
-   - `AlleenOpslagKentSqlTests` in bank-seed: alleen de klassen `Jdbc*` (en de applicatie, die ze opbouwt) gebruiken `JdbcClient`. Sabotage: een `JdbcClient`-veld in `SeedCommando`, rood.
+   - `GeenDrijvendeKommaTests` (ADR 0010) ook in bank-seed en bank-bff. bank-seed zet saldi en transacties klaar. Sabotage: een `double`-field in `SeedCommando` en een `double`-parameter in `ApiRoute`, beide rood.
+   - `AlleenOpslagKentSqlTests` in bank-seed: alleen de klassen `Jdbc*` (en de applicatie, die ze opbouwt) gebruiken `JdbcClient`. Sabotage: een `JdbcClient`-field in `SeedCommando`, rood.
    - Geen verdere regels voor bank-bff: het is een doorgeefluik zonder eigen logica (ADR 0008). Wat daar bewaakt moet worden, is gedrag (`BffTests`), geen indeling.
    - Niet gekozen: "bank-seed boekt via de domeinregels" als regel. bank-seed gebruikt `Bedrag` en `Iban` uit het domein, en de geldregel dekt de rest. Een externe transactie heeft maar één kant in de bank, dus `Overboeking` past daar niet.
 5. **Klaar: de skill `atdd` aangevuld** (`.claude/skills/atdd/`):

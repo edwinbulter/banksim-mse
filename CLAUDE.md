@@ -75,7 +75,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - Node 24 via `PATH=/opt/homebrew/opt/node@24/bin:$PATH`. De `Makefile` doet dit zelf. Raak de systeem-Node niet aan.
 - Commitprefix `[ECS-63]`, tenzij de gebruiker een andere noemt.
 - Nooit committen of pushen zonder toestemming. Een push naar `main` start de pipeline.
-- Taal: Nederlands, in de code (domeintermen), de specs, de ADR's en de documentatie.
+- Taal: Nederlands, in de code (domeintermen), de specs, de ADR's en de documentatie. Gangbare vaktermen vertaal je niet: foreign key, nooit vreemde sleutel. Een field van een Java-klasse heet field, nooit veld; bij formulieren en in scenarioteksten mag veld wel.
 
 **Valkuilen**
 - `make e2e` test wat er op dat moment geïnstalleerd is. Na een codewijziging gebruik je `make acceptance`, en controleer je de versie.

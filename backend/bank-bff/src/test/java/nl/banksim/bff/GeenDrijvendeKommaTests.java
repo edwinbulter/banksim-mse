@@ -25,12 +25,12 @@ class GeenDrijvendeKommaTests {
     private static final Set<String> VERBODEN = Set.of("double", "float", "java.lang.Double", "java.lang.Float");
 
     @ArchTest
-    static final ArchRule geenVeldenParametersOfReturntypes = classes().should(new ArchCondition<JavaClass>(
-            "geen double of float als veld, parameter of returntype hebben") {
+    static final ArchRule geenFieldsParametersOfReturntypes = classes().should(new ArchCondition<JavaClass>(
+            "geen double of float als field, parameter of returntype hebben") {
         @Override
         public void check(JavaClass klasse, ConditionEvents events) {
             Stream.concat(
-                    klasse.getFields().stream().map(veld -> new Gebruik(veld.getFullName(), veld.getRawType())),
+                    klasse.getFields().stream().map(field -> new Gebruik(field.getFullName(), field.getRawType())),
                     klasse.getCodeUnits().stream().flatMap(code -> Stream.concat(
                             Stream.of(code.getRawReturnType()), code.getRawParameterTypes().stream())
                             .map(type -> new Gebruik(code.getFullName(), type))))

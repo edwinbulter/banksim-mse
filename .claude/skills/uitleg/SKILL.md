@@ -44,4 +44,4 @@ Sluit af met twee of drie vragen waarop de developer kan doorgaan, bijvoorbeeld 
 - **Leg het *waarom* uit, niet alleen het *wat*.** Code voorlezen helpt niet; de keuze erachter wel.
 - **Niets wegschrijven.** De uitleg komt in het gesprek, niet in een document dat kan verouderen.
 - **Niets wijzigen.** Zie je een fout of een ontbrekende test, noem hem dan bij de kritische punten. Repareren gaat via de skill `atdd`, met eerst een rode test.
-- **Taal:** die van het profiel, met de domeintermen uit de code. Gangbare vaktermen vertaal je niet: foreign key, niet vreemde sleutel.
+- **Taal:** die van het profiel, met de domeintermen uit de code. Gangbare vaktermen vertaal je niet: foreign key, niet vreemde sleutel. Een field van een Java-klasse heet field, niet veld; bij formulieren en in scenarioteksten mag veld wel.
