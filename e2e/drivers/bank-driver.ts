@@ -130,6 +130,8 @@ export interface BankDriver {
   openStartpagina(): Promise<void>;
   /** De versie die BankSim toont of teruggeeft. */
   versie(): Promise<string>;
+  /** Alleen in de UI-driver (@ui): welk scherm de app nu toont (S10.1, ADR 0037). */
+  scherm(): Promise<'overzicht' | 'beheer'>;
   /** Inloggen via Keycloak en de BFF, zoals een gebruiker dat doet. */
   logIn(gebruikersnaam: string, wachtwoord: string): Promise<void>;
   /** Alleen in de UI-driver (@ui): inloggen zonder te verwachten dat het lukt (S6.1). */

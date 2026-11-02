@@ -25,6 +25,16 @@ export class Beheerder {
     expect(await driver.zetSimulatiedatum(datum), 'simulatiedatum zetten als beheerder').toBe('gelukt');
   }
 
+  /** Inloggen in het protocol van het project, zoals de beheerder dat doet. */
+  async logtIn(): Promise<void> {
+    await this.opHetScherm();
+  }
+
+  /** S10.1, ADR 0037: na het inloggen staat de beheerder op het beheerscherm, niet op een overzicht. */
+  async verwachtBeheerscherm(): Promise<void> {
+    expect(await (await this.opHetScherm()).scherm(), 'scherm na het inloggen').toBe('beheer');
+  }
+
   /** S10.1: zoeken op het rekeningnummer van de klant; dat is uniek, de naam in de testdata niet. */
   async zoektRekeninghouder(klant: Klant): Promise<void> {
     this.gevonden = await (await this.opHetScherm()).zoekRekeninghouders(klant.iban());

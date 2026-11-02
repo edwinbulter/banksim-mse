@@ -20,6 +20,12 @@ export class IkDienst {
     );
 }
 
+/** Het overzicht is voor klanten: een beheerder gaat meteen naar het beheerscherm, zonder het overzicht te zien. */
+export const beheerderNaarBeheer: CanActivateFn = () => {
+  const router = inject(Router);
+  return inject(IkDienst).beheerder.pipe(map((beheerder) => !beheerder || router.createUrlTree(['/beheer'])));
+};
+
 /** De portier van /beheer: een beheerder mag door, een klant gaat naar zijn overzicht. */
 export const alleenBeheerder: CanActivateFn = () => {
   const router = inject(Router);

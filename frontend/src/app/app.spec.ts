@@ -32,9 +32,17 @@ describe('App', () => {
     fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     http.expectOne('/api/versie').flush({ versie: '1.2.3' });
-    await TestBed.inject(Router).navigateByUrl(url);
+    const navigatie = TestBed.inject(Router).navigateByUrl(url);
+    await antwoordIkAlsKlant();
+    await navigatie;
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
+  }
+
+  /** ADR 0037: de portier van het overzicht vraagt wie de gebruiker is; hier steeds een klant. De router start hem asynchroon. */
+  async function antwoordIkAlsKlant(): Promise<void> {
+    await new Promise((verder) => setTimeout(verder));
+    for (const ik of http.match('/api/ik')) ik.flush({ gebruikersnaam: 'jan', beheerder: false } satisfies Ik);
   }
 
   /** ADR 0037: de portier van /beheer vraagt eerst wie de gebruiker is; de navigatie wacht op dat antwoord. */
@@ -180,6 +188,7 @@ describe('App', () => {
     await transacties('/api/rekeningen/NL94SIMB0000000001/transacties', TWEE_DAGEN);
 
     link(pagina, 'Overzicht')?.click();
+    await antwoordIkAlsKlant();
     await ververs();
     await rekeningen({ status: 200, body: JAN });
 
@@ -853,5 +862,21 @@ describe('App', () => {
 
     expect(TestBed.inject(Router).url).toBe('/beheer');
     expect(pagina.querySelector('h2')?.textContent).toBe('Beheer');
+  });
+
+  /** ADR 0037: na het inloggen komt de beheerder op het beheerscherm, zonder eerst het overzicht te zien. */
+  it('stuurt een beheerder van het overzicht naar het beheerscherm', async () => {
+    fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    http.expectOne('/api/versie').flush({ versie: '1.2.3' });
+    const navigatie = TestBed.inject(Router).navigateByUrl('/');
+    await new Promise((verder) => setTimeout(verder));
+    http.expectOne('/api/ik').flush({ gebruikersnaam: 'beheerder', beheerder: true } satisfies Ik);
+    await navigatie;
+    fixture.detectChanges();
+
+    expect(TestBed.inject(Router).url).toBe('/beheer');
+    expect((fixture.nativeElement as HTMLElement).querySelector('h2')?.textContent).toBe('Beheer');
+    http.expectNone('/api/rekeningen');
   });
 });

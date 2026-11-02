@@ -61,6 +61,10 @@ export class RestDriver implements BankDriver {
     expect(antwoord.url(), 'na inloggen terug op BankSim').toMatch(/^https:\/\/bank-mse\.localtest\.me\/?$/);
   }
 
+  async scherm(): Promise<'overzicht' | 'beheer'> {
+    throw new Error('Schermen bestaan alleen in de browser (@ui)');
+  }
+
   async probeerInTeLoggen(): Promise<void> {
     throw new Error('Het inlogscherm bestaat alleen in de browser (@ui)');
   }

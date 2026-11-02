@@ -28,3 +28,10 @@ test('Klant kan niet bij beheer', async ({ bank }) => {
     jan.verwachtGeenToegangTotBeheer(),
   );
 });
+
+/** S10.1, ADR 0037: na het inloggen kiest de app het scherm bij de rol. @ui: het gaat om waar de beheerder terechtkomt. */
+test('De beheerder komt na het inloggen op het beheerscherm', { tag: '@ui' }, async ({ bank }) => {
+  const beheerder = bank.beheerder();
+  await bank.als('de beheerder inlogt', () => beheerder.logtIn());
+  await bank.dan('ziet hij het beheerscherm', () => beheerder.verwachtBeheerscherm());
+});

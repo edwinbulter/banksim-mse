@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import type {
   RekeninghouderInBeheer,
   BankDriver,
@@ -58,6 +58,13 @@ export class UiDriver implements BankDriver {
     await this.start.open();
     await this.start.kiesInloggen();
     await this.inlog.logIn(gebruikersnaam, wachtwoord);
+  }
+
+  /** Wacht tot het overzicht of het beheerscherm er staat. */
+  async scherm(): Promise<'overzicht' | 'beheer'> {
+    const beheer = this.page.getByRole('heading', { name: 'Beheer' });
+    await expect(beheer.or(this.page.getByRole('heading', { name: /^Welkom/ }))).toBeVisible();
+    return (await beheer.isVisible()) ? 'beheer' : 'overzicht';
   }
 
   async probeerInTeLoggen(gebruikersnaam: string, wachtwoord: string): Promise<void> {
