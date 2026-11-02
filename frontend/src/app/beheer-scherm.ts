@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type { RekeninghouderInBeheer } from './api/schemas';
 import { meldingBij } from './fout';
 import { bedragVoorWeergave } from './geld/bedrag';
@@ -10,6 +11,7 @@ import { bedragVoorWeergave } from './geld/bedrag';
  */
 @Component({
   selector: 'app-beheer-scherm',
+  imports: [RouterLink],
   template: `
     <h2>Beheer</h2>
     <form aria-label="Rekeninghouders zoeken" (submit)="$event.preventDefault(); zoek()">
@@ -32,7 +34,7 @@ import { bedragVoorWeergave } from './geld/bedrag';
             @for (r of gevonden; track r.betaalrekening + (r.spaarrekening ?? '')) {
               <tr>
                 <td>{{ r.naam }}</td>
-                <td>{{ r.betaalrekening }}</td>
+                <td><a [routerLink]="['/beheer/rekeningen', r.betaalrekening]">{{ r.betaalrekening }}</a></td>
                 <td>{{ weergave(r.saldo) }}</td>
                 <td>{{ r.spaarrekening ?? '' }}</td>
                 <td>{{ r.spaarsaldo === null ? '' : weergave(r.spaarsaldo) }}</td>

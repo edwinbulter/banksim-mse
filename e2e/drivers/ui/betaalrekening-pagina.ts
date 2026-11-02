@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { Partij, Transactie, TransactieDetails, TransactieType, TransactiesOpDatum } from '../bank-driver';
+import type { Partij, Transactie, TransactieDetails, TransactieType, TransactiesOpDatum, Uitkomst } from '../bank-driver';
 
 const MAANDEN = [
   'januari', 'februari', 'maart', 'april', 'mei', 'juni',
@@ -45,6 +45,12 @@ export class BetaalrekeningPagina {
     const rekening = this.page.getByRole('list', { name: 'Transacties' }).or(this.page.getByText(LEEG));
     await expect(melding.or(rekening)).toBeVisible();
     return melding.isVisible();
+  }
+
+  /** Wacht tot de transacties er staan; daarna is de knop "Betalen" er wel of niet. */
+  async betalenMogelijk(): Promise<Uitkomst> {
+    await expect(this.page.getByRole('list', { name: 'Transacties' }).or(this.page.getByText(LEEG))).toBeVisible();
+    return (await this.page.getByRole('link', { name: 'Betalen' }).isVisible()) ? 'gelukt' : 'geweigerd';
   }
 
   async transacties(): Promise<TransactiesOpDatum[]> {

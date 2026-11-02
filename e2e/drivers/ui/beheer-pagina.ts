@@ -14,6 +14,13 @@ export class BeheerPagina {
     return (await beheer.isVisible()) ? 'gelukt' : 'geweigerd';
   }
 
+  /** Zoeken op het rekeningnummer en in de tabel op de betaalrekening klikken, zoals de beheerder dat doet. */
+  async openRekening(iban: string): Promise<void> {
+    await this.zoek(iban);
+    await this.page.getByRole('table', { name: 'Rekeninghouders' }).getByRole('link', { name: iban }).click();
+    await expect(this.page.getByRole('heading', { name: 'Betaalrekening' })).toBeVisible();
+  }
+
   async zoek(tekst: string): Promise<RekeninghouderInBeheer[]> {
     await this.page.goto('/beheer');
     await this.page.getByLabel('Naam of rekeningnummer').fill(tekst);

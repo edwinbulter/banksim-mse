@@ -13,4 +13,10 @@ interface TransactieRepository {
      */
     Optional<Pagina> vanRekening(String gebruikersnaam, Iban iban, LocalDate vandaag, Zoekfilter filter, Optional<Positie> na,
             int aantal);
+
+    /**
+     * ADR 0038: als {@link #vanRekening}, maar zonder eigenaar, voor de beheerder; leeg als de rekening niet bestaat.
+     * Alleen voor de controller onder /api/beheer, die de rol beheerder vraagt.
+     */
+    Optional<Pagina> inBeheer(Iban iban, LocalDate vandaag, Zoekfilter filter, Optional<Positie> na, int aantal);
 }

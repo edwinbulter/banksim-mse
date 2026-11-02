@@ -35,3 +35,24 @@ test('De beheerder komt na het inloggen op het beheerscherm', { tag: '@ui' }, as
   await bank.als('de beheerder inlogt', () => beheerder.logtIn());
   await bank.dan('ziet hij het beheerscherm', () => beheerder.verwachtBeheerscherm());
 });
+
+/** S10.1 (FO "Admin scherm"): de beheerder ziet de transacties van een klant, maar kan niets veranderen. */
+test('De beheerder bekijkt de betaalrekening van een klant alleen-lezen', async ({ bank }) => {
+  const beheerder = bank.beheerder();
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening({ saldo: '1000.00' }));
+  await bank.en('op 1 oktober 2026 betaalde Jan € 812,40 aan Woningstichting Thuis', () =>
+    jan.heeftBetaald({ op: '2026-10-01', bedrag: '812.40', aan: 'Woningstichting Thuis' }),
+  );
+  await bank.en('op 2 oktober 2026 ontving Jan € 3.215,00 van Werkgever B.V.', () =>
+    jan.heeftOntvangen({ op: '2026-10-02', bedrag: '3215.00', van: 'Werkgever B.V.' }),
+  );
+  await bank.als('de beheerder de betaalrekening van Jan opent', () => beheerder.opentBetaalrekeningVan(jan));
+  await bank.dan('ziet de beheerder de transacties van Jan per datum, nieuw naar oud', () =>
+    beheerder.verwachtTransactielijst([
+      { datum: '2026-10-02', transacties: [{ tegenpartij: 'Werkgever B.V.', bedrag: '3215.00' }] },
+      { datum: '2026-10-01', transacties: [{ tegenpartij: 'Woningstichting Thuis', bedrag: '-812.40' }] },
+    ]),
+  );
+  await bank.maar('kan de beheerder niet betalen', () => beheerder.verwachtAlleenLezen());
+});

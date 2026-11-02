@@ -46,11 +46,11 @@ describe('App', () => {
   }
 
   /** ADR 0037: de portier van /beheer vraagt eerst wie de gebruiker is; de navigatie wacht op dat antwoord. */
-  async function naarBeheer(beheerder: boolean): Promise<HTMLElement> {
+  async function naarBeheer(beheerder: boolean, url = '/beheer'): Promise<HTMLElement> {
     fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     http.expectOne('/api/versie').flush({ versie: '1.2.3' });
-    const navigatie = TestBed.inject(Router).navigateByUrl('/beheer');
+    const navigatie = TestBed.inject(Router).navigateByUrl(url);
     await new Promise((verder) => setTimeout(verder)); // de router start de portier asynchroon
     http.expectOne('/api/ik').flush({ gebruikersnaam: beheerder ? 'beheerder' : 'jan', beheerder } satisfies Ik);
     await navigatie;
@@ -878,5 +878,30 @@ describe('App', () => {
     expect(TestBed.inject(Router).url).toBe('/beheer');
     expect((fixture.nativeElement as HTMLElement).querySelector('h2')?.textContent).toBe('Beheer');
     http.expectNone('/api/rekeningen');
+  });
+
+  /** S10.1, ADR 0038: vanuit de tabel opent de beheerder de betaalrekening van een klant. */
+  it('linkt in de tabel van het beheerscherm de betaalrekening naar het scherm alleen-lezen', async () => {
+    const pagina = await naarBeheer(true);
+    vulIn(pagina, 'Naam of rekeningnummer', 'Jan');
+    knop(pagina, 'Zoeken')?.click();
+    await ververs();
+    http.expectOne('/api/beheer/rekeninghouders?zoek=Jan').flush([
+      { naam: 'Jan', betaalrekening: 'NL94SIMB0000000001', saldo: '1842.17', spaarrekening: null, spaarsaldo: null },
+    ] satisfies RekeninghouderInBeheer[]);
+    await ververs();
+
+    expect(link(pagina, 'NL94SIMB0000000001')?.getAttribute('href')).toBe('/beheer/rekeningen/NL94SIMB0000000001');
+  });
+
+  /** ADR 0038: dezelfde lijst als de klant ziet, via /api/beheer, zonder Betalen. */
+  it('toont de beheerder de transacties van een klant alleen-lezen, zonder Betalen', async () => {
+    const pagina = await naarBeheer(true, '/beheer/rekeningen/NL94SIMB0000000001');
+    http.expectOne('/api/beheer/rekeningen/NL94SIMB0000000001/transacties').flush(TWEE_DAGEN);
+    await ververs();
+
+    expect(pagina.querySelector('ul[aria-label="Transacties"]')).not.toBeNull();
+    expect(link(pagina, 'Betalen')).toBeUndefined();
+    expect(link(pagina, 'Beheer')?.getAttribute('href')).toBe('/beheer');
   });
 });

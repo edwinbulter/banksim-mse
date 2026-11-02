@@ -196,6 +196,59 @@ paths:
         "422":
           $ref: "#/components/responses/Geweigerd"
 
+  /api/beheer/rekeningen/{iban}/transacties:
+    get:
+      operationId: transactiesInBeheer
+      summary: Als beheerder, alleen-lezen, van elke rekening; verder als /api/rekeningen/{iban}/transacties (S10.1, ADR 0038).
+      parameters:
+        - $ref: "#/components/parameters/Iban"
+        - name: na
+          in: query
+          description: De cursor uit `volgende` van de vorige pagina (ADR 0011)
+          schema:
+            type: string
+        - name: tekst
+          in: query
+          description: >
+            Een deel van de naam of het IBAN van de tegenpartij, of van de omschrijving; of precies het bedrag, met punt
+            of komma
+          schema:
+            type: string
+        - name: van
+          in: query
+          description: Het bedrag vanaf, met punt of komma
+          schema:
+            type: string
+        - name: tm
+          in: query
+          description: Het bedrag tot en met, met punt of komma
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/Transactietype"
+        - name: richting
+          in: query
+          schema:
+            type: string
+            enum: [INKOMEND, UITGAAND]
+      responses:
+        "200":
+          description: De pagina
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pagina"
+        "400":
+          $ref: "#/components/responses/Probleem"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "403":
+          $ref: "#/components/responses/GeenRecht"
+        "404":
+          $ref: "#/components/responses/NietGevonden"
+
   /api/beheer/rekeninghouders:
     get:
       operationId: rekeninghouders

@@ -174,6 +174,50 @@ class TransactieControllerTests {
         mvc.perform(get("/api/rekeningen/" + VAN_JAN + "/transacties")).andExpect(status().isUnauthorized());
     }
 
+    /** S10.1, ADR 0038: de beheerder leest de rekening van elke klant, met dezelfde pagina als de klant. */
+    @Test
+    void deBeheerderLeestDeTransactiesVanEenKlant() throws Exception {
+        AANROEPEN.clear();
+        mvc.perform(get("/api/beheer/rekeningen/" + OOK_VAN_JAN + "/transacties").with(beheerder()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transacties[0].tegenpartij").value("Werkgever B.V."))
+                .andExpect(jsonPath("$.transacties.length()").value(2))
+                .andExpect(jsonPath("$.volgende").doesNotExist());
+        assertThat(AANROEPEN).containsExactly("beheer " + OOK_VAN_JAN + " tot 2026-10-05 vanaf het begin, 50");
+    }
+
+    /** "Toon meer" in beheer: de cursor uit volgende werkt ook daar. */
+    @Test
+    void ookInBeheerVraagtDeCursorDePaginaNaDeLaatsteTransactie() throws Exception {
+        String volgende = mvc.perform(get("/api/beheer/rekeningen/" + VAN_JAN + "/transacties").with(beheerder()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString().replaceAll(".*\"volgende\":\"([^\"]+)\".*", "$1");
+        AANROEPEN.clear();
+
+        mvc.perform(get("/api/beheer/rekeningen/" + VAN_JAN + "/transacties").param("na", volgende).with(beheerder()))
+                .andExpect(status().isOk());
+
+        assertThat(AANROEPEN).containsExactly("beheer " + VAN_JAN + " tot 2026-10-05 na " + LAATSTE_OP_PAGINA + ", 50");
+    }
+
+    @Test
+    void eenOnbekendeRekeningInBeheerIs404() throws Exception {
+        mvc.perform(get("/api/beheer/rekeningen/" + Iban.simBank(99L) + "/transacties").with(beheerder()))
+                .andExpect(status().isNotFound());
+    }
+
+    /** ADR 0038: een klant leest via beheer niets, ook zijn eigen rekening niet. */
+    @Test
+    void eenKlantKrijgtInBeheer403() throws Exception {
+        mvc.perform(get("/api/beheer/rekeningen/" + VAN_JAN + "/transacties").with(gebruiker("jan-a1-1")))
+                .andExpect(status().isForbidden());
+    }
+
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor beheerder() {
+        return jwt().jwt(token -> token.claim("preferred_username", "beheerder-a1-1"))
+                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_beheerder"));
+    }
+
     private static org.springframework.test.web.servlet.request.RequestPostProcessor gebruiker(String naam) {
         return jwt().jwt(token -> token.claim("preferred_username", naam));
     }
@@ -191,11 +235,29 @@ class TransactieControllerTests {
 
         @Bean
         TransactieRepository transactieRepository() {
-            // Op VAN_JAN volgt nog een pagina, op OOK_VAN_JAN niet.
-            return (gebruikersnaam, iban, vandaag, filter, na, aantal) -> {
-                AANROEPEN.add(iban + " tot " + vandaag + na.map(positie -> " na " + positie).orElse(" vanaf het begin")
-                        + ", " + aantal + (filter.equals(Zoekfilter.GEEN) ? "" : ", " + filter));
-                if (!"jan-a1-1".equals(gebruikersnaam) || !(VAN_JAN.equals(iban) || OOK_VAN_JAN.equals(iban))) {
+            return new TransactieRepository() {
+                @Override
+                public Optional<Pagina> vanRekening(String gebruikersnaam, Iban iban, LocalDate vandaag, Zoekfilter filter,
+                        Optional<Positie> na, int aantal) {
+                    AANROEPEN.add(iban + " tot " + vandaag + na.map(positie -> " na " + positie).orElse(" vanaf het begin")
+                            + ", " + aantal + (filter.equals(Zoekfilter.GEEN) ? "" : ", " + filter));
+                    return "jan-a1-1".equals(gebruikersnaam) ? pagina(iban) : Optional.empty();
+                }
+
+                // ADR 0038: zonder eigenaar; de controller onder /api/beheer vraagt de rol beheerder.
+                @Override
+                public Optional<Pagina> inBeheer(Iban iban, LocalDate vandaag, Zoekfilter filter, Optional<Positie> na,
+                        int aantal) {
+                    AANROEPEN.add("beheer " + iban + " tot " + vandaag
+                            + na.map(positie -> " na " + positie).orElse(" vanaf het begin") + ", " + aantal);
+                    return pagina(iban);
+                }
+            };
+        }
+
+        /** Op VAN_JAN volgt nog een pagina, op OOK_VAN_JAN niet; andere rekeningen bestaan niet. */
+        private static Optional<Pagina> pagina(Iban iban) {
+                if (!(VAN_JAN.equals(iban) || OOK_VAN_JAN.equals(iban))) {
                     return Optional.empty();
                 }
                 Partij jan = new Partij("Jan", Optional.of(VAN_JAN));
@@ -209,7 +271,6 @@ class TransactieControllerTests {
                                 TransactieType.BETAALAUTOMAAT, OffsetDateTime.parse("2026-10-01T11:26:00Z"),
                                 Optional.empty(), Optional.empty())),
                         VAN_JAN.equals(iban) ? Optional.of(LAATSTE_OP_PAGINA) : Optional.empty()));
-            };
         }
     }
 }

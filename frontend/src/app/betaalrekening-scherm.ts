@@ -13,16 +13,24 @@ import { ZoekFormulier, type Zoekopdracht } from './zoek-formulier';
  * weer alles. Een geweigerde zoekopdracht (400) toont de melding van de API in het formulier.
  * Een rekening die niet bestaat of van een ander is (404, S6.1), is voor de klant hetzelfde: "Rekening is niet gevonden.".
  * "Betalen" opent het betaalscherm van deze rekening (S7.1).
+ * Route `/beheer/rekeningen/:iban` (S10.1, ADR 0038): hetzelfde scherm voor de beheerder, alleen-lezen. Het leest via
+ * /api/beheer, zonder "Betalen", en de link gaat terug naar het beheerscherm.
  */
 @Component({
   selector: 'app-betaalrekening-scherm',
   imports: [Betaalrekening, RouterLink, ZoekFormulier],
   template: `
-    <a routerLink="/">Overzicht</a>
+    @if (beheer()) {
+      <a routerLink="/beheer">Beheer</a>
+    } @else {
+      <a routerLink="/">Overzicht</a>
+    }
     @if (nietGevonden()) {
       <p role="alert">Rekening is niet gevonden.</p>
     } @else {
-      <a routerLink="betalen">Betalen</a>
+      @if (!beheer()) {
+        <a routerLink="betalen">Betalen</a>
+      }
       <app-zoek-formulier [melding]="melding()" (zoek)="zoek($event)" (wis)="zoek({})" />
       @if (geladen(); as geladen) {
         <app-betaalrekening
@@ -40,6 +48,8 @@ export class BetaalrekeningScherm {
 
   /** Uit de URL, via withComponentInputBinding. */
   readonly iban = input.required<string>();
+  /** Uit de data van de route: de beheerder leest alleen (ADR 0038). */
+  readonly beheer = input(false);
 
   /** De tot nu toe geladen transacties. */
   protected readonly geladen = signal<Pagina | undefined>(undefined);
@@ -69,7 +79,7 @@ export class BetaalrekeningScherm {
   }
 
   private laad(na: string | undefined): void {
-    const pad = `/api/rekeningen/${this.iban()}/transacties`;
+    const pad = `${this.beheer() ? '/api/beheer' : '/api'}/rekeningen/${this.iban()}/transacties`;
     const params = { ...this.filter, ...(na === undefined ? {} : { na }) };
     this.http.get<Pagina>(pad, { params }).subscribe({
       next: (pagina) => {

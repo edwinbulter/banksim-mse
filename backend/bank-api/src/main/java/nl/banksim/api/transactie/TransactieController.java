@@ -52,8 +52,24 @@ class TransactieController {
         Iban rekening = IbanInPad.van(iban);
         Zoekfilter filter = Zoekfilter.van(tekst, van, tm, type, richting);
         Optional<Positie> positie = na.map(cursortekst -> cursor.lees(rekening, cursortekst));
-        Pagina pagina = transacties.vanRekening(gebruiker.gebruikersnaam(), rekening, klok.vandaag(), filter, positie, PER_PAGINA)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return alsJson(rekening, transacties.vanRekening(gebruiker.gebruikersnaam(), rekening, klok.vandaag(), filter,
+                positie, PER_PAGINA));
+    }
+
+    /** S10.1, ADR 0038: dezelfde pagina voor de beheerder, van elke rekening, alleen-lezen. */
+    @GetMapping("/api/beheer/rekeningen/{iban}/transacties")
+    @PreAuthorize("hasRole('beheerder')")
+    PaginaJson transactiesInBeheer(@PathVariable String iban, @RequestParam Optional<String> na,
+            @RequestParam Optional<String> tekst, @RequestParam Optional<String> van, @RequestParam Optional<String> tm,
+            @RequestParam Optional<String> type, @RequestParam Optional<String> richting) {
+        Iban rekening = IbanInPad.van(iban);
+        Zoekfilter filter = Zoekfilter.van(tekst, van, tm, type, richting);
+        Optional<Positie> positie = na.map(cursortekst -> cursor.lees(rekening, cursortekst));
+        return alsJson(rekening, transacties.inBeheer(rekening, klok.vandaag(), filter, positie, PER_PAGINA));
+    }
+
+    private PaginaJson alsJson(Iban rekening, Optional<Pagina> gevonden) {
+        Pagina pagina = gevonden.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return new PaginaJson(
                 pagina.transacties().stream().map(TransactieJson::van).toList(),
                 pagina.volgende().map(volgende -> cursor.maak(rekening, volgende)).orElse(null));

@@ -31,9 +31,19 @@ class JdbcTransactieRepository implements TransactieRepository {
                 .param("iban", iban.toString())
                 .param("gebruikersnaam", gebruikersnaam)
                 .query(Long.class).single() > 0;
-        if (!eigenRekening) {
-            return Optional.empty();
-        }
+        return eigenRekening ? Optional.of(pagina(iban, vandaag, filter, na, aantal)) : Optional.empty();
+    }
+
+    @Override
+    public Optional<Pagina> inBeheer(Iban iban, LocalDate vandaag, Zoekfilter filter, Optional<Positie> na, int aantal) {
+        boolean bestaat = jdbc.sql("SELECT count(*) FROM rekening WHERE iban = :iban")
+                .param("iban", iban.toString())
+                .query(Long.class).single() > 0;
+        return bestaat ? Optional.of(pagina(iban, vandaag, filter, na, aantal)) : Optional.empty();
+    }
+
+    /** De rekening bestaat, en de aanroeper heeft hem mogen zien. */
+    private Pagina pagina(Iban iban, LocalDate vandaag, Zoekfilter filter, Optional<Positie> na, int aantal) {
         // Eén rij extra: is die er, dan volgt er nog een pagina.
         List<Rij> rijen = jdbc.sql("""
                         SELECT t.id, t.datum, t.tegenpartij, t.bedrag, t.type, t.tijdstip, t.tegen_iban, h.naam, t.omschrijving,
@@ -90,7 +100,7 @@ class JdbcTransactieRepository implements TransactieRepository {
                 ? Optional.of(new Positie(pagina.getLast().transactie().datum(), pagina.getLast().transactie().tijdstip(),
                         pagina.getLast().id()))
                 : Optional.empty();
-        return Optional.of(new Pagina(pagina.stream().map(Rij::transactie).toList(), volgende));
+        return new Pagina(pagina.stream().map(Rij::transactie).toList(), volgende);
     }
 
     private record Rij(long id, Transactie transactie) {

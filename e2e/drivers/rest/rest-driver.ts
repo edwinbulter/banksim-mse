@@ -120,6 +120,24 @@ export class RestDriver implements BankDriver {
     await this.laadPagina(`/api/rekeningen/${iban}/transacties`);
   }
 
+  async openRekeningInBeheer(iban: string): Promise<void> {
+    this.geopend = iban;
+    this.geladen = [];
+    this.filter = new URLSearchParams();
+    await this.laadPagina(`/api/beheer/rekeningen/${iban}/transacties`);
+  }
+
+  /** Een geldige IBAN van een andere bank: lukt de betaling toch, dan boekt hij niets bij een andere klant van BankSim. */
+  async betaalInBeheer(): Promise<Uitkomst> {
+    const antwoord = await this.request.post('/api/betalingen', {
+      headers: await this.betaalHeaders(),
+      data: { van: this.geopend, naar: 'NL91ABNA0417164300', naam: 'Iemand', bedrag: '0.01' },
+    });
+    // De rekening is niet van de beheerder: de bank kent hem voor hem niet (404, ADR 0023), net als bij een klant.
+    if (antwoord.status() === 404) return 'geweigerd';
+    return this.uitkomstVan(antwoord, 'POST /api/betalingen als beheerder');
+  }
+
   /** Hetzelfde verzoek als openRekening; een 404 is hier een uitkomst, geen fout (S6.1). */
   async openRekeningViaAdres(iban: string): Promise<void> {
     this.geopend = iban;

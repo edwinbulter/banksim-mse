@@ -140,6 +140,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/beheer/rekeningen/{iban}/transacties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Als beheerder, alleen-lezen, van elke rekening; verder als /api/rekeningen/{iban}/transacties (S10.1, ADR 0038). */
+        get: operations["transactiesInBeheer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/beheer/rekeninghouders": {
         parameters: {
             query?: never;
@@ -534,6 +551,44 @@ export interface operations {
             401: components["responses"]["NietIngelogd"];
             404: components["responses"]["NietGevonden"];
             422: components["responses"]["Geweigerd"];
+        };
+    };
+    transactiesInBeheer: {
+        parameters: {
+            query?: {
+                /** @description De cursor uit `volgende` van de vorige pagina (ADR 0011) */
+                na?: string;
+                /** @description Een deel van de naam of het IBAN van de tegenpartij, of van de omschrijving; of precies het bedrag, met punt of komma */
+                tekst?: string;
+                /** @description Het bedrag vanaf, met punt of komma */
+                van?: string;
+                /** @description Het bedrag tot en met, met punt of komma */
+                tm?: string;
+                type?: components["schemas"]["Transactietype"];
+                richting?: "INKOMEND" | "UITGAAND";
+            };
+            header?: never;
+            path: {
+                /** @description Een ongeldige IBAN is een rekening die niet bestaat, dus 404 (ADR 0023) */
+                iban: components["parameters"]["Iban"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description De pagina */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pagina"];
+                };
+            };
+            400: components["responses"]["Probleem"];
+            401: components["responses"]["NietIngelogd"];
+            403: components["responses"]["GeenRecht"];
+            404: components["responses"]["NietGevonden"];
         };
     };
     rekeninghouders: {

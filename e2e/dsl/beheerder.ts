@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { BankDriver, RekeninghouderInBeheer } from '../drivers/bank-driver';
+import type { BankDriver, RekeninghouderInBeheer, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { BankSeed, GeseedeBeheerder } from '../drivers/shell/bank-seed';
 import type { Klant } from './klant';
 
@@ -45,6 +45,20 @@ export class Beheerder {
     expect(this.gevonden, `rekeninghouders gevonden op ${klant.iban()}`).toEqual([
       { naam: klant.naam(), betaalrekening: klant.iban(), saldo, spaarrekening: klant.spaarrekeningnummer(), spaarsaldo },
     ]);
+  }
+
+  /** S10.1: de betaalrekening van een klant, alleen-lezen. */
+  async opentBetaalrekeningVan(klant: Klant): Promise<void> {
+    await (await this.opHetScherm()).openRekeningInBeheer(klant.iban());
+  }
+
+  async verwachtTransactielijst(verwacht: TransactiesOpDatum[]): Promise<void> {
+    expect(await (await this.opHetScherm()).transacties(), 'transacties in beheer').toEqual(verwacht);
+  }
+
+  /** Alleen-lezen: betalen vanaf de rekening van de klant lukt niet. */
+  async verwachtAlleenLezen(): Promise<void> {
+    expect(await (await this.opHetScherm()).betaalInBeheer(), 'betalen als beheerder').toBe('geweigerd');
   }
 
   /** De bank draait weer op vandaag; de fixture doet dit na elk scenario met @simulatiedatum. */

@@ -304,4 +304,17 @@ class JdbcTransactieRepositoryTests {
     void eenRekeningVanEenAnderGeeftNiets() {
         assertThat(repository.vanRekening("piet", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 50)).isEmpty();
     }
+
+    /** S10.1, ADR 0038: de beheerder krijgt dezelfde pagina van elke rekening, zonder eigenaar. */
+    @Test
+    void inBeheerDezelfdePaginaZonderEigenaar() {
+        assertThat(repository.inBeheer(VAN_JAN, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 50))
+                .isEqualTo(repository.vanRekening("jan", VAN_JAN, NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 50))
+                .hasValueSatisfying(pagina -> assertThat(pagina.transacties()).isNotEmpty());
+    }
+
+    @Test
+    void inBeheerLeegAlsDeRekeningNietBestaat() {
+        assertThat(repository.inBeheer(Iban.simBank(424242L), NA_ALLES, Zoekfilter.GEEN, Optional.empty(), 50)).isEmpty();
+    }
 }
