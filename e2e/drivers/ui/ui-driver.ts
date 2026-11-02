@@ -110,6 +110,10 @@ export class UiDriver implements BankDriver {
     return this.beheer.zetSimulatiedatum(datum);
   }
 
+  async wisSimulatiedatumOpScherm(): Promise<Uitkomst> {
+    return this.beheer.terugNaarVandaag();
+  }
+
   async simulatiedatum(): Promise<string> {
     return this.beheer.simulatiedatum();
   }

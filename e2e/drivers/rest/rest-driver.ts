@@ -135,6 +135,10 @@ export class RestDriver implements BankDriver {
     return this.zetSimulatiedatum(datum);
   }
 
+  async wisSimulatiedatumOpScherm(): Promise<Uitkomst> {
+    return this.wisSimulatiedatum();
+  }
+
   async simulatiedatum(): Promise<string> {
     const antwoord = await this.request.get('/api/beheer/simulatiedatum');
     expect(antwoord.status(), `GET /api/beheer/simulatiedatum: ${(await antwoord.text()).slice(0, 300)}`).toBe(200);

@@ -18,9 +18,10 @@ import { bedragVoorWeergave } from './geld/bedrag';
       <label for="beheer-simulatiedatum">Simulatiedatum</label>
       <input id="beheer-simulatiedatum" type="date" [value]="simulatiedatum()" (input)="simulatiedatum.set(waarde($event))" />
       <button type="submit">Toepassen</button>
+      <button type="button" (click)="terugNaarVandaag()">Terug naar vandaag</button>
     </form>
-    @if (toegepast()) {
-      <p role="status">Simulatiedatum toegepast.</p>
+    @if (status(); as status) {
+      <p role="status">{{ status }}</p>
     }
     <form aria-label="Rekeninghouders zoeken" (submit)="$event.preventDefault(); zoek()">
       <label for="beheer-zoek">Naam of rekeningnummer</label>
@@ -63,25 +64,43 @@ export class BeheerScherm {
 
   /** S10.2: de datum waarop de bank staat, als "2026-10-05"; leeg tot hij geladen is. */
   protected readonly simulatiedatum = signal('');
-  protected readonly toegepast = signal(false);
+  /** Wat er na Toepassen of Terug naar vandaag gebeurd is. */
+  protected readonly status = signal<string | undefined>(undefined);
   protected readonly tekst = signal('');
   /** Undefined zolang er niet gezocht is. */
   protected readonly gevonden = signal<RekeninghouderInBeheer[] | undefined>(undefined);
   protected readonly melding = signal<string | undefined>(undefined);
 
   constructor() {
-    this.http.get<Simulatiedatum>('/api/beheer/simulatiedatum').subscribe({
-      next: ({ datum }) => this.simulatiedatum.set(datum),
-      error: (fout) => this.melding.set(meldingBij(fout)),
-    });
+    this.laadSimulatiedatum();
   }
 
   /** "Toepassen" (FO): de datum geldt direct voor alle gebruikers. */
   protected zetSimulatiedatum(): void {
     this.melding.set(undefined);
-    this.toegepast.set(false);
+    this.status.set(undefined);
     this.http.put('/api/beheer/simulatiedatum', { datum: this.simulatiedatum() } satisfies Simulatiedatum).subscribe({
-      next: () => this.toegepast.set(true),
+      next: () => this.status.set('Simulatiedatum toegepast.'),
+      error: (fout) => this.melding.set(meldingBij(fout)),
+    });
+  }
+
+  /** "Terug naar vandaag" (FO): daarna toont de datumkiezer de echte datum, zoals de bank hem nu kent. */
+  protected terugNaarVandaag(): void {
+    this.melding.set(undefined);
+    this.status.set(undefined);
+    this.http.delete('/api/beheer/simulatiedatum').subscribe({
+      next: () => {
+        this.status.set('De bank staat weer op vandaag.');
+        this.laadSimulatiedatum();
+      },
+      error: (fout) => this.melding.set(meldingBij(fout)),
+    });
+  }
+
+  private laadSimulatiedatum(): void {
+    this.http.get<Simulatiedatum>('/api/beheer/simulatiedatum').subscribe({
+      next: ({ datum }) => this.simulatiedatum.set(datum),
       error: (fout) => this.melding.set(meldingBij(fout)),
     });
   }

@@ -25,6 +25,16 @@ export class BeheerPagina {
     return (await toegepast.isVisible()) ? 'gelukt' : 'geweigerd';
   }
 
+  /** S10.2 (FO): "Terug naar vandaag"; gelukt als het scherm het meldt, geweigerd bij een melding. */
+  async terugNaarVandaag(): Promise<Uitkomst> {
+    await this.page.goto('/beheer');
+    await this.page.getByRole('button', { name: 'Terug naar vandaag' }).click();
+    const terug = this.page.getByRole('status').filter({ hasText: 'De bank staat weer op vandaag.' });
+    const melding = this.page.getByRole('alert');
+    await expect(terug.or(melding)).toBeVisible();
+    return (await terug.isVisible()) ? 'gelukt' : 'geweigerd';
+  }
+
   /** De datum in de datumkiezer, zodra het scherm hem geladen heeft. */
   async simulatiedatum(): Promise<string> {
     await this.page.goto('/beheer');

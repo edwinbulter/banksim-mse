@@ -962,4 +962,21 @@ describe('App', () => {
 
     expect(pagina.querySelector('[role="status"]')?.textContent?.trim()).toBe('Simulatiedatum toegepast.');
   });
+
+  /** S10.2 (FO): "Terug naar vandaag" wist de simulatiedatum en toont daarna de datum waarop de bank nu staat. */
+  it('zet met Terug naar vandaag de bank op vandaag en toont die datum (S10.2)', async () => {
+    const pagina = await naarBeheer(true);
+    http.expectOne('/api/beheer/simulatiedatum').flush({ datum: '2026-10-05' });
+    await ververs();
+    knop(pagina, 'Terug naar vandaag')?.click();
+    await ververs();
+
+    http.expectOne({ method: 'DELETE', url: '/api/beheer/simulatiedatum' }).flush(null, { status: 204, statusText: 'No Content' });
+    await ververs();
+    http.expectOne({ method: 'GET', url: '/api/beheer/simulatiedatum' }).flush({ datum: '2026-11-02' });
+    await ververs();
+
+    expect(veld(pagina, 'Simulatiedatum').value).toBe('2026-11-02');
+    expect(pagina.querySelector('[role="status"]')?.textContent?.trim()).toBe('De bank staat weer op vandaag.');
+  });
 });

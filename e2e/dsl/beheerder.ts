@@ -27,9 +27,16 @@ export class Beheerder {
     expect(await driver.zetSimulatiedatumOpScherm(datum), 'simulatiedatum zetten als beheerder').toBe('gelukt');
   }
 
-  /** De datum waarop de bank staat ("vandaag" voor de bank, ADR 0013). */
+  /** S10.2: "Terug naar vandaag" op het beheerscherm; via REST is dat de DELETE. */
+  async zetBankTerugNaarVandaag(): Promise<void> {
+    const driver = await this.opHetScherm();
+    expect(await driver.wisSimulatiedatumOpScherm(), 'terug naar vandaag als beheerder').toBe('gelukt');
+  }
+
+  /** De datum waarop de bank staat ("vandaag" voor de bank, ADR 0013); "vandaag" is de echte datum in Europe/Amsterdam. */
   async verwachtSimulatiedatum(datum: string): Promise<void> {
-    expect(await (await this.opHetScherm()).simulatiedatum(), 'simulatiedatum op het beheerscherm').toBe(datum);
+    const verwacht = datum === 'vandaag' ? vandaagInAmsterdam() : datum;
+    expect(await (await this.opHetScherm()).simulatiedatum(), 'simulatiedatum op het beheerscherm').toBe(verwacht);
   }
 
   /** Inloggen in het protocol van het project, zoals de beheerder dat doet. */

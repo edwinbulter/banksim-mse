@@ -111,3 +111,24 @@ test('De beheerder zet de simulatiedatum op het beheerscherm', { tag: '@simulati
     beheerder.verwachtRekeninghouder(jan, { saldo: '150.00' }),
   );
 });
+
+/** S10.2 (FO "Admin scherm"): "Terug naar vandaag" zet de simulatiedatum op de echte datum; alles tot vandaag telt weer. */
+test('De beheerder zet de bank terug naar vandaag', { tag: '@simulatiedatum' }, async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  const beheerder = bank.beheerder();
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 100,00', () => jan.heeftBetaalrekening({ saldo: '100.00' }));
+  await bank.en('op 1 oktober 2026 ontving Jan € 50,00 van Werkgever B.V.', () =>
+    jan.heeftOntvangen({ op: '2026-10-01', bedrag: '50.00', van: 'Werkgever B.V.' }),
+  );
+  await bank.en('op 10 oktober 2026 ontving Jan € 25,00 van Werkgever B.V.', () =>
+    jan.heeftOntvangen({ op: '2026-10-10', bedrag: '25.00', van: 'Werkgever B.V.' }),
+  );
+  await bank.en('de beheerder heeft de simulatiedatum op 5 oktober 2026 gezet', () =>
+    beheerder.zetSimulatiedatum('2026-10-05'),
+  );
+  await bank.als('de beheerder "Terug naar vandaag" kiest', () => beheerder.zetBankTerugNaarVandaag());
+  await bank.dan('ziet de beheerder dat de bank op vandaag staat', () => beheerder.verwachtSimulatiedatum('vandaag'));
+  await bank.en('ziet de beheerder bij Jan een saldo van € 175,00', () =>
+    beheerder.verwachtRekeninghouder(jan, { saldo: '175.00' }),
+  );
+});
