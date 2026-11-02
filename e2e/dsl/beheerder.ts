@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { BankDriver, RekeninghouderInBeheer, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
+import type { BankDriver, RekeninghouderInBeheer, Spaarmutatie, TransactiesOpDatum, Zoekopdracht } from '../drivers/bank-driver';
 import type { BankSeed, GeseedeBeheerder } from '../drivers/shell/bank-seed';
 import { type Klant, vandaagInAmsterdam } from './klant';
 
@@ -59,6 +59,17 @@ export class Beheerder {
   /** Alleen-lezen: betalen vanaf de rekening van de klant lukt niet. */
   async verwachtAlleenLezen(): Promise<void> {
     expect(await (await this.opHetScherm()).betaalInBeheer(), 'betalen als beheerder').toBe('geweigerd');
+  }
+
+  /** Op de geopende rekening van een klant, zoals de klant zoekt (S5.1). */
+  async zoekt(opdracht: Zoekopdracht): Promise<void> {
+    await (await this.opHetScherm()).zoek(opdracht);
+  }
+
+  /** De tegenpartijen in de lijst, nieuw naar oud; leeg als er niets gevonden is. */
+  async verwachtGevonden(tegenpartijen: string[]): Promise<void> {
+    const gevonden = (await (await this.opHetScherm()).transacties()).flatMap((dag) => dag.transacties.map((t) => t.tegenpartij));
+    expect(gevonden, 'gevonden transacties in beheer').toEqual(tegenpartijen);
   }
 
   /** S10.1: de spaarrekening van een klant, alleen-lezen. */

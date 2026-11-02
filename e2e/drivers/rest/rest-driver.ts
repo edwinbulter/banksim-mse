@@ -24,6 +24,8 @@ import { wijzigSimulatiedatum } from '../simulatiedatum';
  */
 export class RestDriver implements BankDriver {
   private geopend?: string;
+  /** Het pad waarlangs de rekening geopend is: van de klant, of alleen-lezen in beheer (ADR 0038). */
+  private transactiepad = (iban: string) => `/api/rekeningen/${iban}/transacties`;
   private geladen: Pagina['transacties'] = [];
   /** De lopende rente van de geopende spaarrekening (S8.1). */
   private lopend?: string;
@@ -115,16 +117,18 @@ export class RestDriver implements BankDriver {
   /** Laadt de eerste pagina transacties, zoals de browser bij het openen van de rekening. */
   async openRekening(iban: string): Promise<void> {
     this.geopend = iban;
+    this.transactiepad = (rekening) => `/api/rekeningen/${rekening}/transacties`;
     this.geladen = [];
     this.filter = new URLSearchParams();
-    await this.laadPagina(`/api/rekeningen/${iban}/transacties`);
+    await this.laadPagina(this.transactiepad(iban));
   }
 
   async openRekeningInBeheer(iban: string): Promise<void> {
     this.geopend = iban;
+    this.transactiepad = (rekening) => `/api/beheer/rekeningen/${rekening}/transacties`;
     this.geladen = [];
     this.filter = new URLSearchParams();
-    await this.laadPagina(`/api/beheer/rekeningen/${iban}/transacties`);
+    await this.laadPagina(this.transactiepad(iban));
   }
 
   async openSpaarrekeningInBeheer(iban: string): Promise<void> {
@@ -156,9 +160,10 @@ export class RestDriver implements BankDriver {
   /** Hetzelfde verzoek als openRekening; een 404 is hier een uitkomst, geen fout (S6.1). */
   async openRekeningViaAdres(iban: string): Promise<void> {
     this.geopend = iban;
+    this.transactiepad = (rekening) => `/api/rekeningen/${rekening}/transacties`;
     this.geladen = [];
     this.filter = new URLSearchParams();
-    const pad = `/api/rekeningen/${iban}/transacties`;
+    const pad = this.transactiepad(iban);
     const antwoord = await this.request.get(pad);
     this.nietGevonden = antwoord.status() === 404;
     if (!this.nietGevonden) await this.verwerkPagina(pad, antwoord);
@@ -187,7 +192,7 @@ export class RestDriver implements BankDriver {
     if (!this.geopend || this.volgende === null) throw new Error('Geen volgende pagina');
     const parameters = new URLSearchParams(this.filter);
     parameters.set('na', this.volgende);
-    await this.laadPagina(`/api/rekeningen/${this.geopend}/transacties?${parameters}`);
+    await this.laadPagina(`${this.transactiepad(this.geopend)}?${parameters}`);
   }
 
   /** De API levert de details al in de lijst; uitklappen is hier de geladen transactie kiezen. */
@@ -221,7 +226,7 @@ export class RestDriver implements BankDriver {
     );
     this.geladen = [];
     this.probleem = undefined;
-    const pad = `/api/rekeningen/${this.geopend}/transacties?${this.filter}`;
+    const pad = `${this.transactiepad(this.geopend)}?${this.filter}`;
     const antwoord = await this.request.get(pad);
     if (antwoord.status() === 400) {
       const { type } = (await antwoord.json()) as { type?: string };

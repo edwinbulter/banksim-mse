@@ -200,6 +200,20 @@ class TransactieControllerTests {
         assertThat(AANROEPEN).containsExactly("beheer " + VAN_JAN + " tot 2026-10-05 na " + LAATSTE_OP_PAGINA + ", 50");
     }
 
+    /** S10.1: ook in beheer gaan de zoekvelden als filter naar de repository (S5.1). */
+    @Test
+    void geeftInBeheerDeZoekveldenAlsFilterDoor() throws Exception {
+        AANROEPEN.clear();
+        mvc.perform(get("/api/beheer/rekeningen/" + OOK_VAN_JAN + "/transacties").with(beheerder())
+                        .param("tekst", "albert").param("van", "27,95").param("tm", "100").param("type", "INCASSO")
+                        .param("richting", "uitgaand"))
+                .andExpect(status().isOk());
+
+        assertThat(AANROEPEN).containsExactly("beheer " + OOK_VAN_JAN + " tot 2026-10-05 vanaf het begin, 50, "
+                + Zoekfilter.van(Optional.of("albert"), Optional.of("27,95"), Optional.of("100"), Optional.of("INCASSO"),
+                        Optional.of("uitgaand")));
+    }
+
     @Test
     void eenOnbekendeRekeningInBeheerIs404() throws Exception {
         mvc.perform(get("/api/beheer/rekeningen/" + Iban.simBank(99L) + "/transacties").with(beheerder()))
@@ -249,7 +263,8 @@ class TransactieControllerTests {
                 public Optional<Pagina> inBeheer(Iban iban, LocalDate vandaag, Zoekfilter filter, Optional<Positie> na,
                         int aantal) {
                     AANROEPEN.add("beheer " + iban + " tot " + vandaag
-                            + na.map(positie -> " na " + positie).orElse(" vanaf het begin") + ", " + aantal);
+                            + na.map(positie -> " na " + positie).orElse(" vanaf het begin") + ", " + aantal
+                            + (filter.equals(Zoekfilter.GEEN) ? "" : ", " + filter));
                     return pagina(iban);
                 }
             };

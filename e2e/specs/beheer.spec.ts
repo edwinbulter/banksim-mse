@@ -1,4 +1,5 @@
 import { test } from '../dsl/fixtures';
+import { TRANSACTIES } from '../dsl/zoekvoorbeelden';
 
 /**
  * S10.1 (FO "Admin scherm"): de beheerder ziet de rekeninghouders met hun rekeningen en saldi. Zoeken gaat op naam
@@ -71,4 +72,19 @@ test('De beheerder bekijkt de spaarrekening van een klant alleen-lezen', async (
     beheerder.verwachtSpaarmutatie({ op: 'vandaag', type: 'Inleg', bedrag: '250.00' }),
   );
   await bank.maar('kan de beheerder niet inleggen of opnemen', () => beheerder.verwachtSpaarrekeningAlleenLezen(jan));
+});
+
+/** S10.1 (FO "Admin scherm"): in de stand alleen-lezen werkt de zoekfunctie zoals bij de klant (S5.1). */
+test('De beheerder zoekt in de transacties van een klant', async ({ bank }) => {
+  const beheerder = bank.beheerder();
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00 en de 6 transacties uit de zoekvoorbeelden', async () => {
+    await jan.heeftBetaalrekening({ saldo: '1000.00' });
+    await jan.heeftBoekingen(TRANSACTIES);
+  });
+  await bank.als('de beheerder de betaalrekening van Jan opent', () => beheerder.opentBetaalrekeningVan(jan));
+  await bank.en('de beheerder zoekt op tekst "albert"', () => beheerder.zoekt({ tekst: 'albert' }));
+  await bank.dan('vindt de beheerder Albert Heijn Online, Albert Heijn', () =>
+    beheerder.verwachtGevonden(['Albert Heijn Online', 'Albert Heijn']),
+  );
 });
