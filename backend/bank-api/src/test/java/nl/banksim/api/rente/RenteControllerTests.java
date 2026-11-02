@@ -80,6 +80,32 @@ class RenteControllerTests {
         mvc.perform(get("/api/rekeningen/" + SPAAR + "/lopende-rente")).andExpect(status().isUnauthorized());
     }
 
+    /** S10.1, ADR 0038: de beheerder leest de lopende rente van elke spaarrekening, zonder eigenaar. */
+    @Test
+    void deBeheerderLeestDeLopendeRenteVanEenKlant() throws Exception {
+        mvc.perform(get("/api/beheer/rekeningen/" + SPAAR + "/lopende-rente").with(beheerder()))
+                .andExpect(status().isOk())
+                .andExpect(content().json("""
+                        {"bedrag": "12.36"}""", JsonCompareMode.STRICT));
+        assertThat(GEVRAAGD).containsExactly("beheer " + SPAAR + " 2026-02-15");
+    }
+
+    @Test
+    void eenOnbekendeSpaarrekeningInBeheerIs404() throws Exception {
+        mvc.perform(get("/api/beheer/rekeningen/" + Iban.simBank(8L) + "/lopende-rente").with(beheerder()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void eenKlantKrijgtInBeheer403() throws Exception {
+        mvc.perform(get("/api/beheer/rekeningen/" + SPAAR + "/lopende-rente").with(jan())).andExpect(status().isForbidden());
+    }
+
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor beheerder() {
+        return jwt().jwt(token -> token.claim("preferred_username", "beheerder-a1-1"))
+                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_beheerder"));
+    }
+
     private static org.springframework.test.web.servlet.request.RequestPostProcessor jan() {
         return jwt().jwt(token -> token.claim("preferred_username", "jan-a1-1"));
     }
@@ -89,9 +115,18 @@ class RenteControllerTests {
 
         @Bean
         LopendeRente lopendeRente() {
-            return (gebruikersnaam, iban, vandaag) -> {
-                GEVRAAGD.add(gebruikersnaam + " " + iban + " " + vandaag);
-                return iban.equals(SPAAR) ? Optional.of(Bedrag.van("12.36")) : Optional.empty();
+            return new LopendeRente() {
+                @Override
+                public Optional<Bedrag> van(String gebruikersnaam, Iban iban, LocalDate vandaag) {
+                    GEVRAAGD.add(gebruikersnaam + " " + iban + " " + vandaag);
+                    return iban.equals(SPAAR) ? Optional.of(Bedrag.van("12.36")) : Optional.empty();
+                }
+
+                @Override
+                public Optional<Bedrag> inBeheer(Iban iban, LocalDate vandaag) {
+                    GEVRAAGD.add("beheer " + iban + " " + vandaag);
+                    return iban.equals(SPAAR) ? Optional.of(Bedrag.van("12.36")) : Optional.empty();
+                }
             };
         }
 

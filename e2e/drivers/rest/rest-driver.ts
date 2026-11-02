@@ -127,6 +127,21 @@ export class RestDriver implements BankDriver {
     await this.laadPagina(`/api/beheer/rekeningen/${iban}/transacties`);
   }
 
+  async openSpaarrekeningInBeheer(iban: string): Promise<void> {
+    await this.openRekeningInBeheer(iban);
+    const pad = `/api/beheer/rekeningen/${iban}/lopende-rente`;
+    const antwoord = await this.request.get(pad);
+    expect(antwoord.status(), `GET ${pad}`).toBe(200);
+    this.lopend = ((await antwoord.json()) as { bedrag: string }).bedrag;
+  }
+
+  /** De rekeningen zijn niet van de beheerder: de bank kent ze voor hem niet (404, ADR 0023). */
+  async neemOpInBeheer(opdracht: Overschrijfopdracht): Promise<Uitkomst> {
+    const antwoord = await this.postOverschrijving(opdracht);
+    if (antwoord.status() === 404) return 'geweigerd';
+    return this.uitkomstVan(antwoord, 'POST /api/overschrijvingen als beheerder');
+  }
+
   /** Een geldige IBAN van een andere bank: lukt de betaling toch, dan boekt hij niets bij een andere klant van BankSim. */
   async betaalInBeheer(): Promise<Uitkomst> {
     const antwoord = await this.request.post('/api/betalingen', {

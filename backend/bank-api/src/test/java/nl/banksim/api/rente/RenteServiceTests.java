@@ -168,6 +168,21 @@ class RenteServiceTests {
         assertThat(rente.van("rente-10", Iban.van(spaar), LocalDate.of(2026, 2, 15))).contains(Bedrag.van("0.00"));
     }
 
+    /** S10.1, ADR 0038: de beheerder krijgt dezelfde lopende rente van elke spaarrekening, zonder eigenaar. */
+    @Test
+    void inBeheerDezelfdeLopendeRenteZonderEigenaar() {
+        String spaar = spaarrekening("rente-50", 3050L, "10000.00", "2026-01-01");
+        rente.sluitAf(LocalDate.of(2026, 2, 15));
+
+        assertThat(rente.inBeheer(Iban.van(spaar), LocalDate.of(2026, 2, 15))).contains(Bedrag.van("12.36"));
+    }
+
+    /** Ook in beheer alleen een spaarrekening: de renterekening van BankSim heeft geen lopende rente. */
+    @Test
+    void inBeheerHeeftAlleenEenSpaarrekeningLopendeRente() {
+        assertThat(rente.inBeheer(Iban.van(RENTEREKENING), LocalDate.of(2026, 2, 15))).isEmpty();
+    }
+
     /** ADR 0023: andermans spaarrekening bestaat voor deze klant niet. */
     @Test
     void eenSpaarrekeningVanEenAnderHeeftGeenLopendeRente() {

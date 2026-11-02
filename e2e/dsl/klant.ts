@@ -485,7 +485,7 @@ function dagNa(datum: string, dagen: number): string {
 }
 
 /** De datum van vandaag in Europe/Amsterdam, als "2026-10-25": "vandaag" voor de bank zonder simulatiedatum. */
-function vandaagInAmsterdam(): string {
+export function vandaagInAmsterdam(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(new Date());
 }
 

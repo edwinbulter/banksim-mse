@@ -35,6 +35,15 @@ class RenteController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
+    /** S10.1, ADR 0038: dezelfde lopende rente voor de beheerder, van elke spaarrekening, alleen-lezen. */
+    @GetMapping("/api/beheer/rekeningen/{iban}/lopende-rente")
+    @PreAuthorize("hasRole('beheerder')")
+    LopendeRenteJson lopendeRenteInBeheer(@PathVariable String iban) {
+        return lopendeRente.inBeheer(IbanInPad.van(iban), klok.vandaag())
+                .map(bedrag -> new LopendeRenteJson(bedrag.toString()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
     /** ADR 0010: het bedrag als string, bijvoorbeeld "12.36". */
     record LopendeRenteJson(String bedrag) {
     }

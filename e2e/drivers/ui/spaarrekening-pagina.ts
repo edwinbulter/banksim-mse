@@ -30,6 +30,13 @@ export class SpaarrekeningPagina {
    * S9.1 (FO "Overschrijven scherm"): "Inleggen" of "Opnemen" opent het scherm Overschrijven met Van en Naar al
    * ingevuld. Het bedrag zoals de klant het typt, met komma; na "Overschrijven" weer op de spaarrekening.
    */
+  /** Wacht tot de mutaties er staan; daarna zijn "Inleggen" en "Opnemen" er wel of niet. */
+  async overschrijvenMogelijk(): Promise<Uitkomst> {
+    await this.mutaties();
+    const knoppen = this.page.getByRole('link', { name: /^(Inleggen|Opnemen)$/ });
+    return (await knoppen.count()) > 0 ? 'gelukt' : 'geweigerd';
+  }
+
   /** Na "Overschrijven": terug op de spaarrekening (gelukt), of een melding op het scherm Overschrijven (geweigerd). */
   async schrijfOver(knop: 'Inleggen' | 'Opnemen', bedrag: string): Promise<Uitkomst> {
     await this.vulInEnSchrijfOver(knop, bedrag);

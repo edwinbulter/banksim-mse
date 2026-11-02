@@ -106,6 +106,14 @@ export class UiDriver implements BankDriver {
     await this.beheer.openRekening(iban);
   }
 
+  async openSpaarrekeningInBeheer(iban: string): Promise<void> {
+    await this.beheer.openSpaarrekening(iban);
+  }
+
+  async neemOpInBeheer(): Promise<Uitkomst> {
+    return this.spaarrekening.overschrijvenMogelijk();
+  }
+
   async betaalInBeheer(): Promise<Uitkomst> {
     return this.betaalrekening.betalenMogelijk();
   }

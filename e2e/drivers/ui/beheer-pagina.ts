@@ -21,6 +21,13 @@ export class BeheerPagina {
     await expect(this.page.getByRole('heading', { name: 'Betaalrekening' })).toBeVisible();
   }
 
+  /** Zoeken op het rekeningnummer en in de tabel op de spaarrekening klikken. */
+  async openSpaarrekening(iban: string): Promise<void> {
+    await this.zoek(iban);
+    await this.page.getByRole('table', { name: 'Rekeninghouders' }).getByRole('link', { name: iban }).click();
+    await expect(this.page.getByRole('heading', { name: 'Spaarrekening' })).toBeVisible();
+  }
+
   async zoek(tekst: string): Promise<RekeninghouderInBeheer[]> {
     await this.page.goto('/beheer');
     await this.page.getByLabel('Naam of rekeningnummer').fill(tekst);

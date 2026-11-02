@@ -56,3 +56,19 @@ test('De beheerder bekijkt de betaalrekening van een klant alleen-lezen', async 
   );
   await bank.maar('kan de beheerder niet betalen', () => beheerder.verwachtAlleenLezen());
 });
+
+/** S10.1, ADR 0038: ook de spaarrekening alleen-lezen; de mutaties zoals Jan ze ziet, zonder Inleggen en Opnemen. */
+test('De beheerder bekijkt de spaarrekening van een klant alleen-lezen', async ({ bank }) => {
+  const beheerder = bank.beheerder();
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft € 1.000,00 op de betaalrekening en € 5.000,00 op de spaarrekening', async () => {
+    await jan.heeftBetaalrekening({ saldo: '1000.00' });
+    await jan.heeftSpaarrekening({ saldo: '5000.00' });
+  });
+  await bank.en('Jan heeft vandaag € 250,00 ingelegd', () => jan.legtIn('250.00'));
+  await bank.als('de beheerder de spaarrekening van Jan opent', () => beheerder.opentSpaarrekeningVan(jan));
+  await bank.dan('ziet de beheerder vandaag een mutatie "Inleg" van +250,00', () =>
+    beheerder.verwachtSpaarmutatie({ op: 'vandaag', type: 'Inleg', bedrag: '250.00' }),
+  );
+  await bank.maar('kan de beheerder niet inleggen of opnemen', () => beheerder.verwachtSpaarrekeningAlleenLezen(jan));
+});

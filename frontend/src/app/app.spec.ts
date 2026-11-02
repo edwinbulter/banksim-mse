@@ -904,4 +904,29 @@ describe('App', () => {
     expect(link(pagina, 'Betalen')).toBeUndefined();
     expect(link(pagina, 'Beheer')?.getAttribute('href')).toBe('/beheer');
   });
+
+  /** S10.1, ADR 0038: ook de spaarrekening opent vanuit de tabel, alleen-lezen. */
+  it('linkt in de tabel van het beheerscherm de spaarrekening naar het scherm alleen-lezen', async () => {
+    const pagina = await naarBeheer(true);
+    vulIn(pagina, 'Naam of rekeningnummer', 'Jan');
+    knop(pagina, 'Zoeken')?.click();
+    await ververs();
+    http.expectOne('/api/beheer/rekeninghouders?zoek=Jan').flush([
+      { naam: 'Jan', betaalrekening: 'NL94SIMB0000000001', saldo: '1842.17', spaarrekening: 'NL67SIMB0000000002', spaarsaldo: '5250.00' },
+    ] satisfies RekeninghouderInBeheer[]);
+    await ververs();
+
+    expect(link(pagina, 'NL67SIMB0000000002')?.getAttribute('href')).toBe('/beheer/spaarrekeningen/NL67SIMB0000000002');
+  });
+
+  it('toont de beheerder de spaarrekening van een klant alleen-lezen, zonder Inleggen en Opnemen', async () => {
+    const pagina = await naarBeheer(true, '/beheer/spaarrekeningen/NL67SIMB0000000002');
+    await transacties('/api/beheer/rekeningen/NL67SIMB0000000002/transacties', { transacties: [], volgende: null });
+    await transacties('/api/beheer/rekeningen/NL67SIMB0000000002/lopende-rente', { bedrag: '1234.56' });
+
+    expect(pagina.querySelector('h2')?.textContent).toBe('Spaarrekening');
+    expect(link(pagina, 'Inleggen')).toBeUndefined();
+    expect(link(pagina, 'Opnemen')).toBeUndefined();
+    expect(link(pagina, 'Beheer')?.getAttribute('href')).toBe('/beheer');
+  });
 });

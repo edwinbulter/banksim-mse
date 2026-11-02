@@ -15,10 +15,16 @@ import { bedragMetTeken, bedragVoorWeergave } from './geld/bedrag';
   selector: 'app-spaarrekening-scherm',
   imports: [RouterLink],
   template: `
-    <a routerLink="/">Overzicht</a>
+    @if (beheer()) {
+      <a routerLink="/beheer">Beheer</a>
+    } @else {
+      <a routerLink="/">Overzicht</a>
+    }
     <h2>Spaarrekening</h2>
-    <a [routerLink]="['/spaarrekeningen', iban(), 'opnemen']">Opnemen</a>
-    <a [routerLink]="['/spaarrekeningen', iban(), 'inleggen']">Inleggen</a>
+    @if (!beheer()) {
+      <a [routerLink]="['/spaarrekeningen', iban(), 'opnemen']">Opnemen</a>
+      <a [routerLink]="['/spaarrekeningen', iban(), 'inleggen']">Inleggen</a>
+    }
     @if (lopendeRente(); as rente) {
       <dl>
         <dt>Lopende rente</dt>
@@ -47,6 +53,8 @@ export class SpaarrekeningScherm {
 
   /** Uit de URL, via withComponentInputBinding. */
   readonly iban = input.required<string>();
+  /** Uit de data van de route: de beheerder leest alleen, via /api/beheer, zonder Opnemen en Inleggen (ADR 0038). */
+  readonly beheer = input(false);
 
   private readonly transacties = signal<Transactie[]>([]);
 
@@ -78,11 +86,15 @@ export class SpaarrekeningScherm {
   constructor() {
     effect(() => {
       this.http
-        .get<Pagina>(`/api/rekeningen/${this.iban()}/transacties`)
+        .get<Pagina>(`${this.api()}/rekeningen/${this.iban()}/transacties`)
         .subscribe((pagina) => this.transacties.set(pagina.transacties));
       this.http
-        .get<LopendeRente>(`/api/rekeningen/${this.iban()}/lopende-rente`)
+        .get<LopendeRente>(`${this.api()}/rekeningen/${this.iban()}/lopende-rente`)
         .subscribe(({ bedrag }) => this.lopendeRente.set(bedragVoorWeergave(bedrag)));
     });
+  }
+
+  private api(): string {
+    return this.beheer() ? '/api/beheer' : '/api';
   }
 }

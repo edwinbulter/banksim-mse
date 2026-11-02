@@ -249,6 +249,26 @@ paths:
         "404":
           $ref: "#/components/responses/NietGevonden"
 
+  /api/beheer/rekeningen/{iban}/lopende-rente:
+    get:
+      operationId: lopendeRenteInBeheer
+      summary: Als beheerder, alleen-lezen, van elke spaarrekening; verder als /api/rekeningen/{iban}/lopende-rente (S10.1, ADR 0038).
+      parameters:
+        - $ref: "#/components/parameters/Iban"
+      responses:
+        "200":
+          description: Het bedrag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LopendeRente"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "403":
+          $ref: "#/components/responses/GeenRecht"
+        "404":
+          $ref: "#/components/responses/NietGevonden"
+
   /api/beheer/rekeninghouders:
     get:
       operationId: rekeninghouders

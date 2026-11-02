@@ -66,11 +66,18 @@ class RenteService implements Maandafsluiting, LopendeRente {
     /** S8.1 (FO): van de 1e van de maand, of de dag van openen, tot en met vandaag; nog niet bijgeschreven. */
     @Override
     public Optional<Bedrag> van(String gebruikersnaam, Iban iban, LocalDate vandaag) {
-        return opslag.spaarrekening(gebruikersnaam, iban).map(rekening -> {
-            if (rekening.geopendOp() == null) {
-                return GEEN_RENTE;
-            }
-            return RenteCalculator.rente(opslag.dagsaldi(iban, rekening.eersteRentedag(YearMonth.from(vandaag)), vandaag));
-        });
+        return opslag.spaarrekening(gebruikersnaam, iban).map(rekening -> lopend(rekening, vandaag));
+    }
+
+    @Override
+    public Optional<Bedrag> inBeheer(Iban iban, LocalDate vandaag) {
+        return opslag.spaarrekeningInBeheer(iban).map(rekening -> lopend(rekening, vandaag));
+    }
+
+    private Bedrag lopend(Spaarrekening rekening, LocalDate vandaag) {
+        if (rekening.geopendOp() == null) {
+            return GEEN_RENTE;
+        }
+        return RenteCalculator.rente(opslag.dagsaldi(rekening.iban(), rekening.eersteRentedag(YearMonth.from(vandaag)), vandaag));
     }
 }

@@ -157,6 +157,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/beheer/rekeningen/{iban}/lopende-rente": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Als beheerder, alleen-lezen, van elke spaarrekening; verder als /api/rekeningen/{iban}/lopende-rente (S10.1, ADR 0038). */
+        get: operations["lopendeRenteInBeheer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/beheer/rekeninghouders": {
         parameters: {
             query?: never;
@@ -586,6 +603,32 @@ export interface operations {
                 };
             };
             400: components["responses"]["Probleem"];
+            401: components["responses"]["NietIngelogd"];
+            403: components["responses"]["GeenRecht"];
+            404: components["responses"]["NietGevonden"];
+        };
+    };
+    lopendeRenteInBeheer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Een ongeldige IBAN is een rekening die niet bestaat, dus 404 (ADR 0023) */
+                iban: components["parameters"]["Iban"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Het bedrag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LopendeRente"];
+                };
+            };
             401: components["responses"]["NietIngelogd"];
             403: components["responses"]["GeenRecht"];
             404: components["responses"]["NietGevonden"];

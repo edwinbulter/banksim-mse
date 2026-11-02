@@ -22,5 +22,11 @@ export const routes: Routes = [
     canActivate: [alleenBeheerder],
     data: { beheer: true },
   },
+  {
+    path: 'beheer/spaarrekeningen/:iban',
+    component: SpaarrekeningScherm,
+    canActivate: [alleenBeheerder],
+    data: { beheer: true },
+  },
   { path: '**', redirectTo: '' },
 ];

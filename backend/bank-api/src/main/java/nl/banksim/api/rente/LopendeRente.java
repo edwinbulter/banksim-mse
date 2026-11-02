@@ -14,4 +14,10 @@ interface LopendeRente {
      * (ADR 0023).
      */
     Optional<Bedrag> van(String gebruikersnaam, Iban iban, LocalDate vandaag);
+
+    /**
+     * ADR 0038: als {@link #van}, maar zonder eigenaar, voor de beheerder; leeg als dit geen spaarrekening is. Alleen voor
+     * de controller onder /api/beheer, die de rol beheerder vraagt.
+     */
+    Optional<Bedrag> inBeheer(Iban iban, LocalDate vandaag);
 }

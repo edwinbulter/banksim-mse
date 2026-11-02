@@ -139,6 +139,13 @@ export interface BankDriver {
    * browser geen knop "Betalen".
    */
   betaalInBeheer(): Promise<Uitkomst>;
+  /** S10.1: als beheerder de spaarrekening van een klant openen, alleen-lezen; daarna leest spaarmutaties() de lijst. */
+  openSpaarrekeningInBeheer(iban: string): Promise<void>;
+  /**
+   * S10.1: vanaf de geopende spaarrekening van een klant opnemen, als beheerder. Geweigerd: via de API een weigering,
+   * in de browser geen knoppen "Inleggen" en "Opnemen".
+   */
+  neemOpInBeheer(opdracht: Overschrijfopdracht): Promise<Uitkomst>;
   /** Alleen in de UI-driver (@ui): welk scherm de app nu toont (S10.1, ADR 0037). */
   scherm(): Promise<'overzicht' | 'beheer'>;
   /** Inloggen via Keycloak en de BFF, zoals een gebruiker dat doet. */

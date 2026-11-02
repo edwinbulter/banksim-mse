@@ -36,7 +36,11 @@ import { bedragVoorWeergave } from './geld/bedrag';
                 <td>{{ r.naam }}</td>
                 <td><a [routerLink]="['/beheer/rekeningen', r.betaalrekening]">{{ r.betaalrekening }}</a></td>
                 <td>{{ weergave(r.saldo) }}</td>
-                <td>{{ r.spaarrekening ?? '' }}</td>
+                <td>
+                  @if (r.spaarrekening; as spaar) {
+                    <a [routerLink]="['/beheer/spaarrekeningen', spaar]">{{ spaar }}</a>
+                  }
+                </td>
                 <td>{{ r.spaarsaldo === null ? '' : weergave(r.spaarsaldo) }}</td>
               </tr>
             }

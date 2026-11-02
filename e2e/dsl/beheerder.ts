@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
-import type { BankDriver, RekeninghouderInBeheer, TransactiesOpDatum } from '../drivers/bank-driver';
+import type { BankDriver, RekeninghouderInBeheer, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { BankSeed, GeseedeBeheerder } from '../drivers/shell/bank-seed';
-import type { Klant } from './klant';
+import { type Klant, vandaagInAmsterdam } from './klant';
 
 /**
  * De beheerder van de bank, met de realm-rol beheerder. Heeft een eigen sessie, los van de browser en de klanten:
@@ -59,6 +59,28 @@ export class Beheerder {
   /** Alleen-lezen: betalen vanaf de rekening van de klant lukt niet. */
   async verwachtAlleenLezen(): Promise<void> {
     expect(await (await this.opHetScherm()).betaalInBeheer(), 'betalen als beheerder').toBe('geweigerd');
+  }
+
+  /** S10.1: de spaarrekening van een klant, alleen-lezen. */
+  async opentSpaarrekeningVan(klant: Klant): Promise<void> {
+    await (await this.opHetScherm()).openSpaarrekeningInBeheer(klant.spaarrekeningnummer());
+  }
+
+  /** Zoals Klant.verwachtSpaarmutatie: deze mutatie staat erbij; `op` is een datum of "vandaag". */
+  async verwachtSpaarmutatie({ op, type, bedrag }: { op: string } & Omit<Spaarmutatie, 'datum' | 'omschrijving'>): Promise<void> {
+    const datum = op === 'vandaag' ? vandaagInAmsterdam() : op;
+    expect(await (await this.opHetScherm()).spaarmutaties(), 'spaarmutaties in beheer').toContainEqual({
+      datum,
+      type,
+      omschrijving: type,
+      bedrag,
+    });
+  }
+
+  /** Alleen-lezen: opnemen van de spaarrekening van de klant naar zijn betaalrekening lukt niet. */
+  async verwachtSpaarrekeningAlleenLezen(klant: Klant): Promise<void> {
+    const opdracht = { van: klant.spaarrekeningnummer(), naar: klant.iban(), bedrag: '0.01' };
+    expect(await (await this.opHetScherm()).neemOpInBeheer(opdracht), 'opnemen als beheerder').toBe('geweigerd');
   }
 
   /** De bank draait weer op vandaag; de fixture doet dit na elk scenario met @simulatiedatum. */

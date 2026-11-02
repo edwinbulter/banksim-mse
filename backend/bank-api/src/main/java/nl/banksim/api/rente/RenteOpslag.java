@@ -53,6 +53,17 @@ class RenteOpslag {
                 .optional();
     }
 
+    /** ADR 0038: deze spaarrekening, van wie hij ook is; alleen voor de beheerder. */
+    public Optional<Spaarrekening> spaarrekeningInBeheer(Iban iban) {
+        return jdbc.sql("""
+                        SELECT r.iban, h.naam, r.geopend_op FROM rekening r JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
+                        WHERE r.soort = 'spaar' AND r.iban = :iban""")
+                .param("iban", iban.toString())
+                .query((rij, nummer) -> new Spaarrekening(Iban.van(rij.getString("iban")), rij.getString("naam"),
+                        rij.getObject("geopend_op", LocalDate.class)))
+                .optional();
+    }
+
     /**
      * Legt vast dat de rente van deze maand wordt bijgeschreven; false als dat al gebeurd is. Wacht bij een gelijktijdige
      * afsluiting op de unieke sleutel; daarna is het al gebeurd.
