@@ -123,7 +123,7 @@ helm_install() {
   info "Helm-release $RELEASE installeren"
   helm --kube-context "$KUBE_CONTEXT" upgrade --install "$RELEASE" "$REPO_ROOT/deploy/banksim-mse" \
     --namespace "$NAMESPACE" \
-    --set imageTag="$tag" \
+    --set-string imageTag="$tag" \
     --wait --timeout 10m >/dev/null
   ok "Release $RELEASE geïnstalleerd (image-tag $tag)"
 }

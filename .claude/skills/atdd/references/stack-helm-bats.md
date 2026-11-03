@@ -87,6 +87,7 @@ NEP
 
 ## Patronen voor scripts
 
+- **`--set-string` voor tekst die uit cijfers kan bestaan.** Met `--set imageTag=7867696` maakt Helm er een getal van. De chart rendert nog goed, maar `helm get values` geeft `7867696` zonder aanhalingstekens, en wat daar tekst verwacht, faalt. Een korte commit-hash bestaat ongeveer 1 op de 27 keer alleen uit cijfers.
 - **Vaste doelcontext**, nooit de actieve kubectl-context. Alleen een expliciete `--context` mag afwijken. Test dat met bats.
 - **Eén keer bouwen.** `install.sh --image-tag <tag>` laadt alleen bestaande images, zodat CI precies de artefacten uit de commit stage installeert. Lokaal bouwt het script zelf, met hetzelfde bouwscript.
 - **Unieke image-tag per build:** de korte commit-hash, plus `-dirty-<tijdstempel>` als er niet-gecommitte wijzigingen zijn. Toon die tag in de app, zodat je kunt zien welke build er draait.

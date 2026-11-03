@@ -24,5 +24,13 @@ NEP
   [ "$status" -eq 0 ]
   ! grep -q '^docker build' "$AANROEPEN"
   grep -q 'kind load docker-image --name single-node banksim-mse/bank-api:abc1234 banksim-mse/bank-bff:abc1234 banksim-mse/bank-seed:abc1234 banksim-mse/bank-web:abc1234' "$AANROEPEN"
-  grep -q 'helm .*upgrade --install banksim-mse .*--set imageTag=abc1234' "$AANROEPEN"
+  grep -q 'helm .*upgrade --install banksim-mse .*--set-string imageTag=abc1234' "$AANROEPEN"
+}
+
+@test "install.sh geeft een tag van alleen cijfers als tekst door aan Helm" {
+  # Een korte commit-hash kan alleen uit cijfers bestaan (7867696). Met --set wordt dat een getal in de waarden, en
+  # vinden --skip-build en de scenario's de tag van de installatie niet meer.
+  run "$SCRIPTS/install.sh" --image-tag 7867696 --skip-smoke-tests
+  [ "$status" -eq 0 ]
+  grep -q 'helm .*upgrade --install banksim-mse .*--set-string imageTag=7867696' "$AANROEPEN"
 }

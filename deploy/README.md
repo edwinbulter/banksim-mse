@@ -66,7 +66,7 @@ flowchart LR
   ctx --> sec
   sec --> helm
   chart --> helm
-  git -->|"--set imageTag"| helm
+  git -->|"--set-string imageTag"| helm
   helm --> obj
   helm --> rel
   obj --> pods
