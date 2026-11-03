@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.rekening.Iban;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -51,8 +52,15 @@ class DemoDataTests {
         }
     };
 
+    private final Overboekingen overboekingen = lijst -> {
+        if (!lijst.isEmpty()) {
+            Overboeking eerste = lijst.getFirst();
+            gedaan.add("inleggen " + eerste.van().iban() + " " + eerste.naar().iban() + " " + lijst.size());
+        }
+    };
+
     private DemoData demo(String klantWachtwoord, String beheerderWachtwoord) {
-        return new DemoData(logins, bestaand::contains, rekeninghouders, spaarrekeningen, transacties,
+        return new DemoData(logins, bestaand::contains, rekeninghouders, spaarrekeningen, transacties, overboekingen,
                 () -> Iban.simBank(laatsteIban.incrementAndGet()), TransactionOperations.withoutTransaction(),
                 klantWachtwoord, beheerderWachtwoord);
     }
@@ -61,11 +69,12 @@ class DemoDataTests {
     void maaktTienKlantenMetEenBetaalEnSpaarrekeningEnLoginEnDaarnaDeBeheerder() {
         demo("klant-ww", "beheerder-ww").maak();
 
-        assertThat(gedaan).hasSize(41);
-        assertThat(gedaan.subList(0, 4)).containsExactly(
+        assertThat(gedaan).hasSize(51);
+        assertThat(gedaan.subList(0, 5)).containsExactly(
                 "betaal jdevries Jan de Vries " + Iban.simBank(1L) + " 1800.00",
                 "spaar jdevries 0.00 false",
                 "boekingen " + Iban.simBank(1L) + " " + Generator.boekingen(DemoKlanten.ALLE.getFirst()).size(),
+                "inleggen " + Iban.simBank(1L) + " " + Iban.simBank(99L) + " 63",
                 "login jdevries klant-ww");
         assertThat(gedaan).contains("betaal melamrani Mohamed El Amrani " + Iban.simBank(3L) + " 2000.00",
                 "betaal nhendriks Noor Hendriks " + Iban.simBank(10L) + " 3500.00", "login nhendriks klant-ww");
@@ -87,7 +96,7 @@ class DemoDataTests {
 
         demo("klant-ww", "beheerder-ww").maak();
 
-        assertThat(gedaan).hasSize(37).noneMatch(stap -> stap.contains("jdevries"));
+        assertThat(gedaan).hasSize(46).noneMatch(stap -> stap.contains("jdevries"));
     }
 
     /** Zonder wachtwoord uit het Secret bank-demo wordt er niets half aangemaakt. */

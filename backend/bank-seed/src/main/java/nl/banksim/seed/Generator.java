@@ -20,7 +20,7 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, en het inkomen op de 24e. Daarna de boodschappen, met een
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e en de inleg op de 25e. Daarna de boodschappen, met een
  * vaste seed per klant; een boodschap die de rekening rood zou maken, vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
@@ -30,17 +30,38 @@ final class Generator {
     private static final YearMonth LAATSTE_MAAND = YearMonth.of(2026, 12);
     private static final Bedrag GEEN_BEDRAG = Bedrag.van("0.00");
     private static final long SEED = 42;
+    private static final long SEED_INLEG = 43;
     private static final List<String> SUPERMARKTEN = List.of("BuurtSuper", "Prijsvast Supermarkt", "Versmarkt");
+
+    /** ADR 0042: van de betaalrekening naar de eigen spaarrekening. */
+    record Inleg(LocalDateTime tijdstip, Bedrag bedrag) {
+    }
 
     private Generator() {
     }
 
+    /** Origineel: elke maand op de 25e, tussen 9:00 en 11:00, dus na het inkomen. */
+    static List<Inleg> inleggen(DemoKlanten.DemoKlant klant) {
+        List<Inleg> inleggen = new ArrayList<>();
+        Random toeval = new Random(SEED_INLEG + klant.gebruikersnaam().hashCode());
+        klant.inleg().ifPresent(bedrag -> {
+            for (YearMonth maand = EERSTE_MAAND; !maand.isAfter(LAATSTE_MAAND); maand = maand.plusMonths(1)) {
+                inleggen.add(new Inleg(maand.atDay(25).atTime(LocalTime.of(9, 0).plusMinutes(toeval.nextInt(2 * 60 + 1))), bedrag));
+            }
+        });
+        return inleggen;
+    }
+
+    /** De eenzijdige boekingen. De inleg staat er niet bij, maar telt wel mee voor nooit rood (ADR 0042). */
     static List<Boeking> boekingen(DemoKlanten.DemoKlant klant) {
-        List<Boeking> boekingen = vasteBoekingen(klant);
-        controleerNooitRood(klant, boekingen);
-        voegBoodschappenToe(klant, boekingen);
-        boekingen.sort(Comparator.comparing(Boeking::tijdstip));
-        return boekingen;
+        List<Boeking> eenzijdig = vasteBoekingen(klant);
+        List<Boeking> verloop = new ArrayList<>(eenzijdig);
+        inleggen(klant).forEach(inleg -> verloop.add(new Boeking(inleg.tijdstip(), new Bedrag(inleg.bedrag().waarde().negate()),
+                klant.naam(), TransactieType.OVERSCHRIJVING, Optional.empty())));
+        controleerNooitRood(klant, verloop);
+        eenzijdig.addAll(boodschappen(klant, verloop));
+        eenzijdig.sort(Comparator.comparing(Boeking::tijdstip));
+        return eenzijdig;
     }
 
     private static List<Boeking> vasteBoekingen(DemoKlanten.DemoKlant klant) {
@@ -61,17 +82,20 @@ final class Generator {
     }
 
     /** FO: 6–12 keer per maand, € 8–120, tussen 8:00 en 21:00. Dezelfde klant krijgt altijd dezelfde boodschappen. */
-    private static void voegBoodschappenToe(DemoKlanten.DemoKlant klant, List<Boeking> boekingen) {
+    private static List<Boeking> boodschappen(DemoKlanten.DemoKlant klant, List<Boeking> verloop) {
+        List<Boeking> boodschappen = new ArrayList<>();
         Random toeval = new Random(SEED + klant.gebruikersnaam().hashCode());
         for (YearMonth maand = EERSTE_MAAND; !maand.isAfter(LAATSTE_MAAND); maand = maand.plusMonths(1)) {
             int aantal = 6 + toeval.nextInt(7);
             for (int i = 0; i < aantal; i++) {
                 Boeking boodschap = boodschap(maand, toeval);
-                if (past(klant, boekingen, boodschap)) {
-                    boekingen.add(boodschap);
+                if (past(klant, verloop, boodschap)) {
+                    verloop.add(boodschap);
+                    boodschappen.add(boodschap);
                 }
             }
         }
+        return boodschappen;
     }
 
     private static Boeking boodschap(YearMonth maand, Random toeval) {

@@ -62,7 +62,7 @@ public class BankSeedApplication {
         return args -> {
             var commando = new SeedCommando(aanmaker, transacties, logins, contacten, spaarrekeningen, json, System.out);
             if (args.length == 1 && args[0].equals("demo")) {
-                new DemoData(logins, rekeninghouders, rekeninghouders, spaarrekeningen, transacties, nieuweIban, transactie,
+                new DemoData(logins, rekeninghouders, rekeninghouders, spaarrekeningen, transacties, new JdbcOverboekingen(jdbc, transactie), nieuweIban, transactie,
                         properties.demo().klantWachtwoord(), properties.demo().beheerderWachtwoord()).maak();
             } else if (args.length == 1 && args[0].equals("sessie")) {
                 var stdin = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));

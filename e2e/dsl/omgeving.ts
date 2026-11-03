@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
-import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum } from '../drivers/bank-driver';
+import type { BankDriver, RekeningInOverzicht, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
 import { DEMO_BEHEERDER, DEMO_KLANTEN, SUPERMARKTEN, VASTE_LASTEN } from './huishoudens';
 import { Stappen, type Stap } from './stappen';
@@ -164,11 +164,43 @@ export class Omgeving extends Stappen {
 
   /** S11.1: de bedragen in domeinnotatie die de klant in die maand aan elk van de vaste lasten betaalde. */
   async verwachtVasteLastenVan(naam: string, maand: string, verwacht: Record<string, string>): Promise<void> {
-    const klant = DEMO_KLANTEN.find((demo) => demo.naam === naam);
-    if (!klant) throw new Error(`${naam} is geen demo-klant`);
-    const { transacties } = await this.betaalrekeningVan(klant.gebruikersnaam);
+    const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
     const betaald = Object.fromEntries(VASTE_LASTEN.map((last) => [last, betalingenAan(transacties, maand, last)[0]]));
     expect(betaald, `vaste lasten van ${naam} in ${maand}`).toEqual(verwacht);
+  }
+
+  /** S11.1: per klant en per maand precies één inleg op de spaarrekening. */
+  async verwachtInlegPerMaand(van: string, tm: string): Promise<void> {
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const mutaties = await this.spaarmutatiesVan(gebruikersnaam);
+      const fout = maanden(van, tm)
+        .map((maand) => ({ maand, aantal: mutaties.filter((m) => m.type === 'Inleg' && m.datum.startsWith(maand)).length }))
+        .filter(({ aantal }) => aantal !== 1)
+        .map(({ maand, aantal }) => `${maand}: ${aantal}`);
+      expect(fout, `maanden zonder precies één inleg bij ${gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  /** S11.1: de spaarrekening heeft de naam van de klant, dus de afschrijving staat onder zijn eigen naam. */
+  async verwachtAfschrijvingNaarSpaarrekening(naam: string, maand: string, bedrag: string): Promise<void> {
+    const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+    expect(betalingenAan(transacties, maand, naam), `naar de spaarrekening van ${naam} in ${maand}`).toEqual([bedrag]);
+  }
+
+  async verwachtSpaarsaldo(naam: string, saldo: string): Promise<void> {
+    const { rekeningen } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+    expect(rekeningen.find((rekening) => rekening.soort === 'spaar')?.saldo, `spaarsaldo van ${naam}`).toBe(saldo);
+  }
+
+  /** Inloggen als de demo-klant, en alle mutaties van zijn spaarrekening laden. */
+  private async spaarmutatiesVan(gebruikersnaam: string): Promise<Spaarmutatie[]> {
+    const driver = await this.maakRestDriver();
+    await driver.logIn(gebruikersnaam, await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'KLANT_WACHTWOORD'));
+    const spaar = (await driver.rekeningenInOverzicht()).find((rekening) => rekening.soort === 'spaar');
+    if (!spaar) throw new Error(`${gebruikersnaam} heeft geen spaarrekening`);
+    await driver.openSpaarrekening(spaar.iban);
+    while (await driver.heeftMeer()) await driver.toonMeer();
+    return driver.spaarmutaties();
   }
 
   /** S11.1: vanaf het eindsaldo terugrekenen, dag voor dag en in centen: elk saldo aan het eind van een dag, en het beginsaldo. */
@@ -293,6 +325,12 @@ export class Origineel {
   async verwachtBereikbaar(): Promise<void> {
     expect(await this.shell.httpStatus('https://bank.localtest.me/'), 'https://bank.localtest.me/').toBe(200);
   }
+}
+
+function gebruikersnaamVan(naam: string): string {
+  const klant = DEMO_KLANTEN.find((demo) => demo.naam === naam);
+  if (!klant) throw new Error(`${naam} is geen demo-klant`);
+  return klant.gebruikersnaam;
 }
 
 /** De bedragen van de betalingen aan een tegenpartij in een maand, zoals "2026-12". */

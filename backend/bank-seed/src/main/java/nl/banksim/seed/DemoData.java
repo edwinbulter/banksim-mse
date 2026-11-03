@@ -4,12 +4,14 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import nl.banksim.domain.geld.Bedrag;
+import nl.banksim.domain.grootboek.Overboeking;
+import nl.banksim.domain.grootboek.Partij;
 import nl.banksim.domain.rekening.Iban;
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
  * ADR 0040, S11.1: de 10 klanten en de beheerder van de demo; een tweede keer verandert er niets. Een klant is in één
- * databasetransactie de rekeninghouder, zijn twee rekeningen, zijn transacties (ADR 0041) en de login: mislukt de login,
+ * databasetransactie de rekeninghouder, zijn twee rekeningen, zijn transacties (ADR 0041), zijn inleggen (ADR 0042) en de login: mislukt de login,
  * dan volgt alles bij de volgende installatie opnieuw.
  */
 class DemoData {
@@ -21,18 +23,20 @@ class DemoData {
     private final Rekeninghouders rekeninghouders;
     private final Spaarrekeningen spaarrekeningen;
     private final Transacties transacties;
+    private final Overboekingen overboekingen;
     private final Supplier<Iban> nieuweIban;
     private final TransactionOperations transactie;
     private final String klantWachtwoord;
     private final String beheerderWachtwoord;
 
     DemoData(DemoLogins logins, BestaandeKlanten bestaand, Rekeninghouders rekeninghouders, Spaarrekeningen spaarrekeningen,
-            Transacties transacties, Supplier<Iban> nieuweIban, TransactionOperations transactie, String klantWachtwoord, String beheerderWachtwoord) {
+            Transacties transacties, Overboekingen overboekingen, Supplier<Iban> nieuweIban, TransactionOperations transactie, String klantWachtwoord, String beheerderWachtwoord) {
         this.logins = logins;
         this.bestaand = bestaand;
         this.rekeninghouders = rekeninghouders;
         this.spaarrekeningen = spaarrekeningen;
         this.transacties = transacties;
+        this.overboekingen = overboekingen;
         this.nieuweIban = nieuweIban;
         this.transactie = transactie;
         this.klantWachtwoord = klantWachtwoord;
@@ -55,8 +59,13 @@ class DemoData {
     private void maak(DemoKlanten.DemoKlant klant) {
         Iban betaalrekening = nieuweIban.get();
         rekeninghouders.voegToeMetBetaalrekening(klant.gebruikersnaam(), klant.naam(), betaalrekening, klant.beginsaldo());
-        spaarrekeningen.open(klant.gebruikersnaam(), LEEG, Optional.empty());
+        Iban spaarrekening = spaarrekeningen.open(klant.gebruikersnaam(), LEEG, Optional.empty());
         transacties.boekAlle(betaalrekening, Generator.boekingen(klant));
+        Partij betaal = new Partij(betaalrekening, klant.naam());
+        Partij spaar = new Partij(spaarrekening, klant.naam());
+        overboekingen.schrijfAlle(Generator.inleggen(klant).stream()
+                .map(inleg -> Overboeking.inleg(betaal, spaar, inleg.bedrag(), inleg.tijdstip(), "Maandelijks sparen"))
+                .toList());
         logins.zorgVoorKlant(klant.gebruikersnaam(), klantWachtwoord);
     }
 

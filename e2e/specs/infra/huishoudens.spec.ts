@@ -61,6 +61,22 @@ test('Elke klant betaalt elke maand zijn vaste lasten', { tag: '@simulatiedatum'
   );
 });
 
+test('Elke klant legt elke maand een vast bedrag in op zijn spaarrekening', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan('heeft elk van de 10 klanten in elk van de 63 maanden precies één inleg op zijn spaarrekening', () =>
+    omgeving.verwachtInlegPerMaand('2021-10', '2026-12'),
+  );
+  await omgeving.en('is van de betaalrekening van Jan in december 2026 € 400,00 naar zijn spaarrekening gegaan', () =>
+    omgeving.verwachtAfschrijvingNaarSpaarrekening('Jan de Vries', '2026-12', '-400.00'),
+  );
+  await omgeving.en('staat er op de spaarrekening van Jan € 25.200,00', () =>
+    omgeving.verwachtSpaarsaldo('Jan de Vries', '25200.00'),
+  );
+});
+
 /** @destructief: de upgrade vervangt de draaiende installatie door een andere versie; alleen in het CI-cluster. */
 test('Een upgrade laat de demo-data ongemoeid', { tag: '@destructief' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());

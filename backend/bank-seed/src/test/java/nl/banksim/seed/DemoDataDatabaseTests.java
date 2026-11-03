@@ -60,7 +60,7 @@ class DemoDataDatabaseTests {
         var rekeninghouders = new JdbcRekeninghouders(jdbc);
         Supplier<Iban> nieuweIban = () -> Iban.simBank(laatsteIban.incrementAndGet());
         return new DemoData(keycloak, rekeninghouders, rekeninghouders, new JdbcSpaarrekeningen(jdbc, nieuweIban),
-                new JdbcTransacties(jdbc, transactie), nieuweIban,
+                new JdbcTransacties(jdbc, transactie), new JdbcOverboekingen(jdbc, transactie), nieuweIban,
                 transactie, "klant-ww", "beheerder-ww");
     }
 
@@ -71,10 +71,12 @@ class DemoDataDatabaseTests {
                 .param("gebruikersnaam", gebruikersnaam).query(String.class).list();
     }
 
+    /** De eenzijdige boekingen, en van elke inleg de twee kanten (ADR 0042). */
     private static long aantalBoekingen(String gebruikersnaam) {
-        return Generator.boekingen(DemoKlanten.ALLE.stream()
-                .filter(klant -> klant.gebruikersnaam().equals(gebruikersnaam))
-                .findFirst().orElseThrow()).size();
+        var klant = DemoKlanten.ALLE.stream()
+                .filter(demo -> demo.gebruikersnaam().equals(gebruikersnaam))
+                .findFirst().orElseThrow();
+        return Generator.boekingen(klant).size() + 2L * Generator.inleggen(klant).size();
     }
 
     private long transacties(String gebruikersnaam) {
@@ -95,6 +97,8 @@ class DemoDataDatabaseTests {
         assertThat(transacties("melamrani")).isEqualTo(aantalBoekingen("melamrani"));
         assertThat(rekeningen("ljansen")).isEmpty();
         assertThat(transacties("ljansen")).isZero();
+        // Drie klanten zijn klaar: jdevries, sbakker en melamrani; van ljansen is er niets (ADR 0042).
+        assertThat(jdbc.sql("SELECT count(*) FROM overboeking").query(Long.class).single()).isEqualTo(3L * 63);
 
         faaltVoor = null;
         logins.clear();
