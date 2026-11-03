@@ -17,7 +17,10 @@ export class BeheerPagina {
   /** S10.2 (FO): de datumkiezer en "Toepassen"; gelukt als het scherm het toepassen meldt, geweigerd bij een melding. */
   async zetSimulatiedatum(datum: string): Promise<Uitkomst> {
     await this.page.goto('/beheer');
-    await this.page.getByLabel('Simulatiedatum', { exact: true }).fill(datum);
+    // Eerst laden: het antwoord met de huidige datum zou de ingevulde datum anders overschrijven.
+    const veld = this.page.getByLabel('Simulatiedatum', { exact: true });
+    await expect(veld).not.toHaveValue('');
+    await veld.fill(datum);
     await this.page.getByRole('button', { name: 'Toepassen' }).click();
     const toegepast = this.page.getByRole('status').filter({ hasText: 'Simulatiedatum toegepast.' });
     const melding = this.page.getByRole('alert');
