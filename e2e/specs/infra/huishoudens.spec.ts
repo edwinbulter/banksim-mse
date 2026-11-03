@@ -28,3 +28,16 @@ test('Geen betaalrekening van een demo-klant staat op enige dag rood', { tag: '@
     omgeving.verwachtNooitRood(),
   );
 });
+
+/** @destructief: de upgrade vervangt de draaiende installatie door een andere versie; alleen in het CI-cluster. */
+test('Een upgrade laat de demo-data ongemoeid', { tag: '@destructief' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  const voor = await omgeving.demoData();
+  await omgeving.als('de beheerder een nieuwe versie van BankSim-MSE installeert', () =>
+    omgeving.installeerNieuweVersie(),
+  );
+  await omgeving.dan('antwoordt BankSim-MSE met de nieuwe versie', () => omgeving.verwachtBereikbaar());
+  await omgeving.en('ziet elk van de 10 klanten dezelfde rekeningen met hetzelfde saldo, en dezelfde transacties op de betaalrekening', () =>
+    omgeving.verwachtDemoDataGelijkAan(voor),
+  );
+});

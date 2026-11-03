@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
-import type { BankDriver, TransactiesOpDatum } from '../drivers/bank-driver';
+import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
 import { DEMO_BEHEERDER, DEMO_KLANTEN } from './huishoudens';
 import { Stappen, type Stap } from './stappen';
@@ -13,6 +13,14 @@ const DEMO_SECRET = 'bank-demo';
 
 /** Per resource: uid, generation en een hash van spec of data. Verschilt er iets, dan is er iets veranderd. */
 export type Momentopname = Record<string, string>;
+
+/** Per demo-klant: zijn rekeningen met saldo en de transacties van zijn betaalrekening. */
+export type DemoDataStand = Record<string, BetaalrekeningVanKlant>;
+
+interface BetaalrekeningVanKlant {
+  rekeningen: RekeningInOverzicht[];
+  transacties: TransactiesOpDatum[];
+}
 
 /**
  * De omgeving zoals een beheerder hem ziet: installeren, verwijderen en controleren wat er in het cluster staat
@@ -124,8 +132,8 @@ export class Omgeving extends Stappen {
   /** S11.1: vanaf het eindsaldo terugrekenen, dag voor dag en in centen: elk saldo aan het eind van een dag, en het beginsaldo. */
   async verwachtNooitRood(): Promise<void> {
     for (const { gebruikersnaam } of DEMO_KLANTEN) {
-      const { saldo, transacties } = await this.betaalrekeningVan(gebruikersnaam);
-      let lopend = centen(saldo);
+      const { rekeningen, transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      let lopend = centen(betaalrekening(rekeningen, gebruikersnaam).saldo);
       let laagste = lopend;
       for (const dag of transacties) {
         for (const { bedrag } of dag.transacties) lopend -= centen(bedrag);
@@ -135,15 +143,27 @@ export class Omgeving extends Stappen {
     }
   }
 
+  /** S11.1: wat de klanten nu zien, om na een upgrade te vergelijken. */
+  async demoData(): Promise<DemoDataStand> {
+    const stand: DemoDataStand = {};
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      stand[gebruikersnaam] = await this.betaalrekeningVan(gebruikersnaam);
+    }
+    return stand;
+  }
+
+  async verwachtDemoDataGelijkAan(voor: DemoDataStand): Promise<void> {
+    expect(await this.demoData(), 'rekeningen en transacties van de demo-klanten').toEqual(voor);
+  }
+
   /** Inloggen als de demo-klant, en de hele transactielijst van zijn betaalrekening laden. */
-  private async betaalrekeningVan(gebruikersnaam: string): Promise<{ saldo: string; transacties: TransactiesOpDatum[] }> {
+  private async betaalrekeningVan(gebruikersnaam: string): Promise<BetaalrekeningVanKlant> {
     const driver = await this.maakRestDriver();
     await driver.logIn(gebruikersnaam, await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'KLANT_WACHTWOORD'));
-    const betaal = (await driver.rekeningenInOverzicht()).find((rekening) => rekening.soort === 'betaal');
-    if (!betaal) throw new Error(`${gebruikersnaam} heeft geen betaalrekening`);
-    await driver.openRekening(betaal.iban);
+    const rekeningen = await driver.rekeningenInOverzicht();
+    await driver.openRekening(betaalrekening(rekeningen, gebruikersnaam).iban);
     while (await driver.heeftMeer()) await driver.toonMeer();
-    return { saldo: betaal.saldo, transacties: await driver.transacties() };
+    return { rekeningen, transacties: await driver.transacties() };
   }
 
   private async demoBeheerder(): Promise<BankDriver> {
@@ -231,6 +251,12 @@ export class Origineel {
   async verwachtBereikbaar(): Promise<void> {
     expect(await this.shell.httpStatus('https://bank.localtest.me/'), 'https://bank.localtest.me/').toBe(200);
   }
+}
+
+function betaalrekening(rekeningen: RekeningInOverzicht[], gebruikersnaam: string): RekeningInOverzicht {
+  const betaal = rekeningen.find((rekening) => rekening.soort === 'betaal');
+  if (!betaal) throw new Error(`${gebruikersnaam} heeft geen betaalrekening`);
+  return betaal;
 }
 
 /** Een bedrag in domeinnotatie ("-950.00") in centen; geen drijvende komma (ADR 0010). */
