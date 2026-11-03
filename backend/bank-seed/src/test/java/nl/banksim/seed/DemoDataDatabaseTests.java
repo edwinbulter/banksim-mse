@@ -71,6 +71,12 @@ class DemoDataDatabaseTests {
                 .param("gebruikersnaam", gebruikersnaam).query(String.class).list();
     }
 
+    private static long aantalBoekingen(String gebruikersnaam) {
+        return Generator.boekingen(DemoKlanten.ALLE.stream()
+                .filter(klant -> klant.gebruikersnaam().equals(gebruikersnaam))
+                .findFirst().orElseThrow()).size();
+    }
+
     private long transacties(String gebruikersnaam) {
         return jdbc.sql("""
                         SELECT count(*) FROM transactie t JOIN rekening r ON r.iban = t.iban
@@ -86,7 +92,7 @@ class DemoDataDatabaseTests {
         assertThatThrownBy(() -> demo().maak()).hasMessage("Keycloak is weg");
 
         assertThat(rekeningen("melamrani")).containsExactly("betaal", "spaar");
-        assertThat(transacties("melamrani")).isEqualTo(126);
+        assertThat(transacties("melamrani")).isEqualTo(aantalBoekingen("melamrani"));
         assertThat(rekeningen("ljansen")).isEmpty();
         assertThat(transacties("ljansen")).isZero();
 
@@ -95,7 +101,7 @@ class DemoDataDatabaseTests {
         demo().maak();
 
         assertThat(rekeningen("ljansen")).containsExactly("betaal", "spaar");
-        assertThat(transacties("ljansen")).isEqualTo(126);
+        assertThat(transacties("ljansen")).isEqualTo(aantalBoekingen("ljansen"));
         assertThat(rekeningen("nhendriks")).containsExactly("betaal", "spaar");
         assertThat(logins).doesNotContain("jdevries", "melamrani").contains("ljansen", "nhendriks", "beheerder");
 

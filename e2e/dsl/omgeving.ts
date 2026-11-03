@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
-import { DEMO_BEHEERDER, DEMO_KLANTEN } from './huishoudens';
+import { DEMO_BEHEERDER, DEMO_KLANTEN, SUPERMARKTEN } from './huishoudens';
 import { Stappen, type Stap } from './stappen';
 
 const NAMESPACE = 'banksim-mse';
@@ -126,6 +126,26 @@ export class Omgeving extends Stappen {
       const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
       const gevonden = new Set(transacties.map(({ datum }) => datum.slice(0, 7)));
       expect(verwacht.filter((maand) => !gevonden.has(maand)), `maanden zonder transacties bij ${gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  /** S11.1: per klant en per maand het aantal betalingen aan een supermarkt, en elk bedrag in centen. */
+  async verwachtBoodschappenPerMaand(van: string, tm: string, aantal: { min: number; max: number }, bedrag: { min: string; max: string }): Promise<void> {
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      const perMaand = new Map(maanden(van, tm).map((maand) => [maand, 0]));
+      const buitenBereik: string[] = [];
+      for (const dag of transacties) {
+        for (const transactie of dag.transacties.filter(({ tegenpartij }) => SUPERMARKTEN.includes(tegenpartij))) {
+          const maand = dag.datum.slice(0, 7);
+          perMaand.set(maand, (perMaand.get(maand) ?? 0) + 1);
+          const afgeschreven = -centen(transactie.bedrag);
+          if (afgeschreven < centen(bedrag.min) || afgeschreven > centen(bedrag.max)) buitenBereik.push(`${dag.datum}: ${transactie.bedrag}`);
+        }
+      }
+      const fout = [...perMaand].filter(([, n]) => n < aantal.min || n > aantal.max).map(([maand, n]) => `${maand}: ${n}`);
+      expect(fout, `maanden met een verkeerd aantal boodschappen bij ${gebruikersnaam}`).toEqual([]);
+      expect(buitenBereik, `boodschappen buiten het bereik bij ${gebruikersnaam}`).toEqual([]);
     }
   }
 

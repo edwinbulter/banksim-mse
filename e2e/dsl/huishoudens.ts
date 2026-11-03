@@ -13,3 +13,6 @@ export const DEMO_KLANTEN = [
 ];
 
 export const DEMO_BEHEERDER = 'beheerder';
+
+/** S11.1 (FO "Transactiepatroon per maand"): waar de demo-klanten hun boodschappen doen, met de namen uit het origineel. */
+export const SUPERMARKTEN = ['BuurtSuper', 'Prijsvast Supermarkt', 'Versmarkt'];

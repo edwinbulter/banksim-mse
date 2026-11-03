@@ -65,7 +65,7 @@ class DemoDataTests {
         assertThat(gedaan.subList(0, 4)).containsExactly(
                 "betaal jdevries Jan de Vries " + Iban.simBank(1L) + " 1800.00",
                 "spaar jdevries 0.00 false",
-                "boekingen " + Iban.simBank(1L) + " 126",
+                "boekingen " + Iban.simBank(1L) + " " + Generator.boekingen(DemoKlanten.ALLE.getFirst()).size(),
                 "login jdevries klant-ww");
         assertThat(gedaan).contains("betaal melamrani Mohamed El Amrani " + Iban.simBank(3L) + " 1500.00",
                 "betaal nhendriks Noor Hendriks " + Iban.simBank(10L) + " 3500.00", "login nhendriks klant-ww");
