@@ -131,20 +131,45 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+  autonumber
   participant B as Browser
+  participant W as bank-web
   participant BFF as bank-bff
   participant KC as keycloak
 
-  B->>BFF: /oauth2/authorization/keycloak
-  BFF-->>B: redirect naar het inlogscherm van Keycloak (auth-mse)
+  B->>W: Jan typt https://bank-mse.localtest.me
+  W-->>B: de Angular-app
+  B->>BFF: /api/ik
+  BFF-->>B: 401, de app toont de link Inloggen
+  B->>BFF: Jan klikt op de link: /oauth2/authorization/keycloak
+  BFF-->>B: redirect naar https://auth-mse.localtest.me, met code_challenge en state
   B->>KC: gebruikersnaam en wachtwoord
-  KC-->>B: redirect naar /login/oauth2/code/keycloak met een code
-  B->>BFF: code
-  BFF->>KC: code inwisselen voor tokens (binnen het cluster)
+  KC-->>B: redirect naar https://bank-mse.localtest.me/login/oauth2/code/keycloak, met code en state
+  B->>BFF: code en state
+  BFF->>KC: code, code_verifier en client secret (binnen het cluster)
+  KC-->>BFF: tokens
   BFF-->>B: sessiecookie en XSRF-TOKEN-cookie
 ```
 
-- Dit is de OAuth2 authorization code flow met PKCE. De tokens blijven in de sessie van de BFF, en de browser krijgt alleen een sessiecookie (ADR 0008).
+Dit is de OAuth2 authorization code flow met PKCE; die begint bij pijl 5. De nummers horen bij de pijlen in het diagram:
+
+1. Jan typt alleen het adres van de bank. De ingress stuurt die aanvraag naar `bank-web`.
+2. `bank-web` levert de Angular-app.
+3. De app vraagt bij de BFF op wie er is ingelogd (`frontend/src/app/ik.ts`).
+4. Er is nog geen sessie, dus de BFF antwoordt met een 401. Dat is geen redirect: de app vangt de 401 op en toont de link "Inloggen" (`frontend/src/app/sessie.ts`, `app.ts`).
+5. Jan klikt op die link, en de browser opent `/oauth2/authorization/keycloak` op de host van de bank. De ingress stuurt `/oauth2` door naar de BFF. Het woord `keycloak` aan het eind is alleen de naam van de client-registratie in de BFF: deze aanvraag gaat nog niet naar Keycloak.
+6. De BFF bedenkt een geheim, de `code_verifier`, en bewaart dat in de sessie. De BFF antwoordt met een redirect naar Keycloak. In die URL staan de hash van het geheim (`code_challenge`) en een willekeurige waarde `state`.
+7. De browser volgt de redirect en toont het inlogscherm van Keycloak. Jan voert daar de gegevens in, dus de BFF ziet het wachtwoord nooit. Keycloak maakt een code aan en onthoudt bij welke login, client en `code_challenge` die hoort.
+8. Keycloak antwoordt met een redirect terug naar de BFF, met de code en `state` in de URL.
+9. De browser volgt ook deze redirect, en de code en `state` komen zo bij de BFF aan. De BFF controleert of `state` klopt, zodat een aanvaller geen eigen login in de sessie van Jan kan schuiven.
+10. De BFF wisselt de code in. Daarvoor stuurt de BFF de code, de `code_verifier` en het client secret rechtstreeks naar Keycloak, binnen het cluster.
+11. Keycloak controleert ze en geeft de tokens terug. De BFF bewaart de tokens in de sessie.
+12. De browser krijgt alleen een sessiecookie en nooit de tokens (ADR 0008).
+
+De code is een eenmalig, kortlevend bonnetje en geeft zelf geen toegang tot `bank-api`. Hij loopt via de browser en staat in een URL, en kan dus in de browsergeschiedenis of in logs terechtkomen. Daarom gaan de tokens niet via die weg, maar via de directe verbinding tussen de BFF en Keycloak. In `KeycloakClientRegistration` zie je dat terug: `authorizationUri` is de publieke host, `tokenUri` het interne adres.
+
+**PKCE** (Proof Key for Code Exchange, spreek uit als "pixie") bewijst dat degene die de code inwisselt, ook degene is die de login heeft gestart. Bij het inwisselen rekent Keycloak de hash van de `code_verifier` uit en vergelijkt die met de `code_challenge` uit stap 6. Wie de code onderschept, kent de `code_verifier` niet: die is nooit door de browser gegaan, en uit de hash is hij niet terug te rekenen. De BFF heeft ook een client secret, en PKCE beschermt daarnaast tegen het injecteren van een onderschepte code in een andere sessie.
+
 - De BFF zet ook een cookie `XSRF-TOKEN`. Bij elke aanvraag die iets wijzigt, stuurt de browser die waarde terug in de header `X-XSRF-TOKEN` (ADR 0016).
 - De UI-driver logt in via de echte schermen. De REST-driver doet dezelfde redirects zonder browser.
 - **Waar kijk je:** `backend/bank-bff`, `deploy/banksim-mse/files/realm-banksim-mse.json`.
