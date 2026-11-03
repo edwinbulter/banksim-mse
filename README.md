@@ -63,6 +63,7 @@ Start een iteratie met bijvoorbeeld `/atdd begin aan slice 1` of `/atdd volgend 
 | --- | --- |
 | [Werkwijze volgens Modern Software Engineering](doc/werkwijze-mse.md) | De volledige werkwijze, met voor elke slice:<br>- scenario's<br>- double loop<br>- vierlaags acceptatietestmodel<br>- ADR-proces en -backlog<br>- uitgewerkte iteraties<br>- infrastructuur als code<br>- traceerbaarheid naar het origineel<br>- Definition of Done |
 | [Een story door de stack](doc/story-door-de-stack.md) | Waar de stack uit bestaat (onderdelen, Kubernetes-resources, databases, Keycloak), en hoe de story "Betalen naar een contact" er van scenario tot database doorheen loopt |
+| [Code-ownership](doc/code-ownership.md) | Welke kennis je nodig hebt om de code te supporten, per onderwerp, met een zelftoets met ingeklapte antwoorden en bronnen |
 | [Kwaliteitscontroles](doc/kwaliteitscontroles.md) | Welke soorten tests en controles het project heeft (van compiler tot acceptatietest en mutatietest), wat elke soort controleert, hoe, en waar ze in de pipeline draait |
 | [deploy/README.md](deploy/README.md) | Hoe de Helm-chart en de scripts BankSim-MSE in het kind-cluster installeren: aanroepen, input en output, de stappen van `install.sh`, verwijderen en controleren |
 | [ATDD in een team](doc/teamwerk-mse.md) | Hoe een team de werkwijze toepast volgens Farley: van epic naar scenario, werk verdelen per scenario in plaats van per laag, en de samenwerkingsmomenten |

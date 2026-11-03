@@ -104,4 +104,5 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - Voortgang: de status in `README.md`, de bestaande specs en `@wip`-tags, en de bestaande ADR's in `doc/adr/`.
 - Werken in een team (werk verdelen, samenwerkingsmomenten): `doc/teamwerk-mse.md`.
 - Controle door de mens: `doc/werkwijze-mse.md` §10.1. Schrijf geen controle-documenten per slice meer; de oude staan in `doc/archief/`.
+- Kennis voor het supporten van de code, met een zelftoets: `doc/code-ownership.md`.
 - Leren door de mens: `doc/werkwijze-mse.md` §10.2. Uitleg van een deel van het systeem: skill `uitleg` (`/uitleg <onderwerp>`).

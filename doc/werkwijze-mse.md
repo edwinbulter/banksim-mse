@@ -1542,6 +1542,8 @@ Beide halen de uitleg uit de code van dat moment, en schrijven niets weg. Er is 
 
 **Verhouding tot §10.1.** Code lezen als controle blijft overbodig: of de code werkt, bewijst de pipeline. Lezen om te leren is gericht. Je leest de route en de kritische punten die de uitleg aanwijst, en dat is geen keuring.
 
+**Zelf toetsen.** Of je de kennis echt hebt, test je met de vragen in [Code-ownership](code-ownership.md), zonder AI.
+
 **Wat het kost.** Het blok in het rapport kost een paar minuten lezen per iteratie. Een `/uitleg` kost tien tot twintig minuten, als je hem nodig hebt. Het levert iets op wat de pipeline niet kan: een mens die het voorbeeld, de beslissing en de verificatie blijft kunnen beoordelen.
 
 **Bronnen en interpretatie:** Lisanne Bainbridge, "Ironies of Automation", *Automatica* 19(6), 1983. Optimaliseren voor leren: *Modern Software Engineering*, deel II. AI versnelt het makkelijke deel (code schrijven) en maakt specificeren en verifiëren moeilijker: Dave Farley, "Vibe Coding — Is this really the best we can do?", AIDevCon London, 2026. Code die met AI is gebouwd, is voor anderen niet slechter of beter te onderhouden: Markus Borg e.a. (met Dave Farley), "Echoes of AI: Investigating the Downstream Effects of AI Assistants on Software Maintainability", *Empirical Software Engineering*, 2025 ([arXiv 2507.00788](https://arxiv.org/abs/2507.00788)). De toepassing op werken met Claude Code, en de uitleg hierboven, zijn **interpretatie**.
