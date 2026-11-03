@@ -77,6 +77,11 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - Nooit committen of pushen zonder toestemming. Een push naar `main` start de pipeline.
 - Taal: Nederlands, in de code (domeintermen), de specs, de ADR's en de documentatie. Gangbare vaktermen vertaal je niet: foreign key, nooit vreemde sleutel. Een field van een Java-klasse heet field, nooit veld; bij formulieren en in scenarioteksten mag veld wel.
 
+**Plan mode en ATDD**
+- Bewerk geen bestanden zolang plan mode actief is. Komt er dan een opdracht als "voer het plan uit", verlaat plan mode dan eerst via de goedkeuringsstap.
+- Volg de skill `atdd` bij elke wijziging van gedrag.
+- Geef elke refactor een meetbaar doel. Haalt hij dat doel niet, stop dan en vraag of hij moet blijven of worden teruggedraaid.
+
 **Valkuilen**
 - `make e2e` test wat er op dat moment geïnstalleerd is. Na een codewijziging gebruik je `make acceptance`, en controleer je de versie.
 - `make install` bouwt de images met `-DskipTests`. Draai dus eerst `make commit-stage`. De rooktests in `install.sh` controleren alleen of er status 200 terugkomt.
@@ -106,3 +111,11 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 - Controle door de mens: `doc/werkwijze-mse.md` §10.1. Schrijf geen controle-documenten per slice meer; de oude staan in `doc/archief/`.
 - Kennis voor het supporten van de code, met een zelftoets: `doc/code-ownership.md`.
 - Leren door de mens: `doc/werkwijze-mse.md` §10.2. Uitleg van een deel van het systeem: skill `uitleg` (`/uitleg <onderwerp>`).
+
+## Documentatie
+
+Schrijf voor een lezer die deze code niet kent. Vermijd vage formuleringen en onverklaard jargon, en gebruik een concreet voorbeeld als een begrip abstract is. Verwijs naar code met de bestandsnaam en de methodenaam, niet met een regelnummer. Neem in een diagram elke deelnemer en elke stap van de echte route op, en zorg dat de nummers bij de pijlen overeenkomen met de stappen in de tekst. Controleer voordat je een document oplevert elk diagram en elk label in een tabel tegen de code.
+
+## Claims controleren
+
+Een conclusie uit het lezen van code of logs is een hypothese tot ze getest is. Noem een oorzaak pas een feit als een test, een reproductie of bewijs uit de logs haar bevestigt. Ga er niet van uit dat een nieuwe run een falende pipeline oplost, tenzij er bewijs is dat de test flaky is. Voer voor een uitspraak over een remote branch eerst `git fetch origin` uit en vergelijk met `origin/<branch>`. Controleer juridische details, zoals termijnen, in de primaire bron en vermeld die bron.
