@@ -154,7 +154,7 @@ Deze regels laten zelf niets zien, maar bepalen wat er wel en niet in de telemet
 ## Volgorde
 
 1. **Spike, zonder commit:** `otel-lgtm` en k6 lokaal draaien en de punten onderaan dit document uitzoeken.
-2. **ADR 0042 en traces:** de starter, de chart, `make grafana` en het trace-scenario groen.
+2. **ADR (eerstvolgende vrije nummer) en traces:** de starter, de chart, `make grafana` en het trace-scenario groen.
 3. **Logs:** gestructureerde regels met trace-ID, en het trace-ID in foutmeldingen.
 4. **Metrics uit het domein** en een eerste dashboard, als bestand in de chart.
 5. **k6:** de kring van verkeersklanten en de pauze tijdens tests.
