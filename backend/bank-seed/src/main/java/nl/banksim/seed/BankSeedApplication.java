@@ -20,7 +20,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * CLI die testdata aanmaakt (ADR 0003). De shell-driver start hem als pod met {@code kubectl run}: per opdracht, of met
- * het commando {@code sessie} één keer per Playwright-worker, met de opdrachten op stdin (ADR 0020).
+ * het commando {@code sessie} één keer per Playwright-worker, met de opdrachten op stdin (ADR 0020). Het commando
+ * {@code demo} maakt de demo-data; dat doet de K8s Job bank-demo na elke installatie (ADR 0040).
  */
 @SpringBootApplication
 @EnableConfigurationProperties(SeedProperties.class)
@@ -53,14 +54,17 @@ public class BankSeedApplication {
     }
 
     @Bean
-    CommandLineRunner seed(KeycloakLogins logins, Rekeninghouders rekeninghouders, Transacties transacties,
-            Contacten contacten, JdbcClient jdbc, JsonMapper json, TransactionTemplate transactie) {
+    CommandLineRunner seed(KeycloakLogins logins, JdbcRekeninghouders rekeninghouders, Transacties transacties,
+            Contacten contacten, JdbcClient jdbc, JsonMapper json, TransactionTemplate transactie, SeedProperties properties) {
         Supplier<Iban> nieuweIban = () -> Iban.simBank(RANDOM.nextLong(10_000_000_000L));
         var aanmaker = new SeedKlantAanmaker(logins, rekeninghouders, nieuweIban, transactie);
         var spaarrekeningen = new JdbcSpaarrekeningen(jdbc, nieuweIban);
         return args -> {
             var commando = new SeedCommando(aanmaker, transacties, logins, contacten, spaarrekeningen, json, System.out);
-            if (args.length == 1 && args[0].equals("sessie")) {
+            if (args.length == 1 && args[0].equals("demo")) {
+                new DemoData(logins, rekeninghouders, rekeninghouders, spaarrekeningen, nieuweIban, transactie,
+                        properties.demo().klantWachtwoord(), properties.demo().beheerderWachtwoord()).maak();
+            } else if (args.length == 1 && args[0].equals("sessie")) {
                 var stdin = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
                 new SeedSessie(commando, json, stdin, System.out).voerUit();
             } else {

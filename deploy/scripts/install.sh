@@ -48,7 +48,8 @@ image_tag() {
 load_images() {
   local tag="$1"
   info "Images laden in kind-cluster $(kind_cluster_name)"
-  # bank-seed draait niet als Deployment; de DSL start hem per scenario (ADR 0003).
+  # bank-seed draait niet als Deployment: de DSL start hem per scenario (ADR 0003), en de K8s Job bank-demo na elke
+  # installatie (ADR 0040).
   kind load docker-image --name "$(kind_cluster_name)" \
     "banksim-mse/bank-api:$tag" "banksim-mse/bank-bff:$tag" "banksim-mse/bank-seed:$tag" "banksim-mse/bank-web:$tag" \
     >/dev/null
@@ -113,6 +114,7 @@ create_secrets() {
   ensure_secret bank-seed SPRING_DATASOURCE_PASSWORD BANKSIM_SEED_CLIENT_SECRET
   ensure_secret bank-bff BANKSIM_BFF_CLIENT_SECRET
   ensure_secret keycloak KC_DB_PASSWORD KC_BOOTSTRAP_ADMIN_PASSWORD
+  ensure_secret bank-demo KLANT_WACHTWOORD BEHEERDER_WACHTWOORD
   ok "Secrets aanwezig"
 }
 

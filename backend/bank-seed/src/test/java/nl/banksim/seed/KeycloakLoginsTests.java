@@ -84,4 +84,93 @@ class KeycloakLoginsTests {
         assertThat(wachtwoord).isEqualTo("gegenereerd-wachtwoord");
         keycloak.verify();
     }
+
+    /** ADR 0040: met het wachtwoord uit het Secret bank-demo. */
+    @Test
+    void maaktEenDemoKlantDieNogNietBestaat() {
+        verwachtToken();
+        verwachtZoeken("jdevries", "[]");
+        keycloak.expect(requestTo("http://keycloak:8080/admin/realms/banksim-mse/users"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {
+                          "username": "jdevries",
+                          "enabled": true,
+                          "email": "jdevries@banksim-mse.localtest.me",
+                          "emailVerified": true,
+                          "firstName": "jdevries",
+                          "lastName": "Klant",
+                          "credentials": [{"type": "password", "value": "klant-ww", "temporary": false}]
+                        }""", org.springframework.test.json.JsonCompareMode.STRICT))
+                .andRespond(withCreatedEntity(URI.create("http://keycloak:8080/admin/realms/banksim-mse/users/123")));
+
+        logins.zorgVoorKlant("jdevries", "klant-ww");
+
+        keycloak.verify();
+    }
+
+    /** ADR 0040: een bestaande login blijft staan; er volgt geen POST, dus ook geen ander wachtwoord. */
+    @Test
+    void laatEenBestaandeDemoKlantStaan() {
+        verwachtToken();
+        verwachtZoeken("jdevries", "[{\"id\":\"u-1\",\"username\":\"jdevries\"}]");
+
+        logins.zorgVoorKlant("jdevries", "klant-ww");
+
+        keycloak.verify();
+    }
+
+    @Test
+    void maaktEenDemoBeheerderDieNogNietBestaatMetDeRealmRol() {
+        verwachtToken();
+        verwachtZoeken("beheerder", "[]");
+        keycloak.expect(requestTo("http://keycloak:8080/admin/realms/banksim-mse/users"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {"username": "beheerder", "lastName": "Beheerder",
+                         "credentials": [{"type": "password", "value": "beheerder-ww", "temporary": false}]}""",
+                        org.springframework.test.json.JsonCompareMode.LENIENT))
+                .andRespond(withCreatedEntity(URI.create("http://keycloak:8080/admin/realms/banksim-mse/users/u-42")));
+        verwachtRealmRol("u-42");
+
+        logins.zorgVoorBeheerder("beheerder", "beheerder-ww");
+
+        keycloak.verify();
+    }
+
+    /** ADR 0040: brak de vorige poging af na het aanmaken, dan krijgt de beheerder hier alsnog zijn rol. */
+    @Test
+    void geeftEenBestaandeDemoBeheerderAlsnogDeRealmRolZonderHemOpnieuwAanTeMaken() {
+        verwachtToken();
+        verwachtZoeken("beheerder", "[{\"id\":\"u-42\",\"username\":\"beheerder\"}]");
+        verwachtRealmRol("u-42");
+
+        logins.zorgVoorBeheerder("beheerder", "beheerder-ww");
+
+        keycloak.verify();
+    }
+
+    private void verwachtToken() {
+        keycloak.expect(requestTo("http://keycloak:8080/realms/banksim-mse/protocol/openid-connect/token"))
+                .andRespond(withSuccess("{\"access_token\":\"tok\",\"token_type\":\"Bearer\"}", MediaType.APPLICATION_JSON));
+    }
+
+    private void verwachtZoeken(String gebruikersnaam, String antwoord) {
+        keycloak.expect(requestTo("http://keycloak:8080/admin/realms/banksim-mse/users?username=" + gebruikersnaam + "&exact=true"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer tok"))
+                .andRespond(withSuccess(antwoord, MediaType.APPLICATION_JSON));
+    }
+
+    private void verwachtRealmRol(String gebruiker) {
+        keycloak.expect(requestTo("http://keycloak:8080/admin/realms/banksim-mse/roles/beheerder"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"id\":\"r-7\",\"name\":\"beheerder\",\"composite\":false}",
+                        MediaType.APPLICATION_JSON));
+        keycloak.expect(requestTo("http://keycloak:8080/admin/realms/banksim-mse/users/" + gebruiker + "/role-mappings/realm"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        [{"id": "r-7", "name": "beheerder"}]""", org.springframework.test.json.JsonCompareMode.LENIENT))
+                .andRespond(withSuccess());
+    }
 }

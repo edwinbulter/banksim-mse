@@ -6,7 +6,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Schrijft in het schema van bank-api, als databasegebruiker bank_seed (alleen SELECT en INSERT). */
-class JdbcRekeninghouders implements Rekeninghouders {
+class JdbcRekeninghouders implements Rekeninghouders, BestaandeKlanten {
 
     private final JdbcClient jdbc;
 
@@ -28,5 +28,12 @@ class JdbcRekeninghouders implements Rekeninghouders {
                 .param("rekeninghouder", id)
                 .param("openingssaldo", openingssaldo.waarde())
                 .update();
+    }
+
+    @Override
+    public boolean bestaat(String gebruikersnaam) {
+        return jdbc.sql("SELECT count(*) FROM rekeninghouder WHERE gebruikersnaam = :gebruikersnaam")
+                .param("gebruikersnaam", gebruikersnaam)
+                .query(Long.class).single() > 0;
     }
 }

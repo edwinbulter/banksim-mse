@@ -2,12 +2,14 @@ import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { BankDriver } from '../drivers/bank-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
+import { DEMO_BEHEERDER, DEMO_KLANTEN } from './huishoudens';
 import { Stappen, type Stap } from './stappen';
 
 const NAMESPACE = 'banksim-mse';
 const RELEASE = 'banksim-mse';
 const LABEL = `app.kubernetes.io/instance=${RELEASE}`;
 const ORIGINEEL = 'banksim';
+const DEMO_SECRET = 'bank-demo';
 
 /** Per resource: uid, generation en een hash van spec of data. Verschilt er iets, dan is er iets veranderd. */
 export type Momentopname = Record<string, string>;
@@ -27,6 +29,9 @@ export class Omgeving extends Stappen {
     /** De images die geïnstalleerd moeten worden; zonder tag hergebruikt installeer() de bestaande installatie. */
     private readonly imageTag: string | undefined,
     stap: Stap,
+    /** Elke demo-gebruiker krijgt een eigen sessie: via de API, en via de browser voor wat alleen op het scherm bestaat. */
+    private readonly maakRestDriver: () => Promise<BankDriver>,
+    private readonly maakUiDriver: () => Promise<BankDriver>,
   ) {
     super(stap);
   }
@@ -80,6 +85,24 @@ export class Omgeving extends Stappen {
 
   async verwachtOngewijzigd(voor: Momentopname): Promise<void> {
     expect(await this.momentopname(), 'resources en pods van BankSim-MSE').toEqual(voor);
+  }
+
+  /** S11.1: de wachtwoorden staan in het Secret dat install.sh aanmaakt, zoals de beheerder ze ook opzoekt. */
+  async verwachtKlanten(aantal: number): Promise<void> {
+    expect(DEMO_KLANTEN.length, 'klanten in de lijst van de DSL').toBe(aantal);
+    const wachtwoord = await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'KLANT_WACHTWOORD');
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const driver = await this.maakRestDriver();
+      await driver.logIn(gebruikersnaam, wachtwoord);
+      const soorten = (await driver.rekeningenInOverzicht()).map((rekening) => rekening.soort).sort();
+      expect(soorten, `rekeningen in het overzicht van ${gebruikersnaam}`).toEqual(['betaal', 'spaar']);
+    }
+  }
+
+  async verwachtBeheerder(): Promise<void> {
+    const driver = await this.maakUiDriver();
+    await driver.logIn(DEMO_BEHEERDER, await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'BEHEERDER_WACHTWOORD'));
+    expect(await driver.scherm(), 'scherm na het inloggen').toBe('beheer');
   }
 
   async verwachtBereikbaar(): Promise<void> {

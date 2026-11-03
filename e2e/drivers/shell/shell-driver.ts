@@ -65,6 +65,14 @@ export class ShellDriver {
     return (await this.kubectl(['get', soort, naam, '-o', 'name'])).code === 0;
   }
 
+  /** De waarde van een sleutel uit een Secret, zoals een beheerder hem opzoekt. */
+  async secretWaarde(namespace: string, secret: string, sleutel: string): Promise<string> {
+    const resultaat = await this.kubectl(['get', 'secret', secret, '-n', namespace, '-o', `jsonpath={.data.${sleutel}}`]);
+    if (resultaat.code !== 0) throw new Error(`Secret ${secret} ophalen faalde:\n${resultaat.uitvoer}`);
+    if (!resultaat.stdout) throw new Error(`Secret ${secret} heeft geen sleutel ${sleutel}`);
+    return Buffer.from(resultaat.stdout, 'base64').toString('utf8');
+  }
+
   /** De waarden van een Helm-release, of undefined als de release niet bestaat. */
   async helmWaarden(namespace: string, release: string): Promise<Record<string, unknown> | undefined> {
     const resultaat = await voerUit('helm', [

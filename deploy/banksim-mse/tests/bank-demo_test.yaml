@@ -1,0 +1,48 @@
+# ADR 0040: de demo-data komt uit een K8s Job met bank-seed, na elke installatie en upgrade.
+suite: bank-demo
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+set:
+  imageTag: abc1234
+templates:
+  - templates/bank-demo.yaml
+tests:
+  - it: is een hook na install en upgrade, ná keycloak-config, die na succes verdwijnt
+    asserts:
+      - isKind:
+          of: Job
+      - equal:
+          path: metadata.namespace
+          value: banksim-mse
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "10"
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+  - it: draait het commando demo met het image van bank-seed
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: banksim-mse/bank-seed:abc1234
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [demo]
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: Never
+  - it: krijgt de rechten en wachtwoorden alleen uit de Secrets
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - secretRef:
+                name: bank-seed
+            - secretRef:
+                name: bank-demo
+      - notExists:
+          path: spec.template.spec.containers[0].env

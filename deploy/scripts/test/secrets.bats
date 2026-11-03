@@ -11,6 +11,7 @@ setup() {
   ALLE_SLEUTELS="postgres:POSTGRES_PASSWORD bank-api:SPRING_DATASOURCE_PASSWORD bank-api:BANKSIM_CURSOR_SLEUTEL"
   ALLE_SLEUTELS+=" bank-seed:SPRING_DATASOURCE_PASSWORD bank-seed:BANKSIM_SEED_CLIENT_SECRET bank-bff:BANKSIM_BFF_CLIENT_SECRET"
   ALLE_SLEUTELS+=" keycloak:KC_DB_PASSWORD keycloak:KC_BOOTSTRAP_ADMIN_PASSWORD"
+  ALLE_SLEUTELS+=" bank-demo:KLANT_WACHTWOORD bank-demo:BEHEERDER_WACHTWOORD"
   NEP="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$NEP"
   cat >"$NEP/kubectl" <<'NEP'
@@ -56,6 +57,8 @@ NEP
 bank-api BANKSIM_CURSOR_SLEUTEL
 bank-api SPRING_DATASOURCE_PASSWORD
 bank-bff BANKSIM_BFF_CLIENT_SECRET
+bank-demo BEHEERDER_WACHTWOORD
+bank-demo KLANT_WACHTWOORD
 bank-seed BANKSIM_SEED_CLIENT_SECRET
 bank-seed SPRING_DATASOURCE_PASSWORD
 keycloak KC_BOOTSTRAP_ADMIN_PASSWORD
@@ -68,13 +71,13 @@ VERWACHT
   run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
   [ "$status" -eq 0 ]
   grep 'create secret generic' "$AANROEPEN" >"$BATS_TEST_TMPDIR/creates"
-  [ "$(wc -l <"$BATS_TEST_TMPDIR/creates")" -eq 5 ]
+  [ "$(wc -l <"$BATS_TEST_TMPDIR/creates")" -eq 6 ]
   ! grep -q -- '--from-literal' "$BATS_TEST_TMPDIR/creates"
   ! grep -v -- '--context kind-single-node -n banksim-mse create secret generic' "$BATS_TEST_TMPDIR/creates"
 }
 
 @test "install.sh laat bestaande Secrets met alle sleutels ongewijzigd" {
-  export BESTAANDE_SECRETS="postgres bank-api bank-bff bank-seed keycloak"
+  export BESTAANDE_SECRETS="postgres bank-api bank-bff bank-seed bank-demo keycloak"
   export BESTAANDE_SLEUTELS="$ALLE_SLEUTELS"
   run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
   [ "$status" -eq 0 ]
@@ -92,7 +95,7 @@ VERWACHT
 # ADR 0011: een bestaande installatie krijgt er een sleutel bij; de wachtwoorden blijven, anders kan bank-api niet meer bij
 # de database (PostgreSQL zet het wachtwoord alleen bij de eerste start).
 @test "install.sh vult een bestaand Secret aan met een ontbrekende sleutel, via stdin, en laat de rest staan" {
-  export BESTAANDE_SECRETS="postgres bank-api bank-bff bank-seed keycloak"
+  export BESTAANDE_SECRETS="postgres bank-api bank-bff bank-seed bank-demo keycloak"
   export BESTAANDE_SLEUTELS="${ALLE_SLEUTELS/bank-api:BANKSIM_CURSOR_SLEUTEL/}"
   run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
   [ "$status" -eq 0 ]

@@ -1,8 +1,10 @@
 package nl.banksim.seed;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import org.springframework.http.MediaType;
@@ -10,7 +12,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.client.RestClient;
 
 /** Maakt gebruikers aan via de admin-API van Keycloak (ADR 0007): klanten zonder rol, beheerders met de realm-rol beheerder (ADR 0015). */
-class KeycloakLogins implements Logins, Beheerders {
+class KeycloakLogins implements Logins, Beheerders, DemoLogins {
 
     private final RestClient keycloak;
     private final SeedProperties.Keycloak instellingen;
@@ -33,8 +35,39 @@ class KeycloakLogins implements Logins, Beheerders {
     public String maakBeheerder(String gebruikersnaam) {
         String wachtwoord = nieuwWachtwoord.get();
         String token = token();
-        URI gebruiker = maakGebruiker(token, gebruikersnaam, "Beheerder", wachtwoord);
-        String id = gebruiker.getPath().substring(gebruiker.getPath().lastIndexOf('/') + 1);
+        kenBeheerderToe(token, idUit(maakGebruiker(token, gebruikersnaam, "Beheerder", wachtwoord)));
+        return wachtwoord;
+    }
+
+    @Override
+    public void zorgVoorKlant(String gebruikersnaam, String wachtwoord) {
+        String token = token();
+        if (gevonden(token, gebruikersnaam).isEmpty()) {
+            maakGebruiker(token, gebruikersnaam, "Klant", wachtwoord);
+        }
+    }
+
+    @Override
+    public void zorgVoorBeheerder(String gebruikersnaam, String wachtwoord) {
+        String token = token();
+        String id = gevonden(token, gebruikersnaam).orElseGet(() -> idUit(maakGebruiker(token, gebruikersnaam, "Beheerder", wachtwoord)));
+        kenBeheerderToe(token, id);
+    }
+
+    private Optional<String> gevonden(String token, String gebruikersnaam) {
+        Gebruiker[] gebruikers = keycloak.get()
+                .uri("/admin/realms/{realm}/users?username={gebruikersnaam}&exact=true", instellingen.realm(), gebruikersnaam)
+                .headers(headers -> headers.setBearerAuth(token))
+                .retrieve()
+                .body(Gebruiker[].class);
+        return Arrays.stream(gebruikers).findFirst().map(Gebruiker::id);
+    }
+
+    private static String idUit(URI gebruiker) {
+        return gebruiker.getPath().substring(gebruiker.getPath().lastIndexOf('/') + 1);
+    }
+
+    private void kenBeheerderToe(String token, String id) {
         Rol rol = keycloak.get()
                 .uri("/admin/realms/{realm}/roles/{rol}", instellingen.realm(), "beheerder")
                 .headers(headers -> headers.setBearerAuth(token))
@@ -47,7 +80,6 @@ class KeycloakLogins implements Logins, Beheerders {
                 .body(List.of(rol))
                 .retrieve()
                 .toBodilessEntity();
-        return wachtwoord;
     }
 
     /** Maakt de gebruiker aan en geeft de Location terug, met het id van de gebruiker als laatste deel. */
@@ -89,6 +121,10 @@ class KeycloakLogins implements Logins, Beheerders {
     }
 
     private record Token(String access_token) {
+    }
+
+    /** Zoals Keycloak een gebruiker beschrijft; voor de role-mapping is het id genoeg. */
+    private record Gebruiker(String id) {
     }
 
     /** Zoals Keycloak een realm-rol beschrijft; voor de role-mapping zijn id en naam genoeg. */

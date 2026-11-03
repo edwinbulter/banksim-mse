@@ -1,0 +1,37 @@
+{{- /*
+  ADR 0040: bank-seed maakt de demo-data na elke installatie en upgrade; wat er al is, blijft staan.
+  Na keycloak-config (gewicht 0): de client bank-seed moet bestaan.
+*/}}
+{{- $ctx := dict "root" . "name" "bank-demo" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bank-demo
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+  annotations:
+    # Na --wait: de database en Keycloak zijn dan gereed. Faalt de Job, dan faalt de installatie.
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "banksim-mse.labels" $ctx | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: bank-demo
+          image: {{ include "banksim-mse.image" (dict "root" . "key" "seed") }}
+          imagePullPolicy: IfNotPresent
+          args: [demo]
+          envFrom:
+            - secretRef:
+                name: bank-seed
+            - secretRef:
+                name: bank-demo
+          resources:
+            {{- toYaml .Values.resources.demo | nindent 12 }}

@@ -42,6 +42,12 @@ make acceptance     # install + e2e + e2e-infra, zoals de acceptance stage in CI
 make uninstall      # namespace banksim-mse verwijderen
 ```
 
+Na de installatie staan er 10 demo-klanten en een beheerder klaar (ADR 0040), bijvoorbeeld `jdevries` en `beheerder`. De wachtwoorden zoek je op in het Secret `bank-demo`:
+
+```bash
+kubectl --context kind-single-node -n banksim-mse get secret bank-demo -o jsonpath='{.data.KLANT_WACHTWOORD}' | base64 -d
+```
+
 ## Werken met Claude Code
 
 De werkwijze is als Claude Code-skill vastgelegd. Zo volgt elke sessie dezelfde procedure, met stoppunten voor jou bij het scenario, bij elke ADR en bij elke commit.

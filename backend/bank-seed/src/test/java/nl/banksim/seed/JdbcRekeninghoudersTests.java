@@ -58,4 +58,13 @@ class JdbcRekeninghoudersTests {
         assertThatThrownBy(() -> rekeninghouders.voegToeMetBetaalrekening("piet-a1-2", "Piet", Iban.simBank(3L), Bedrag.van("1.00")))
                 .isInstanceOf(DuplicateKeyException.class);
     }
+
+    /** ADR 0040: de gebruikersnaam is de business-sleutel van een demo-klant. */
+    @Test
+    void weetOfEenRekeninghouderAlBestaat() {
+        rekeninghouders.voegToeMetBetaalrekening("bestaat-a1-1", "Jan", Iban.simBank(77L), Bedrag.van("0.00"));
+
+        assertThat(rekeninghouders.bestaat("bestaat-a1-1")).isTrue();
+        assertThat(rekeninghouders.bestaat("bestaat-niet")).isFalse();
+    }
 }

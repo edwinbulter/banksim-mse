@@ -1164,18 +1164,15 @@ In de REST driver betekent `verwachtAlleenLezen` dat `POST /api/payments` en `/a
 
 Tot nu toe maakten de scenario's hun eigen data via de seed-CLI. Een demo met 10 huishoudens en 5 jaar historie is een eigen gebruikersbehoefte, en krijgt dus een eigen slice.
 
-```ts
-// e2e/specs/infra/huishoudens.spec.ts
-test('Na installatie zijn er 10 huishoudens met historie', { tag: '@installatie' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is net geïnstalleerd', () => omgeving.installeerVers());
-  await omgeving.dan('kunnen 10 klanten en een beheerder inloggen', () => omgeving.verwachtGebruikers(10, 1));
-  await omgeving.en('heeft elke klant transacties van 1 oktober 2021 t/m 31 december 2026',
-    () => omgeving.verwachtHistorie('2021-10-01', '2026-12-31'));
-  await omgeving.en('staat geen enkele rekening op enige dag rood', () => omgeving.verwachtNooitRood());
-});
-```
+Deze slice wordt in kleine stappen gebouwd, elk met een eigen scenario in `e2e/specs/infra/huishoudens.spec.ts`:
 
-- **Binnenste lus:** de seed-CLI groeit uit tot `bank-datagen`: `Generator` met vaste seed, `Profielen`, `Kalender`, `Bedrijven`; hergebruikt `bank-domain` (`Overboeking`, `NooitRoodRegel`, `RenteCalculator`); `DatabaseSchrijver` met `COPY`; Keycloak-gebruikers via de Admin API.
+1. Na installatie kunnen 10 klanten en een beheerder inloggen, en ziet elke klant een betaal- en een spaarrekening (gebouwd, ADR 0040).
+2. Elke klant heeft transacties van 1 oktober 2021 tot de einddatum.
+3. Geen enkele rekening staat op enige dag rood.
+4. Een upgrade wist de demo-data niet en maakt die ook niet dubbel.
+5. Golden master: seed 42 geeft steeds dezelfde data.
+
+- **Binnenste lus:** `bank-seed` krijgt het commando `demo` (ADR 0040; geen eigen module `bank-datagen`), met daarna een `Generator` met vaste seed, `Profielen`, `Kalender`, `Bedrijven`; hergebruikt `bank-domain` (`Overboeking`, `NooitRoodRegel`, `RenteCalculator`); `DatabaseSchrijver` met `COPY`; Keycloak-gebruikers via de Admin API.
 - **ADR's:** deterministische generator die dezelfde domeinregels gebruikt als de API.
 - **Fitness functions:** golden master (checksum van eindsaldi en aantal overboekingen bij seed 42); invariantencontrole na het genereren.
 - **Origineel:** `bank-datagen/*`, `deploy/scripts/reset-data.sh`.
@@ -1463,7 +1460,7 @@ Daarna is het scenario groen. Nieuwe ontdekkingen, zoals de kubelet-probes op de
 | 1 Overzicht | PostgreSQL StatefulSet met PVC, Keycloak met realm, `bank-bff`, Ingress voor `auth-mse`; Secrets via `install.sh`; Flyway bij het starten van `bank-api`; de seed-CLI als pod | helm-unittest: images op digest, wachtwoorden uit Secrets, routes naar de BFF, PVC op `standard`; bats: Secrets één keer aanmaken; geen letterlijke geheimen in de chart | `installatie.spec.ts`: opnieuw installeren laat ook StatefulSet, ConfigMaps en Secrets ongewijzigd; `upgrade.spec.ts`: data blijft behouden; nog open: een herstart van PostgreSQL en Keycloak behoudt de data |
 | 3 Simulatiedatum | De Job `keycloak-config` (keycloak-config-cli) past de realm-JSON toe bij elke installatie en upgrade; `--import-realm` vervalt (ADR 0017); de realm krijgt de rol `beheerder` en de scope `roles` | helm-unittest: de Job als hook, het image op digest, de wachtwoorden uit Secrets, de rol en de scope in de JSON | `installatie.spec.ts`: opnieuw installeren verandert niets, ook met de Job; lokaal gecontroleerd dat een bestaande realm de rol krijgt |
 | 6 Inloggen | Keycloak op `auth-mse.localtest.me`; `bank-bff`; Secrets met gegenereerde wachtwoorden | Realm-importtest in Testcontainers; `bats`: bestaande Secrets worden niet overschreven | Inloggen via `auth-mse.localtest.me`; opnieuw installeren laat sessies en wachtwoorden heel |
-| 11 Realistische data | `bank-datagen`-Job in modus `ALS_LEEG`/`ALTIJD`; `reset-data.sh` | `bats`: `reset-data.sh` weigert een andere context | `huishoudens.spec.ts`; een upgrade wist de data niet |
+| 11 Realistische data | K8s Job `bank-demo` met `bank-seed demo` (ADR 0040); `reset-data.sh` nog niet gebouwd | `bats`: `reset-data.sh` weigert een andere context | `huishoudens.spec.ts`; een upgrade wist de data niet |
 | CFR Zero trust | `certs.sh` met eigen CA; mTLS-configuratie; NetworkPolicies | `bats` voor `certs.sh` (CA wordt hergebruikt, `--rotate` vernieuwt); helm-unittest NetworkPolicies | `netwerk.spec.ts`; aanroep zonder clientcertificaat wordt geweigerd |
 | CFR Resilience | 2 replica's, PodDisruptionBudget, startup-, liveness- en readinessprobes, graceful shutdown | helm-unittest: replica's, PDB `minAvailable: 1`, probes op de management-poort | `storing.spec.ts`; rolling update zonder foutmeldingen in de UI |
 | CFR Hardening | `securityContext` op elke pod | `conftest`-beleid: non-root, read-only rootfs, `drop: [ALL]`, `seccompProfile`, geen `automountServiceAccountToken` | Pods starten en zijn ready met die instellingen |

@@ -5,6 +5,8 @@ images:
   api: banksim-mse/bank-api
   bff: banksim-mse/bank-bff
   web: banksim-mse/bank-web
+  # ADR 0040: de K8s Job bank-demo.
+  seed: banksim-mse/bank-seed
   # Externe images op digest, dezelfde versies als het origineel (ADR 0007, 0009).
   keycloak: quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
   postgres: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
@@ -39,6 +41,9 @@ resources:
     requests: { cpu: 200m, memory: 768Mi }
     limits: { memory: 1Gi }
   keycloakConfig:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+  demo:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { memory: 512Mi }
   postgres:

@@ -21,3 +21,7 @@ banksim:
       realm: banksim-mse
       client-id: bank-seed
       client-secret: ${BANKSIM_SEED_CLIENT_SECRET}
+    # ADR 0040: alleen de K8s Job bank-demo krijgt het Secret bank-demo; zonder faalt "demo" met een melding.
+    demo:
+      klant-wachtwoord: ${KLANT_WACHTWOORD:}
+      beheerder-wachtwoord: ${BEHEERDER_WACHTWOORD:}

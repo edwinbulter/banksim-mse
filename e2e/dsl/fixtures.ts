@@ -56,10 +56,25 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving }, { 
   },
   // Installatiescenario's (project infra). BANKSIM_CONTEXT is in CI het tijdelijke cluster; BANKSIM_IMAGE_TAG de
   // images uit de commit stage. Zonder tag hergebruikt de omgeving de bestaande installatie (install.sh --skip-build).
-  omgeving: async ({ request }, use) => {
+  omgeving: async ({ request, playwright, browser, baseURL }, use, testInfo) => {
     const shell = new ShellDriver(context());
     const imageTag = process.env.BANKSIM_IMAGE_TAG || undefined;
-    await use(new Omgeving(shell, new RestDriver(request), imageTag, (titel, stap) => basis.step(titel, stap)));
+    const eigenSessies: (APIRequestContext | BrowserContext)[] = [];
+    const maakRestDriver = async () => {
+      const sessie = await playwright.request.newContext({ baseURL, ignoreHTTPSErrors: true });
+      eigenSessies.push(sessie);
+      return new RestDriver(sessie);
+    };
+    const maakUiDriver = async () => {
+      const { locale, timezoneId, ignoreHTTPSErrors } = testInfo.project.use;
+      const sessie = await browser.newContext({ baseURL, locale, timezoneId, ignoreHTTPSErrors });
+      eigenSessies.push(sessie);
+      return new UiDriver(await sessie.newPage());
+    };
+    await use(
+      new Omgeving(shell, new RestDriver(request), imageTag, (titel, stap) => basis.step(titel, stap), maakRestDriver, maakUiDriver),
+    );
+    await Promise.all(eigenSessies.map((sessie) => ('dispose' in sessie ? sessie.dispose() : sessie.close())));
   },
 });
 
