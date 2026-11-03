@@ -20,9 +20,13 @@ test('Installeren maakt BankSim-MSE bereikbaar', { tag: '@destructief' }, async 
 
 test('Opnieuw installeren verandert niets', async ({ omgeving }) => {
   const voor = await omgeving.momentopname();
+  const demoData = await omgeving.demoData();
   await omgeving.als('de beheerder BankSim-MSE nog een keer installeert', () => omgeving.installeer());
   await omgeving.dan('zijn de resources en pods van BankSim-MSE ongewijzigd', () =>
     omgeving.verwachtOngewijzigd(voor),
+  );
+  await omgeving.en('ziet elk van de 10 klanten dezelfde rekeningen met hetzelfde saldo, en dezelfde transacties op de betaalrekening', () =>
+    omgeving.verwachtDemoDataGelijkAan(demoData),
   );
 });
 
