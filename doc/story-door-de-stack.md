@@ -156,7 +156,7 @@ Dit is de OAuth2 authorization code flow met PKCE; die begint bij pijl 5. De num
 1. Jan typt alleen het adres van de bank. De ingress stuurt die aanvraag naar `bank-web`.
 2. `bank-web` levert de Angular-app.
 3. De app vraagt bij de BFF op wie er is ingelogd (`frontend/src/app/ik.ts`).
-4. Er is nog geen sessie, dus de BFF antwoordt met een 401. Dat is geen redirect: de app vangt de 401 op en toont de link "Inloggen" (`frontend/src/app/sessie.ts`, `app.ts`).
+4. Er is nog geen sessie, dus de BFF antwoordt met een 401. Dat is geen redirect: de app vangt de 401 op en toont de link "Inloggen" (`frontend/src/app/sessie.ts`, `app.ts`). `/api/ik` zelf staat in `bank-api` (`IkController`); na het inloggen stuurt de BFF deze aanvraag daarheen door, maar zonder sessie komt hij daar niet aan.
 5. Jan klikt op die link, en de browser opent `/oauth2/authorization/keycloak` op de host van de bank. De ingress stuurt `/oauth2` door naar de BFF. Het woord `keycloak` aan het eind is alleen de naam van de client-registratie in de BFF: deze aanvraag gaat nog niet naar Keycloak.
 6. De BFF bedenkt een geheim, de `code_verifier`, en bewaart dat in de sessie. De BFF antwoordt met een redirect naar Keycloak. In die URL staan de hash van het geheim (`code_challenge`) en een willekeurige waarde `state`.
 7. De browser volgt de redirect en toont het inlogscherm van Keycloak. Jan voert daar de gegevens in, dus de BFF ziet het wachtwoord nooit. Keycloak maakt een code aan en onthoudt bij welke login, client en `code_challenge` die hoort.
