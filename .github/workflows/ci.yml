@@ -160,7 +160,8 @@ jobs:
       - name: Clusterstatus bij falen
         if: failure()
         run: |
-          kubectl -n banksim-mse get pods,events --sort-by=.lastTimestamp || true
+          kubectl -n banksim-mse get pods -o wide || true
+          kubectl -n banksim-mse get events --sort-by=.lastTimestamp || true
           kubectl -n banksim-mse logs -l app.kubernetes.io/part-of=banksim-mse --all-containers --tail=100 --prefix || true
       - name: Playwright-rapport
         if: always()
@@ -227,7 +228,8 @@ jobs:
       - name: Clusterstatus bij falen
         if: failure()
         run: |
-          kubectl -n banksim-mse get pods,events --sort-by=.lastTimestamp || true
+          kubectl -n banksim-mse get pods -o wide || true
+          kubectl -n banksim-mse get events --sort-by=.lastTimestamp || true
           kubectl -n banksim-mse logs -l app.kubernetes.io/part-of=banksim-mse --all-containers --tail=100 --prefix || true
       - name: Playwright-rapport
         if: always()
