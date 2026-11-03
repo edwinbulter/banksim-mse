@@ -1167,7 +1167,7 @@ Tot nu toe maakten de scenario's hun eigen data via de seed-CLI. Een demo met 10
 Deze slice wordt in kleine stappen gebouwd, elk met een eigen scenario in `e2e/specs/infra/huishoudens.spec.ts`:
 
 1. Na installatie kunnen 10 klanten en een beheerder inloggen, en ziet elke klant een betaal- en een spaarrekening (gebouwd, ADR 0040).
-2. Elke klant heeft transacties van 1 oktober 2021 tot de einddatum.
+2. Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026 (gebouwd voor het inkomen en de woonlasten, ADR 0041); de andere soorten uit het FO volgen.
 3. Geen enkele rekening staat op enige dag rood.
 4. Een upgrade wist de demo-data niet en maakt die ook niet dubbel.
 5. Golden master: seed 42 geeft steeds dezelfde data.

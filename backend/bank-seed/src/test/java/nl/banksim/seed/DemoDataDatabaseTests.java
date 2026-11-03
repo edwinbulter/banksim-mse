@@ -59,7 +59,8 @@ class DemoDataDatabaseTests {
     private DemoData demo() {
         var rekeninghouders = new JdbcRekeninghouders(jdbc);
         Supplier<Iban> nieuweIban = () -> Iban.simBank(laatsteIban.incrementAndGet());
-        return new DemoData(keycloak, rekeninghouders, rekeninghouders, new JdbcSpaarrekeningen(jdbc, nieuweIban), nieuweIban,
+        return new DemoData(keycloak, rekeninghouders, rekeninghouders, new JdbcSpaarrekeningen(jdbc, nieuweIban),
+                new JdbcTransacties(jdbc, transactie), nieuweIban,
                 transactie, "klant-ww", "beheerder-ww");
     }
 
@@ -70,6 +71,14 @@ class DemoDataDatabaseTests {
                 .param("gebruikersnaam", gebruikersnaam).query(String.class).list();
     }
 
+    private long transacties(String gebruikersnaam) {
+        return jdbc.sql("""
+                        SELECT count(*) FROM transactie t JOIN rekening r ON r.iban = t.iban
+                        JOIN rekeninghouder h ON h.id = r.rekeninghouder_id
+                        WHERE h.gebruikersnaam = :gebruikersnaam""")
+                .param("gebruikersnaam", gebruikersnaam).query(Long.class).single();
+    }
+
     /** De ene test, want de gebruikersnamen liggen vast: mislukken, en daarna afmaken en herhalen op dezelfde database. */
     @Test
     void eenMislukteLoginLaatGeenHalveKlantAchterEnDeVolgendeKeerWordtHetAfgemaakt() {
@@ -77,21 +86,26 @@ class DemoDataDatabaseTests {
         assertThatThrownBy(() -> demo().maak()).hasMessage("Keycloak is weg");
 
         assertThat(rekeningen("melamrani")).containsExactly("betaal", "spaar");
+        assertThat(transacties("melamrani")).isEqualTo(126);
         assertThat(rekeningen("ljansen")).isEmpty();
+        assertThat(transacties("ljansen")).isZero();
 
         faaltVoor = null;
         logins.clear();
         demo().maak();
 
         assertThat(rekeningen("ljansen")).containsExactly("betaal", "spaar");
+        assertThat(transacties("ljansen")).isEqualTo(126);
         assertThat(rekeningen("nhendriks")).containsExactly("betaal", "spaar");
         assertThat(logins).doesNotContain("jdevries", "melamrani").contains("ljansen", "nhendriks", "beheerder");
 
         long aantal = jdbc.sql("SELECT count(*) FROM rekening").query(Long.class).single();
+        long geboekt = jdbc.sql("SELECT count(*) FROM transactie").query(Long.class).single();
         logins.clear();
         demo().maak();
 
         assertThat(jdbc.sql("SELECT count(*) FROM rekening").query(Long.class).single()).isEqualTo(aantal);
+        assertThat(jdbc.sql("SELECT count(*) FROM transactie").query(Long.class).single()).isEqualTo(geboekt);
         assertThat(logins).containsExactly("beheerder");
     }
 }

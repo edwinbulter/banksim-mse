@@ -39,8 +39,20 @@ class DemoDataTests {
         return Iban.simBank(99L);
     };
 
+    private final Transacties transacties = new Transacties() {
+        @Override
+        public void boek(Iban iban, Boeking boeking) {
+            throw new AssertionError("De demo-data boekt alles van een klant in een keer");
+        }
+
+        @Override
+        public void boekAlle(Iban iban, List<Boeking> boekingen) {
+            gedaan.add("boekingen " + iban + " " + boekingen.size());
+        }
+    };
+
     private DemoData demo(String klantWachtwoord, String beheerderWachtwoord) {
-        return new DemoData(logins, bestaand::contains, rekeninghouders, spaarrekeningen,
+        return new DemoData(logins, bestaand::contains, rekeninghouders, spaarrekeningen, transacties,
                 () -> Iban.simBank(laatsteIban.incrementAndGet()), TransactionOperations.withoutTransaction(),
                 klantWachtwoord, beheerderWachtwoord);
     }
@@ -49,10 +61,11 @@ class DemoDataTests {
     void maaktTienKlantenMetEenBetaalEnSpaarrekeningEnLoginEnDaarnaDeBeheerder() {
         demo("klant-ww", "beheerder-ww").maak();
 
-        assertThat(gedaan).hasSize(31);
-        assertThat(gedaan.subList(0, 3)).containsExactly(
+        assertThat(gedaan).hasSize(41);
+        assertThat(gedaan.subList(0, 4)).containsExactly(
                 "betaal jdevries Jan de Vries " + Iban.simBank(1L) + " 0.00",
                 "spaar jdevries 0.00 false",
+                "boekingen " + Iban.simBank(1L) + " 126",
                 "login jdevries klant-ww");
         assertThat(gedaan).contains("betaal melamrani Mohamed El Amrani " + Iban.simBank(3L) + " 0.00",
                 "betaal nhendriks Noor Hendriks " + Iban.simBank(10L) + " 0.00", "login nhendriks klant-ww");
@@ -74,7 +87,7 @@ class DemoDataTests {
 
         demo("klant-ww", "beheerder-ww").maak();
 
-        assertThat(gedaan).hasSize(28).noneMatch(stap -> stap.contains("jdevries"));
+        assertThat(gedaan).hasSize(37).noneMatch(stap -> stap.contains("jdevries"));
     }
 
     /** Zonder wachtwoord uit het Secret bank-demo wordt er niets half aangemaakt. */

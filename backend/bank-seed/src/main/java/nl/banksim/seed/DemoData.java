@@ -9,8 +9,8 @@ import org.springframework.transaction.support.TransactionOperations;
 
 /**
  * ADR 0040, S11.1: de 10 klanten en de beheerder van de demo; een tweede keer verandert er niets. Een klant is in één
- * databasetransactie de rekeninghouder, zijn twee rekeningen en de login: mislukt de login, dan volgt hij bij de volgende
- * installatie opnieuw.
+ * databasetransactie de rekeninghouder, zijn twee rekeningen, zijn transacties (ADR 0041) en de login: mislukt de login,
+ * dan volgt alles bij de volgende installatie opnieuw.
  */
 class DemoData {
 
@@ -20,17 +20,19 @@ class DemoData {
     private final BestaandeKlanten bestaand;
     private final Rekeninghouders rekeninghouders;
     private final Spaarrekeningen spaarrekeningen;
+    private final Transacties transacties;
     private final Supplier<Iban> nieuweIban;
     private final TransactionOperations transactie;
     private final String klantWachtwoord;
     private final String beheerderWachtwoord;
 
     DemoData(DemoLogins logins, BestaandeKlanten bestaand, Rekeninghouders rekeninghouders, Spaarrekeningen spaarrekeningen,
-            Supplier<Iban> nieuweIban, TransactionOperations transactie, String klantWachtwoord, String beheerderWachtwoord) {
+            Transacties transacties, Supplier<Iban> nieuweIban, TransactionOperations transactie, String klantWachtwoord, String beheerderWachtwoord) {
         this.logins = logins;
         this.bestaand = bestaand;
         this.rekeninghouders = rekeninghouders;
         this.spaarrekeningen = spaarrekeningen;
+        this.transacties = transacties;
         this.nieuweIban = nieuweIban;
         this.transactie = transactie;
         this.klantWachtwoord = klantWachtwoord;
@@ -51,8 +53,10 @@ class DemoData {
 
     /** Zonder datum van openen: de maandafsluiting slaat de spaarrekening over, tot er transacties zijn (ADR 0040). */
     private void maak(DemoKlanten.DemoKlant klant) {
-        rekeninghouders.voegToeMetBetaalrekening(klant.gebruikersnaam(), klant.naam(), nieuweIban.get(), LEEG);
+        Iban betaalrekening = nieuweIban.get();
+        rekeninghouders.voegToeMetBetaalrekening(klant.gebruikersnaam(), klant.naam(), betaalrekening, LEEG);
         spaarrekeningen.open(klant.gebruikersnaam(), LEEG, Optional.empty());
+        transacties.boekAlle(betaalrekening, Generator.boekingen(klant));
         logins.zorgVoorKlant(klant.gebruikersnaam(), klantWachtwoord);
     }
 

@@ -8,3 +8,13 @@ test('Na installatie kunnen 10 klanten en een beheerder inloggen', async ({ omge
   );
   await omgeving.en('komt de beheerder na inloggen op het beheerscherm', () => omgeving.verwachtBeheerder());
 });
+
+test('Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan('heeft de betaalrekening van elk van de 10 klanten in elk van de 63 maanden transacties', () =>
+    omgeving.verwachtTransactiesPerMaand('2021-10', '2026-12'),
+  );
+});

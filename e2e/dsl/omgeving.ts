@@ -22,6 +22,7 @@ export class Omgeving extends Stappen {
   private laatste?: Resultaat;
   /** De tag die deze omgeving het laatst installeerde; zonder tag geldt die van de bestaande installatie. */
   private geinstalleerd?: string;
+  private beheerder?: BankDriver;
 
   constructor(
     private readonly shell: ShellDriver,
@@ -97,6 +98,41 @@ export class Omgeving extends Stappen {
       const soorten = (await driver.rekeningenInOverzicht()).map((rekening) => rekening.soort).sort();
       expect(soorten, `rekeningen in het overzicht van ${gebruikersnaam}`).toEqual(['betaal', 'spaar']);
     }
+  }
+
+  /** S11.1: boekingen na "vandaag" zijn onzichtbaar (ADR 0013); de fixture wist de datum weer (ADR 0014). */
+  async zetSimulatiedatum(datum: string): Promise<void> {
+    const driver = await this.demoBeheerder();
+    expect(await driver.zetSimulatiedatumOpScherm(datum), 'simulatiedatum zetten als beheerder').toBe('gelukt');
+  }
+
+  async wisSimulatiedatum(): Promise<void> {
+    const driver = await this.demoBeheerder();
+    expect(await driver.wisSimulatiedatumOpScherm(), 'simulatiedatum wissen als beheerder').toBe('gelukt');
+  }
+
+  /** Elke klant bladert door zijn hele lijst, zoals met "Toon meer"; een ontbrekende maand noemt de bewering bij naam. */
+  async verwachtTransactiesPerMaand(van: string, tm: string): Promise<void> {
+    const wachtwoord = await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'KLANT_WACHTWOORD');
+    const verwacht = maanden(van, tm);
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const driver = await this.maakRestDriver();
+      await driver.logIn(gebruikersnaam, wachtwoord);
+      const betaal = (await driver.rekeningenInOverzicht()).find((rekening) => rekening.soort === 'betaal');
+      if (!betaal) throw new Error(`${gebruikersnaam} heeft geen betaalrekening`);
+      await driver.openRekening(betaal.iban);
+      while (await driver.heeftMeer()) await driver.toonMeer();
+      const gevonden = new Set((await driver.transacties()).map(({ datum }) => datum.slice(0, 7)));
+      expect(verwacht.filter((maand) => !gevonden.has(maand)), `maanden zonder transacties bij ${gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  private async demoBeheerder(): Promise<BankDriver> {
+    if (!this.beheerder) {
+      this.beheerder = await this.maakRestDriver();
+      await this.beheerder.logIn(DEMO_BEHEERDER, await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'BEHEERDER_WACHTWOORD'));
+    }
+    return this.beheerder;
   }
 
   async verwachtBeheerder(): Promise<void> {
@@ -176,6 +212,21 @@ export class Origineel {
   async verwachtBereikbaar(): Promise<void> {
     expect(await this.shell.httpStatus('https://bank.localtest.me/'), 'https://bank.localtest.me/').toBe(200);
   }
+}
+
+/** De maanden van `van` t/m `tm`, zoals "2021-10". */
+function maanden(van: string, tm: string): string[] {
+  const resultaat: string[] = [];
+  let [jaar, maand] = van.split('-').map(Number);
+  for (let huidig = van; huidig <= tm; huidig = `${jaar}-${String(maand).padStart(2, '0')}`) {
+    resultaat.push(huidig);
+    maand += 1;
+    if (maand > 12) {
+      maand = 1;
+      jaar += 1;
+    }
+  }
+  return resultaat;
 }
 
 function maakMomentopname(objecten: K8sObject[]): Momentopname {

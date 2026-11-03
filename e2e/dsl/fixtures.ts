@@ -71,9 +71,12 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving }, { 
       eigenSessies.push(sessie);
       return new UiDriver(await sessie.newPage());
     };
-    await use(
-      new Omgeving(shell, new RestDriver(request), imageTag, (titel, stap) => basis.step(titel, stap), maakRestDriver, maakUiDriver),
-    );
+    const omgeving = new Omgeving(shell, new RestDriver(request), imageTag, (titel, stap) => basis.step(titel, stap), maakRestDriver, maakUiDriver);
+    await use(omgeving);
+    // De simulatiedatum geldt voor de hele bank: wissen, ook als het scenario faalde (ADR 0014).
+    if (testInfo.tags.includes('@simulatiedatum')) {
+      await basis.step('Na afloop wist de beheerder de simulatiedatum', () => omgeving.wisSimulatiedatum());
+    }
     await Promise.all(eigenSessies.map((sessie) => ('dispose' in sessie ? sessie.dispose() : sessie.close())));
   },
 });
