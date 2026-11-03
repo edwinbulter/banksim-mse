@@ -36,7 +36,7 @@ Deze stap boekt alleen het maandelijkse salaris of pensioen en de huur of hypoth
 
 ## Gevolgen
 - **Bestaande installaties:** een demo-klant die er al is, krijgt geen transacties. Lokaal is daarom eenmalig `make uninstall` nodig; CI installeert altijd vers. Dezelfde beperking geldt voor elke latere uitbreiding van de generator, tot een commando bestaat dat de demo-data opnieuw maakt.
-- **Nooit rood geldt nog niet voor de generator.** Tot de stap over nooit rood kan een demo-rekening op een dag negatief staan, en wordt een betaling van een demo-klant dan geweigerd. Dat is tijdelijk, en alleen zichtbaar bij de demo-klanten.
+- **Nooit rood:** de eerste versie liet een demo-rekening tijdelijk negatief staan. Sinds de volgende stap gebruikt de generator een beginsaldo en controleert hij elke klant met `NooitRoodRegel`; een profiel dat rood zou gaan, laat de K8s Job falen.
 - **Toekomstige boekingen:** boekingen na vandaag bestaan al in de database. Daarom houdt de generator straks een buffer aan, zoals het TO beschrijft (ADR 0025).
 - **Duur:** de K8s Job wordt langzamer naarmate er meer soorten boekingen komen. Dat meten we bij elke stap.
 - **Twee kopieën van de namen:** de namen staan in `DemoKlanten` en in de DSL (`dsl/huishoudens.ts`); het scenario controleert dat ze bij elkaar passen.

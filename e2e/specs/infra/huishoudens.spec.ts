@@ -18,3 +18,13 @@ test('Elke klant heeft elke maand transacties, van oktober 2021 t/m december 202
     omgeving.verwachtTransactiesPerMaand('2021-10', '2026-12'),
   );
 });
+
+test('Geen betaalrekening van een demo-klant staat op enige dag rood', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan('is het laagste lopende saldo van elk van de 10 klanten minstens € 0,00', () =>
+    omgeving.verwachtNooitRood(),
+  );
+});

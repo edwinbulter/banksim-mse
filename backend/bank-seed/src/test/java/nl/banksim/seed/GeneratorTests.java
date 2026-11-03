@@ -1,6 +1,7 @@
 package nl.banksim.seed;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -72,5 +73,37 @@ class GeneratorTests {
     @Test
     void tweeKeerGenererenGeeftDezelfdeBoekingen() {
         assertThat(Generator.boekingen(klant("sbakker"))).isNotEmpty().isEqualTo(Generator.boekingen(klant("sbakker")));
+    }
+
+    /** S11.1, FO: dezelfde regel als in de bank; een profiel dat rood zou gaan, wordt geen demo-data. */
+    @Test
+    void eenKlantDieRoodZouGaanGeeftEenFout() {
+        var teWeinig = new DemoKlanten.DemoKlant("rood", "Rood", Bedrag.van("949.99"),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))));
+
+        assertThatThrownBy(() -> Generator.boekingen(teWeinig))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("rood");
+    }
+
+    /** Precies op € 0,00 is niet rood. */
+    @Test
+    void eenKlantDiePreciesOpNulKomtMag() {
+        var precies = new DemoKlanten.DemoKlant("nul", "Nul", Bedrag.van("950.00"),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))));
+
+        assertThat(Generator.boekingen(precies)).hasSize(2 * MAANDEN);
+    }
+
+    /** Elke dag telt: pas later in de maand komt het inkomen binnen. */
+    @Test
+    void eenDipTussenTweeBoekingenTeltOokAlsHetEindsaldoPositiefIs() {
+        var dip = new DemoKlanten.DemoKlant("dip", "Dip", Bedrag.van("100.00"),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))));
+
+        assertThatThrownBy(() -> Generator.boekingen(dip)).isInstanceOf(IllegalStateException.class);
     }
 }

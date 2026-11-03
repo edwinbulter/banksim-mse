@@ -1168,7 +1168,7 @@ Deze slice wordt in kleine stappen gebouwd, elk met een eigen scenario in `e2e/s
 
 1. Na installatie kunnen 10 klanten en een beheerder inloggen, en ziet elke klant een betaal- en een spaarrekening (gebouwd, ADR 0040).
 2. Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026 (gebouwd voor het inkomen en de woonlasten, ADR 0041); de andere soorten uit het FO volgen.
-3. Geen enkele rekening staat op enige dag rood.
+3. Geen enkele rekening staat op enige dag rood (gebouwd voor de betaalrekening; de spaarrekening komt mee met sparen en rente).
 4. Een upgrade wist de demo-data niet en maakt die ook niet dubbel.
 5. Golden master: seed 42 geeft steeds dezelfde data.
 

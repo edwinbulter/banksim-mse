@@ -54,7 +54,7 @@ class DemoData {
     /** Zonder datum van openen: de maandafsluiting slaat de spaarrekening over, tot er transacties zijn (ADR 0040). */
     private void maak(DemoKlanten.DemoKlant klant) {
         Iban betaalrekening = nieuweIban.get();
-        rekeninghouders.voegToeMetBetaalrekening(klant.gebruikersnaam(), klant.naam(), betaalrekening, LEEG);
+        rekeninghouders.voegToeMetBetaalrekening(klant.gebruikersnaam(), klant.naam(), betaalrekening, klant.beginsaldo());
         spaarrekeningen.open(klant.gebruikersnaam(), LEEG, Optional.empty());
         transacties.boekAlle(betaalrekening, Generator.boekingen(klant));
         logins.zorgVoorKlant(klant.gebruikersnaam(), klantWachtwoord);

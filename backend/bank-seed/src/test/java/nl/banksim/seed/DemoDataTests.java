@@ -63,12 +63,12 @@ class DemoDataTests {
 
         assertThat(gedaan).hasSize(41);
         assertThat(gedaan.subList(0, 4)).containsExactly(
-                "betaal jdevries Jan de Vries " + Iban.simBank(1L) + " 0.00",
+                "betaal jdevries Jan de Vries " + Iban.simBank(1L) + " 1800.00",
                 "spaar jdevries 0.00 false",
                 "boekingen " + Iban.simBank(1L) + " 126",
                 "login jdevries klant-ww");
-        assertThat(gedaan).contains("betaal melamrani Mohamed El Amrani " + Iban.simBank(3L) + " 0.00",
-                "betaal nhendriks Noor Hendriks " + Iban.simBank(10L) + " 0.00", "login nhendriks klant-ww");
+        assertThat(gedaan).contains("betaal melamrani Mohamed El Amrani " + Iban.simBank(3L) + " 1500.00",
+                "betaal nhendriks Noor Hendriks " + Iban.simBank(10L) + " 3500.00", "login nhendriks klant-ww");
         assertThat(gedaan.getLast()).isEqualTo("beheerder beheerder beheerder-ww");
     }
 

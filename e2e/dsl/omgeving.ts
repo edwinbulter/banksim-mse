@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
-import type { BankDriver } from '../drivers/bank-driver';
+import type { BankDriver, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
 import { DEMO_BEHEERDER, DEMO_KLANTEN } from './huishoudens';
 import { Stappen, type Stap } from './stappen';
@@ -113,18 +113,37 @@ export class Omgeving extends Stappen {
 
   /** Elke klant bladert door zijn hele lijst, zoals met "Toon meer"; een ontbrekende maand noemt de bewering bij naam. */
   async verwachtTransactiesPerMaand(van: string, tm: string): Promise<void> {
-    const wachtwoord = await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'KLANT_WACHTWOORD');
     const verwacht = maanden(van, tm);
     for (const { gebruikersnaam } of DEMO_KLANTEN) {
-      const driver = await this.maakRestDriver();
-      await driver.logIn(gebruikersnaam, wachtwoord);
-      const betaal = (await driver.rekeningenInOverzicht()).find((rekening) => rekening.soort === 'betaal');
-      if (!betaal) throw new Error(`${gebruikersnaam} heeft geen betaalrekening`);
-      await driver.openRekening(betaal.iban);
-      while (await driver.heeftMeer()) await driver.toonMeer();
-      const gevonden = new Set((await driver.transacties()).map(({ datum }) => datum.slice(0, 7)));
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      const gevonden = new Set(transacties.map(({ datum }) => datum.slice(0, 7)));
       expect(verwacht.filter((maand) => !gevonden.has(maand)), `maanden zonder transacties bij ${gebruikersnaam}`).toEqual([]);
     }
+  }
+
+  /** S11.1: vanaf het eindsaldo terugrekenen, dag voor dag en in centen: elk saldo aan het eind van een dag, en het beginsaldo. */
+  async verwachtNooitRood(): Promise<void> {
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const { saldo, transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      let lopend = centen(saldo);
+      let laagste = lopend;
+      for (const dag of transacties) {
+        for (const { bedrag } of dag.transacties) lopend -= centen(bedrag);
+        if (lopend < laagste) laagste = lopend;
+      }
+      expect(laagste >= 0n, `laagste lopende saldo van ${gebruikersnaam}: ${laagste} cent`).toBe(true);
+    }
+  }
+
+  /** Inloggen als de demo-klant, en de hele transactielijst van zijn betaalrekening laden. */
+  private async betaalrekeningVan(gebruikersnaam: string): Promise<{ saldo: string; transacties: TransactiesOpDatum[] }> {
+    const driver = await this.maakRestDriver();
+    await driver.logIn(gebruikersnaam, await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'KLANT_WACHTWOORD'));
+    const betaal = (await driver.rekeningenInOverzicht()).find((rekening) => rekening.soort === 'betaal');
+    if (!betaal) throw new Error(`${gebruikersnaam} heeft geen betaalrekening`);
+    await driver.openRekening(betaal.iban);
+    while (await driver.heeftMeer()) await driver.toonMeer();
+    return { saldo: betaal.saldo, transacties: await driver.transacties() };
   }
 
   private async demoBeheerder(): Promise<BankDriver> {
@@ -212,6 +231,11 @@ export class Origineel {
   async verwachtBereikbaar(): Promise<void> {
     expect(await this.shell.httpStatus('https://bank.localtest.me/'), 'https://bank.localtest.me/').toBe(200);
   }
+}
+
+/** Een bedrag in domeinnotatie ("-950.00") in centen; geen drijvende komma (ADR 0010). */
+function centen(bedrag: string): bigint {
+  return BigInt(bedrag.replace('.', ''));
 }
 
 /** De maanden van `van` t/m `tm`, zoals "2021-10". */
