@@ -28,13 +28,20 @@ class GeneratorTests {
         return DemoKlanten.ALLE.stream().filter(klant -> klant.gebruikersnaam().equals(gebruikersnaam)).findFirst().orElseThrow();
     }
 
-    /** Het inkomen en de woonlasten, zonder de boodschappen. */
+    /** Alleen het inkomen en de woonlasten. */
     private static List<Boeking> vasteBoekingen(DemoKlanten.DemoKlant klant) {
-        return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() != TransactieType.BETAALAUTOMAAT).toList();
+        return Generator.boekingen(klant).stream()
+                .filter(boeking -> boeking.tegenpartij().equals(klant.inkomen().tegenpartij())
+                        || klant.woonlasten().filter(woonlasten -> woonlasten.tegenpartij().equals(boeking.tegenpartij())).isPresent())
+                .toList();
     }
 
     private static List<Boeking> boodschappen(DemoKlanten.DemoKlant klant) {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.BETAALAUTOMAAT).toList();
+    }
+
+    private static Boeking incasso(int jaar, int maand, int dag, String bedrag, String aan) {
+        return woonlasten(LocalDateTime.of(jaar, maand, dag, 6, 0), bedrag, aan);
     }
 
     private static Boeking inkomen(LocalDateTime tijdstip, String bedrag, String van) {
@@ -95,7 +102,7 @@ class GeneratorTests {
     void eenKlantDieRoodZouGaanGeeftEenFout() {
         var teWeinig = new DemoKlanten.DemoKlant("rood", "Rood", Bedrag.van("949.99"),
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))));
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of());
 
         assertThatThrownBy(() -> Generator.boekingen(teWeinig))
                 .isInstanceOf(IllegalStateException.class)
@@ -107,7 +114,7 @@ class GeneratorTests {
     void eenKlantDiePreciesOpNulKomtMag() {
         var precies = new DemoKlanten.DemoKlant("nul", "Nul", Bedrag.van("950.00"),
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))));
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of());
 
         assertThat(vasteBoekingen(precies)).hasSize(2 * MAANDEN);
     }
@@ -117,7 +124,7 @@ class GeneratorTests {
     void eenDipTussenTweeBoekingenTeltOokAlsHetEindsaldoPositiefIs() {
         var dip = new DemoKlanten.DemoKlant("dip", "Dip", Bedrag.van("100.00"),
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))));
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of());
 
         assertThatThrownBy(() -> Generator.boekingen(dip)).isInstanceOf(IllegalStateException.class);
     }
@@ -168,7 +175,7 @@ class GeneratorTests {
     void bijEenDreigendTekortWordtEenBoodschapOvergeslagen() {
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"),
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))));
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of());
 
         assertThat(boodschappen(krap))
                 .isNotEmpty()
@@ -181,7 +188,7 @@ class GeneratorTests {
     void eenBoodschapMagEenLatereBoekingNietRoodMaken() {
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("1000.00"),
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("100.00"))));
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("100.00"))), List.of());
 
         BigDecimal lopend = krap.beginsaldo().waarde();
         Map<LocalDate, BigDecimal> perDag = new TreeMap<>();
@@ -191,5 +198,64 @@ class GeneratorTests {
             assertThat(lopend).isGreaterThanOrEqualTo(BigDecimal.ZERO);
         }
         assertThat(boodschappen(krap)).isNotEmpty();
+    }
+
+    /** FO, origineel: vroeg in de ochtend een incasso, per last op de eigen dag. */
+    @Test
+    void deVasteLastenVanJanInDecember2026() {
+        assertThat(Generator.boekingen(klant("jdevries"))).containsAll(List.of(
+                incasso(2026, 12, 1, "-140.00", "Zorgverzekeraar Gezond"),
+                incasso(2026, 12, 1, "-18.00", "Verzekeringen Zeker"),
+                incasso(2026, 12, 15, "-95.00", "Groenstroom Energie"),
+                incasso(2026, 12, 20, "-45.00", "NetPlus Internet"),
+                incasso(2026, 12, 20, "-7.50", "Waterbedrijf Midden"),
+                incasso(2026, 12, 22, "-17.50", "Mobiel Direct")));
+    }
+
+    /** Per volwassene de zorgpremie en het mobiel, per persoon het water, en met een auto een duurdere verzekering. */
+    @Test
+    void deVasteLastenHangenAfVanHetHuishouden() {
+        assertThat(Generator.boekingen(klant("melamrani"))).containsAll(List.of(
+                incasso(2026, 12, 1, "-280.00", "Zorgverzekeraar Gezond"),
+                incasso(2026, 12, 1, "-73.00", "Verzekeringen Zeker"),
+                incasso(2026, 12, 15, "-175.00", "Groenstroom Energie"),
+                incasso(2026, 12, 20, "-45.00", "NetPlus Internet"),
+                incasso(2026, 12, 20, "-37.50", "Waterbedrijf Midden"),
+                incasso(2026, 12, 22, "-35.00", "Mobiel Direct")));
+    }
+
+    @Test
+    void elkeKlantBetaaltElkeMaandElkeVasteLastPreciesEenKeer() {
+        for (DemoKlanten.DemoKlant klant : DemoKlanten.ALLE) {
+            assertThat(klant.vasteLasten()).as(klant.gebruikersnaam()).hasSize(6);
+            for (DemoKlanten.VasteLast last : klant.vasteLasten()) {
+                List<Boeking> betalingen = Generator.boekingen(klant).stream()
+                        .filter(boeking -> boeking.tegenpartij().equals(last.tegenpartij())).toList();
+                assertThat(betalingen).as(last.tegenpartij()).hasSize(MAANDEN)
+                        .allSatisfy(boeking -> assertThat(boeking.type()).isEqualTo(TransactieType.INCASSO));
+            }
+        }
+    }
+
+    /** Een vaste last vervalt niet (FO): zou hij de rekening rood maken, dan faalt de generator. */
+    @Test
+    void eenVasteLastDieRoodZouMakenGeeftEenFout() {
+        var teWeinig = new DemoKlanten.DemoKlant("rood", "Rood", Bedrag.van("100.00"),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("100.01"))));
+
+        assertThatThrownBy(() -> Generator.boekingen(teWeinig)).isInstanceOf(IllegalStateException.class);
+    }
+
+    /** Een boodschap houdt rekening met een vaste last later in de maand. */
+    @Test
+    void eenBoodschapMagEenLatereVasteLastNietRoodMaken() {
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("100.00"),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(23, "Energie", Bedrag.van("100.00"))));
+
+        assertThat(boodschappen(krap)).isNotEmpty()
+                .filteredOn(boeking -> boeking.tijdstip().isBefore(LocalDateTime.of(2021, 10, 24, 0, 0)))
+                .isEmpty();
     }
 }

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { BankDriver, RekeningInOverzicht, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
-import { DEMO_BEHEERDER, DEMO_KLANTEN, SUPERMARKTEN } from './huishoudens';
+import { DEMO_BEHEERDER, DEMO_KLANTEN, SUPERMARKTEN, VASTE_LASTEN } from './huishoudens';
 import { Stappen, type Stap } from './stappen';
 
 const NAMESPACE = 'banksim-mse';
@@ -149,6 +149,28 @@ export class Omgeving extends Stappen {
     }
   }
 
+  /** S11.1: per klant en per maand precies één betaling aan elk van de vaste lasten. */
+  async verwachtVasteLastenPerMaand(van: string, tm: string): Promise<void> {
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      const fout = maanden(van, tm).flatMap((maand) =>
+        VASTE_LASTEN.map((last) => ({ maand, last, aantal: betalingenAan(transacties, maand, last).length }))
+          .filter(({ aantal }) => aantal !== 1)
+          .map(({ maand: m, last, aantal }) => `${m} ${last}: ${aantal}`),
+      );
+      expect(fout, `vaste lasten die niet precies één keer zijn betaald door ${gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  /** S11.1: de bedragen in domeinnotatie die de klant in die maand aan elk van de vaste lasten betaalde. */
+  async verwachtVasteLastenVan(naam: string, maand: string, verwacht: Record<string, string>): Promise<void> {
+    const klant = DEMO_KLANTEN.find((demo) => demo.naam === naam);
+    if (!klant) throw new Error(`${naam} is geen demo-klant`);
+    const { transacties } = await this.betaalrekeningVan(klant.gebruikersnaam);
+    const betaald = Object.fromEntries(VASTE_LASTEN.map((last) => [last, betalingenAan(transacties, maand, last)[0]]));
+    expect(betaald, `vaste lasten van ${naam} in ${maand}`).toEqual(verwacht);
+  }
+
   /** S11.1: vanaf het eindsaldo terugrekenen, dag voor dag en in centen: elk saldo aan het eind van een dag, en het beginsaldo. */
   async verwachtNooitRood(): Promise<void> {
     for (const { gebruikersnaam } of DEMO_KLANTEN) {
@@ -271,6 +293,13 @@ export class Origineel {
   async verwachtBereikbaar(): Promise<void> {
     expect(await this.shell.httpStatus('https://bank.localtest.me/'), 'https://bank.localtest.me/').toBe(200);
   }
+}
+
+/** De bedragen van de betalingen aan een tegenpartij in een maand, zoals "2026-12". */
+function betalingenAan(transacties: TransactiesOpDatum[], maand: string, tegenpartij: string): string[] {
+  return transacties
+    .filter(({ datum }) => datum.startsWith(maand))
+    .flatMap((dag) => dag.transacties.filter((t) => t.tegenpartij === tegenpartij).map((t) => t.bedrag));
 }
 
 function betaalrekening(rekeningen: RekeningInOverzicht[], gebruikersnaam: string): RekeningInOverzicht {

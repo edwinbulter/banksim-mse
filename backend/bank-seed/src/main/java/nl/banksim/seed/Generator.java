@@ -20,7 +20,7 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e, vroeg in de ochtend, en het inkomen op de 24e. Daarna de boodschappen, met een
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, en het inkomen op de 24e. Daarna de boodschappen, met een
  * vaste seed per klant; een boodschap die de rekening rood zou maken, vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
@@ -52,6 +52,10 @@ final class Generator {
                     Optional.empty())));
             boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), klant.inkomen().bedrag(),
                     klant.inkomen().tegenpartij(), TransactieType.OVERSCHRIJVING, Optional.empty()));
+            for (DemoKlanten.VasteLast last : klant.vasteLasten()) {
+                boekingen.add(new Boeking(maand.atDay(last.dag()).atTime(LocalTime.of(6, 0)),
+                        new Bedrag(last.bedrag().waarde().negate()), last.tegenpartij(), TransactieType.INCASSO, Optional.empty()));
+            }
         }
         return boekingen;
     }

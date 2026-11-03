@@ -40,6 +40,27 @@ test('Elke klant doet elke maand boodschappen, van oktober 2021 t/m december 202
   );
 });
 
+test('Elke klant betaalt elke maand zijn vaste lasten', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'heeft elk van de 10 klanten in elk van de 63 maanden precies één betaling aan Groenstroom Energie, Waterbedrijf Midden, NetPlus Internet, Mobiel Direct, Zorgverzekeraar Gezond en Verzekeringen Zeker',
+    () => omgeving.verwachtVasteLastenPerMaand('2021-10', '2026-12'),
+  );
+  await omgeving.en('betaalt Jan in december 2026 de bedragen uit zijn profiel', () =>
+    omgeving.verwachtVasteLastenVan('Jan de Vries', '2026-12', {
+      'Groenstroom Energie': '-95.00',
+      'Waterbedrijf Midden': '-7.50',
+      'NetPlus Internet': '-45.00',
+      'Mobiel Direct': '-17.50',
+      'Zorgverzekeraar Gezond': '-140.00',
+      'Verzekeringen Zeker': '-18.00',
+    }),
+  );
+});
+
 /** @destructief: de upgrade vervangt de draaiende installatie door een andere versie; alleen in het CI-cluster. */
 test('Een upgrade laat de demo-data ongemoeid', { tag: '@destructief' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
