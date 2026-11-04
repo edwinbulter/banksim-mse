@@ -76,7 +76,7 @@ class DemoDataTests {
     void maaktTienKlantenMetEenBetaalEnSpaarrekeningEnLoginEnDaarnaDeBeheerder() {
         demo("klant-ww", "beheerder-ww").maak();
 
-        assertThat(gedaan).hasSize(61);
+        assertThat(gedaan).hasSize(62);
         assertThat(gedaan.subList(0, 6)).containsExactly(
                 "betaal jdevries Jan de Vries " + Iban.simBank(1L) + " 1800.00",
                 "spaar jdevries 6500.00 true",
@@ -123,13 +123,47 @@ class DemoDataTests {
         assertThat(gedaan).containsExactly("beheerder beheerder beheerder-ww");
     }
 
+    /** ADR 0044: de klanten ontstaan samen; bestaat er een, dan zijn ze er allemaal. */
     @Test
-    void eenAfgebrokenEerstePogingWordtAangevuldZonderWatErAlIs() {
-        bestaand.add("jdevries");
+    void eenBestaandeKlantBetekentDatErGeenKlantenMeerWordenGemaakt() {
+        bestaand.add("nhendriks");
 
         demo("klant-ww", "beheerder-ww").maak();
 
-        assertThat(gedaan).hasSize(55).noneMatch(stap -> stap.contains("jdevries"));
+        assertThat(gedaan).containsExactly("beheerder beheerder beheerder-ww");
+    }
+
+    /** ADR 0044: van de betaalrekening van de ene klant naar die van de andere, met hun namen en type Online bankieren. */
+    @Test
+    void schrijftDeBetalingenTussenKlantenNaarElkaarsBetaalrekening() {
+        demo("klant-ww", "beheerder-ww").maak();
+
+        List<Overboeking> betalingen = geschreven.stream().filter(overboeking -> overboeking.type() == TransactieType.ONLINE_BANKIEREN).toList();
+        List<Generator.BetalingTussenKlanten> verwacht = Generator.betalingenTussenKlanten(DemoKlanten.ALLE);
+
+        assertThat(betalingen).hasSameSizeAs(verwacht).isNotEmpty();
+        for (int i = 0; i < verwacht.size(); i++) {
+            Overboeking betaling = betalingen.get(i);
+            assertThat(betaling.van().iban()).isEqualTo(betaalrekeningVan(verwacht.get(i).van()));
+            assertThat(betaling.naar().iban()).isEqualTo(betaalrekeningVan(verwacht.get(i).naar()));
+            assertThat(betaling.van().naam()).isEqualTo(naamVan(verwacht.get(i).van()));
+            assertThat(betaling.naar().naam()).isEqualTo(naamVan(verwacht.get(i).naar()));
+            assertThat(betaling.bedrag()).isEqualTo(verwacht.get(i).bedrag());
+            assertThat(betaling.tijdstip()).isEqualTo(verwacht.get(i).tijdstip());
+        }
+    }
+
+    /** De klanten krijgen hun betaalrekening op volgorde: Iban.simBank(1) voor de eerste. */
+    private static Iban betaalrekeningVan(String gebruikersnaam) {
+        return Iban.simBank(1L + DemoKlanten.ALLE.indexOf(klant(gebruikersnaam)));
+    }
+
+    private static String naamVan(String gebruikersnaam) {
+        return klant(gebruikersnaam).naam();
+    }
+
+    private static DemoKlanten.DemoKlant klant(String gebruikersnaam) {
+        return DemoKlanten.ALLE.stream().filter(klant -> klant.gebruikersnaam().equals(gebruikersnaam)).findFirst().orElseThrow();
     }
 
     /** Zonder wachtwoord uit het Secret bank-demo wordt er niets half aangemaakt. */

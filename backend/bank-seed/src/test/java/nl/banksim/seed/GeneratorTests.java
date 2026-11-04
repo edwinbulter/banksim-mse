@@ -631,4 +631,105 @@ class GeneratorTests {
         assertThat(geldopnames(krap)).isNotEmpty();
         assertThat(Generator.opnames(krap)).isEmpty();
     }
+
+    private static List<Generator.BetalingTussenKlanten> betalingenTussenKlanten() {
+        return Generator.betalingenTussenKlanten(DemoKlanten.ALLE);
+    }
+
+    private static DemoKlanten.DemoKlant metInkomen(String gebruikersnaam, String naam, String beginsaldo, String inkomen, String huur) {
+        return new DemoKlanten.DemoKlant(gebruikersnaam, naam, Bedrag.van(beginsaldo), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van(inkomen)),
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van(huur))), List.of(), Optional.empty());
+    }
+
+    /** FO: 0–3 keer per maand; alleen wat een klant zelf betaalt, telt mee. */
+    @Test
+    void eenKlantBetaaltElkeMaandHoogstensDrieKeerAanEenAndereKlant() {
+        Map<YearMonth, Long> perMaand = betalingenTussenKlanten().stream()
+                .filter(betaling -> betaling.van().equals("pvisser"))
+                .collect(Collectors.groupingBy(betaling -> YearMonth.from(betaling.tijdstip()), Collectors.counting()));
+
+        assertThat(perMaand.values()).allSatisfy(aantal -> assertThat(aantal).isBetween(1L, 3L));
+        assertThat(perMaand.values()).contains(1L, 2L, 3L);
+        assertThat(perMaand).hasSizeLessThan(MAANDEN);
+    }
+
+    /** FO: € 5–150, tussen 8:00 en 21:00, nooit aan zichzelf, en de ontvanger is een echte demo-klant. */
+    @Test
+    void eenBetalingTussenKlantenHeeftHetBedragEnHetTijdstipUitHetFo() {
+        List<String> gebruikersnamen = DemoKlanten.ALLE.stream().map(DemoKlanten.DemoKlant::gebruikersnaam).toList();
+
+        assertThat(betalingenTussenKlanten()).isNotEmpty().allSatisfy(betaling -> {
+            assertThat(betaling.bedrag().waarde()).isBetween(new BigDecimal("5.00"), new BigDecimal("150.00"));
+            assertThat(betaling.tijdstip().toLocalTime()).isBetween(LocalTime.of(8, 0), LocalTime.of(21, 0));
+            assertThat(betaling.naar()).isNotEqualTo(betaling.van()).isIn(gebruikersnamen);
+            assertThat(betaling.van()).isIn(gebruikersnamen);
+        });
+    }
+
+    /** De grenzen worden ook echt gehaald, en elke klant betaalt en ontvangt. */
+    @Test
+    void deBetalingenTussenKlantenVarierenOverHetHeleBereik() {
+        List<Generator.BetalingTussenKlanten> alle = betalingenTussenKlanten();
+        List<String> gebruikersnamen = DemoKlanten.ALLE.stream().map(DemoKlanten.DemoKlant::gebruikersnaam).toList();
+
+        assertThat(alle).extracting(Generator.BetalingTussenKlanten::van).containsAll(gebruikersnamen);
+        assertThat(alle).extracting(Generator.BetalingTussenKlanten::naar).containsAll(gebruikersnamen);
+        assertThat(alle).extracting(betaling -> betaling.bedrag().waarde()).anyMatch(bedrag -> bedrag.compareTo(new BigDecimal("6.00")) < 0);
+        assertThat(alle).extracting(betaling -> betaling.bedrag().waarde()).anyMatch(bedrag -> bedrag.compareTo(new BigDecimal("149.00")) > 0);
+    }
+
+    /** ADR 0041: de vaste seed geeft elke installatie dezelfde betalingen; elke klant heeft zijn eigen reeks. */
+    @Test
+    void deBetalingenTussenKlantenLiggenVastDoorDeSeed() {
+        assertThat(betalingenTussenKlanten()).isEqualTo(betalingenTussenKlanten());
+
+        Map<String, List<BigDecimal>> perKlant = betalingenTussenKlanten().stream().collect(Collectors.groupingBy(
+                Generator.BetalingTussenKlanten::van, Collectors.mapping(betaling -> betaling.bedrag().waarde(), Collectors.toList())));
+        assertThat(perKlant.get("pvisser")).isNotEqualTo(perKlant.get("rmulder"));
+    }
+
+    /** ADR 0044, FO: alles samen, ook de betalingen en wat een klant ontvangt, maakt geen enkele betaalrekening rood. */
+    @Test
+    void geenBetaalrekeningStaatRoodInclusiefDeBetalingenTussenKlanten() {
+        for (DemoKlanten.DemoKlant klant : DemoKlanten.ALLE) {
+            Map<LocalDate, BigDecimal> perDag = new TreeMap<>();
+            Generator.boekingen(klant).forEach(boeking -> perDag.merge(boeking.datum(), boeking.bedrag().waarde(), BigDecimal::add));
+            Generator.inleggen(klant).forEach(inleg -> perDag.merge(inleg.tijdstip().toLocalDate(), inleg.bedrag().waarde().negate(), BigDecimal::add));
+            Generator.opnames(klant).forEach(opname -> perDag.merge(opname.tijdstip().toLocalDate(), opname.bedrag().waarde(), BigDecimal::add));
+            betalingenTussenKlanten().stream().filter(betaling -> betaling.van().equals(klant.gebruikersnaam()))
+                    .forEach(betaling -> perDag.merge(betaling.tijdstip().toLocalDate(), betaling.bedrag().waarde().negate(), BigDecimal::add));
+
+            BigDecimal lopend = klant.beginsaldo().waarde();
+            for (BigDecimal beweging : perDag.values()) {
+                lopend = lopend.add(beweging);
+                assertThat(lopend).as(klant.gebruikersnaam()).isGreaterThanOrEqualTo(BigDecimal.ZERO);
+            }
+        }
+    }
+
+    /** FO: een niet-vaste uitgave vervalt bij een dreigend tekort; tot het salaris op de 24e staat er € 0,00. */
+    @Test
+    void bijEenDreigendTekortVervaltEenBetalingAanEenAndereKlant() {
+        var krap = metInkomen("krap", "Krap", "950.00", "3100.00", "950.00");
+        var ander = metInkomen("ander", "Ander", "950.00", "3100.00", "950.00");
+
+        assertThat(Generator.betalingenTussenKlanten(List.of(krap, ander)))
+                .filteredOn(betaling -> betaling.van().equals("krap"))
+                .isNotEmpty()
+                .filteredOn(betaling -> betaling.tijdstip().isBefore(LocalDateTime.of(2021, 10, 24, 0, 0)))
+                .isEmpty();
+    }
+
+    /** ADR 0044: ontvangen geld telt niet mee als ruimte om zelf te betalen, ook als het op tijd binnenkomt. */
+    @Test
+    void ontvangenGeldTeltNietMeeAlsRuimteOmZelfTeBetalen() {
+        var zonderGeld = metInkomen("zonder", "Zonder", "1.00", "1.00", "1.00");
+        var rijk = metInkomen("rijk", "Rijk", "100000.00", "9000.00", "100.00");
+
+        List<Generator.BetalingTussenKlanten> betalingen = Generator.betalingenTussenKlanten(List.of(zonderGeld, rijk));
+
+        assertThat(betalingen).extracting(Generator.BetalingTussenKlanten::van).containsOnly("rijk");
+        assertThat(betalingen).extracting(Generator.BetalingTussenKlanten::naar).containsOnly("zonder");
+    }
 }

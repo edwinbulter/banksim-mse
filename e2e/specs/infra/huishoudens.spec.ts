@@ -66,6 +66,23 @@ test('Klanten nemen contant geld op bij de geldautomaat, van oktober 2021 t/m de
   await omgeving.en('heeft elk van de 10 klanten minstens één opname', () => omgeving.verwachtMinstensEenGeldopname());
 });
 
+test('Klanten betalen elkaar, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'heeft elk van de 10 klanten in elk van de 63 maanden hoogstens 3 betalingen aan andere klanten, elk tussen € 5,00 en € 150,00',
+    () => omgeving.verwachtBetalingenAanAndereKlanten('2021-10', '2026-12', 3, { min: '5.00', max: '150.00' }),
+  );
+  await omgeving.en('heeft elk van de 10 klanten minstens één betaling aan en minstens één betaling van een andere klant', () =>
+    omgeving.verwachtBetalingAanEnVanAndereKlant(),
+  );
+  await omgeving.en('komt alles wat de 10 klanten aan elkaar betalen samen op € 0,00 uit', () =>
+    omgeving.verwachtBetalingenTussenKlantenInBalans(),
+  );
+});
+
 test('Elke klant betaalt elke maand zijn vaste lasten', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>

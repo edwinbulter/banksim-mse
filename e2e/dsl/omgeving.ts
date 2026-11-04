@@ -160,6 +160,50 @@ export class Omgeving extends Stappen {
     return transacties.flatMap((dag) => dag.transacties.filter(({ tegenpartij }) => GELDAUTOMATEN.includes(tegenpartij)).map(({ bedrag }) => bedrag));
   }
 
+  /** S11.1: per klant en per maand hoogstens een aantal betalingen aan andere klanten; elke betaling, ook een ontvangen, binnen het bereik. */
+  async verwachtBetalingenAanAndereKlanten(van: string, tm: string, maximaal: number, bedrag: { min: string; max: string }): Promise<void> {
+    for (const klant of DEMO_KLANTEN) {
+      const betalingen = await this.betalingenTussenKlanten(klant);
+      const perMaand = new Map(maanden(van, tm).map((maand) => [maand, 0]));
+      for (const { datum } of betalingen.filter((betaling) => centen(betaling.bedrag) < 0n)) {
+        const maand = datum.slice(0, 7);
+        perMaand.set(maand, (perMaand.get(maand) ?? 0) + 1);
+      }
+      const fout = [...perMaand].filter(([, n]) => n > maximaal).map(([maand, n]) => `${maand}: ${n}`);
+      expect(fout, `maanden met te veel betalingen aan andere klanten bij ${klant.gebruikersnaam}`).toEqual([]);
+      const buitenBereik = betalingen
+        .filter((betaling) => absoluut(centen(betaling.bedrag)) < centen(bedrag.min) || absoluut(centen(betaling.bedrag)) > centen(bedrag.max))
+        .map((betaling) => `${betaling.datum}: ${betaling.bedrag}`);
+      expect(buitenBereik, `betalingen buiten het bereik bij ${klant.gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  /** S11.1: "hoogstens" klopt ook zonder betalingen; daarom moet elke klant er minstens één doen en één ontvangen. */
+  async verwachtBetalingAanEnVanAndereKlant(): Promise<void> {
+    for (const klant of DEMO_KLANTEN) {
+      const betalingen = await this.betalingenTussenKlanten(klant);
+      expect(betalingen.some((betaling) => centen(betaling.bedrag) < 0n), `betaling van ${klant.gebruikersnaam} aan een andere klant`).toBe(true);
+      expect(betalingen.some((betaling) => centen(betaling.bedrag) > 0n), `betaling aan ${klant.gebruikersnaam} van een andere klant`).toBe(true);
+    }
+  }
+
+  /** S11.1: elke afschrijving heeft een bijschrijving bij de ander, dus samen komen ze op nul uit. */
+  async verwachtBetalingenTussenKlantenInBalans(): Promise<void> {
+    let totaal = 0n;
+    for (const klant of DEMO_KLANTEN) {
+      for (const betaling of await this.betalingenTussenKlanten(klant)) totaal += centen(betaling.bedrag);
+    }
+    expect(totaal, 'som van de betalingen tussen de klanten, in centen').toBe(0n);
+  }
+
+  private async betalingenTussenKlanten(klant: { naam: string; gebruikersnaam: string }): Promise<{ datum: string; bedrag: string }[]> {
+    const anderen = DEMO_KLANTEN.map(({ naam }) => naam).filter((naam) => naam !== klant.naam);
+    const { transacties } = await this.betaalrekeningVan(klant.gebruikersnaam);
+    return transacties.flatMap((dag) =>
+      dag.transacties.filter(({ tegenpartij }) => anderen.includes(tegenpartij)).map(({ bedrag }) => ({ datum: dag.datum, bedrag })),
+    );
+  }
+
   private async verwachtAankopenPerMaand(
     soort: string,
     tegenpartijen: string[],
@@ -417,6 +461,10 @@ function betaalrekening(rekeningen: RekeningInOverzicht[], gebruikersnaam: strin
 }
 
 /** Een bedrag in domeinnotatie ("-950.00") in centen; geen drijvende komma (ADR 0010). */
+function absoluut(centenBedrag: bigint): bigint {
+  return centenBedrag < 0n ? -centenBedrag : centenBedrag;
+}
+
 function centen(bedrag: string): bigint {
   return BigInt(bedrag.replace('.', ''));
 }

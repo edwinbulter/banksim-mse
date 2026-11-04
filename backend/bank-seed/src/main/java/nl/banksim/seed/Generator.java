@@ -48,8 +48,12 @@ final class Generator {
     private static final Aankopen GELDOPNAMES = new Aankopen(45, 0, 2, 2_000, 20_000, 1_000,
             List.of("Geldautomaat Utrecht Centrum", "Geldautomaat Amersfoort Centrum", "Geldautomaat Zuidstad Centrum"), TransactieType.GELDAUTOMAAT);
 
+    /** Op deze volgorde: een aankoop krijgt wat er na de vorige soort over is, en een nieuwe soort verschuift de bestaande dus niet. */
+    private static final List<Aankopen> AANKOPEN = List.of(BOODSCHAPPEN, WEBWINKELS, GELDOPNAMES);
+    private static final long SEED_BETALINGEN = 46;
+
     /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
-    private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, int stapCenten, List<String> winkels,
+    private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, int stapCenten, List<String> tegenpartijen,
             TransactieType type) {
     }
 
@@ -59,6 +63,10 @@ final class Generator {
 
     /** ADR 0042: van de spaarrekening naar de eigen betaalrekening. */
     record Opname(LocalDateTime tijdstip, Bedrag bedrag) {
+    }
+
+    /** ADR 0044: van de betaalrekening van de ene klant naar die van de andere, met hun gebruikersnamen. */
+    record BetalingTussenKlanten(LocalDateTime tijdstip, Bedrag bedrag, String van, String naar) {
     }
 
     /** ADR 0043: van de renterekening van BankSim naar de spaarrekening, op de laatste dag van de maand. */
@@ -96,6 +104,31 @@ final class Generator {
     }
 
     private Generator() {
+    }
+
+    /**
+     * ADR 0044, FO: 0–3 keer per maand, € 5–150, via online bankieren, aan een andere klant. Alleen wat de betaler zelf heeft, telt:
+     * ontvangen geld maakt een saldo alleen hoger, dus de rekening blijft nooit rood. Na de andere boekingen, zodat die niet verschuiven.
+     */
+    static List<BetalingTussenKlanten> betalingenTussenKlanten(List<DemoKlanten.DemoKlant> klanten) {
+        List<BetalingTussenKlanten> betalingen = new ArrayList<>();
+        for (DemoKlanten.DemoKlant van : klanten) {
+            List<DemoKlanten.DemoKlant> anderen = klanten.stream().filter(klant -> !klant.equals(van)).toList();
+            var soort = new Aankopen(SEED_BETALINGEN, 0, 3, 500, 15_000, 1,
+                    anderen.stream().map(DemoKlanten.DemoKlant::naam).toList(), TransactieType.ONLINE_BANKIEREN);
+            for (Boeking betaling : aankopen(van, volledigVerloop(van), soort)) {
+                String naar = anderen.stream().filter(klant -> klant.naam().equals(betaling.tegenpartij())).findFirst().orElseThrow().gebruikersnaam();
+                betalingen.add(new BetalingTussenKlanten(betaling.tijdstip(), new Bedrag(betaling.bedrag().waarde().negate()), van.gebruikersnaam(), naar));
+            }
+        }
+        return betalingen;
+    }
+
+    /** Alles wat er op de betaalrekening staat, behalve de betalingen tussen klanten. */
+    private static List<Boeking> volledigVerloop(DemoKlanten.DemoKlant klant) {
+        List<Boeking> verloop = gecontroleerdVerloop(klant);
+        AANKOPEN.forEach(soort -> aankopen(klant, verloop, soort));
+        return verloop;
     }
 
     /** Origineel: elke maand op de 25e, tussen 9:00 en 11:00, dus na het inkomen. */
@@ -153,15 +186,19 @@ final class Generator {
     /** De eenzijdige boekingen. De inleg en de opname staan er niet bij, maar tellen wel mee voor nooit rood (ADR 0042). */
     static List<Boeking> boekingen(DemoKlanten.DemoKlant klant) {
         List<Boeking> eenzijdig = vasteBoekingen(klant);
+        List<Boeking> verloop = gecontroleerdVerloop(klant);
+        AANKOPEN.forEach(soort -> eenzijdig.addAll(aankopen(klant, verloop, soort)));
+        eenzijdig.sort(Comparator.comparing(Boeking::tijdstip));
+        return eenzijdig;
+    }
+
+    /** De vaste boekingen, de inleg en de opnames; een profiel dat hiermee rood zou gaan, laat de K8s Job falen. */
+    private static List<Boeking> gecontroleerdVerloop(DemoKlanten.DemoKlant klant) {
         List<Boeking> verloop = vasteBoekingenEnInleggen(klant);
         opnames(klant).forEach(opname -> verloop.add(new Boeking(opname.tijdstip(), opname.bedrag(), klant.naam(),
                 TransactieType.OVERSCHRIJVING, Optional.empty())));
         controleerNooitRood(klant, verloop);
-        eenzijdig.addAll(aankopen(klant, verloop, BOODSCHAPPEN));
-        eenzijdig.addAll(aankopen(klant, verloop, WEBWINKELS));
-        eenzijdig.addAll(aankopen(klant, verloop, GELDOPNAMES));
-        eenzijdig.sort(Comparator.comparing(Boeking::tijdstip));
-        return eenzijdig;
+        return verloop;
     }
 
     private static List<Boeking> vasteBoekingen(DemoKlanten.DemoKlant klant) {
@@ -203,8 +240,8 @@ final class Generator {
                 .atTime(LocalTime.of(8, 0).plusMinutes(toeval.nextInt(13 * 60 + 1)));
         int stappen = (soort.maxCenten() - soort.minCenten()) / soort.stapCenten() + 1;
         BigDecimal bedrag = BigDecimal.valueOf(soort.minCenten() + toeval.nextInt(stappen) * soort.stapCenten(), 2).negate();
-        String winkel = soort.winkels().get(toeval.nextInt(soort.winkels().size()));
-        return new Boeking(tijdstip, new Bedrag(bedrag), winkel, soort.type(), Optional.empty());
+        String tegenpartij = soort.tegenpartijen().get(toeval.nextInt(soort.tegenpartijen().size()));
+        return new Boeking(tijdstip, new Bedrag(bedrag), tegenpartij, soort.type(), Optional.empty());
     }
 
     /** FO, ADR 0025: dezelfde regel als bij een betaling in de bank, dus inclusief de latere boekingen. */

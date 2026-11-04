@@ -20,7 +20,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-/** ADR 0040: tegen PostgreSQL met het schema van bank-api; een mislukte login laat geen halve klant achter. */
+/** ADR 0040, 0044: tegen PostgreSQL met het schema van bank-api; een mislukte login laat niets achter. */
 @Testcontainers
 class DemoDataDatabaseTests {
 
@@ -71,13 +71,15 @@ class DemoDataDatabaseTests {
                 .param("gebruikersnaam", gebruikersnaam).query(String.class).list();
     }
 
-    /** De eenzijdige boekingen, de twee kanten van elke inleg en opname (ADR 0042), en de bijschrijving van de rente (ADR 0043). */
+    /** De eenzijdige boekingen, de twee kanten van elke inleg en opname (ADR 0042), de rente (ADR 0043) en de betalingen tussen klanten (ADR 0044). */
     private static long aantalBoekingen(String gebruikersnaam) {
         var klant = DemoKlanten.ALLE.stream()
                 .filter(demo -> demo.gebruikersnaam().equals(gebruikersnaam))
                 .findFirst().orElseThrow();
         return Generator.boekingen(klant).size() + 2L * (Generator.inleggen(klant).size() + Generator.opnames(klant).size())
-                + Generator.rente(klant).size();
+                + Generator.rente(klant).size()
+                + Generator.betalingenTussenKlanten(DemoKlanten.ALLE).stream()
+                        .filter(betaling -> betaling.van().equals(gebruikersnaam) || betaling.naar().equals(gebruikersnaam)).count();
     }
 
     private long transacties(String gebruikersnaam) {
@@ -88,28 +90,28 @@ class DemoDataDatabaseTests {
                 .param("gebruikersnaam", gebruikersnaam).query(Long.class).single();
     }
 
-    /** De ene test, want de gebruikersnamen liggen vast: mislukken, en daarna afmaken en herhalen op dezelfde database. */
+    /** De ene test, want de gebruikersnamen liggen vast: mislukken, en daarna opnieuw maken en herhalen op dezelfde database (ADR 0044). */
     @Test
-    void eenMislukteLoginLaatGeenHalveKlantAchterEnDeVolgendeKeerWordtHetAfgemaakt() {
+    void eenMislukteLoginLaatNietsAchterEnDeVolgendeKeerOntstaatAlles() {
         faaltVoor = "ljansen";
         assertThatThrownBy(() -> demo().maak()).hasMessage("Keycloak is weg");
 
-        assertThat(rekeningen("melamrani")).containsExactly("betaal", "spaar");
-        assertThat(transacties("melamrani")).isEqualTo(aantalBoekingen("melamrani"));
+        assertThat(rekeningen("jdevries")).isEmpty();
         assertThat(rekeningen("ljansen")).isEmpty();
-        assertThat(transacties("ljansen")).isZero();
-        // Drie klanten zijn klaar: jdevries, sbakker en melamrani, die ook twee keer opneemt; van ljansen is er niets (ADR 0042, 0043).
-        assertThat(jdbc.sql("SELECT count(*) FROM overboeking").query(Long.class).single()).isEqualTo(3L * (63 + 63) + 2);
-        assertThat(jdbc.sql("SELECT count(*) FROM rentebijschrijving").query(Long.class).single()).isEqualTo(3L * 63);
+        assertThat(jdbc.sql("SELECT count(*) FROM transactie").query(Long.class).single()).isZero();
+        assertThat(jdbc.sql("SELECT count(*) FROM overboeking").query(Long.class).single()).isZero();
+        assertThat(jdbc.sql("SELECT count(*) FROM rentebijschrijving").query(Long.class).single()).isZero();
 
         faaltVoor = null;
         logins.clear();
         demo().maak();
 
-        assertThat(rekeningen("ljansen")).containsExactly("betaal", "spaar");
-        assertThat(transacties("ljansen")).isEqualTo(aantalBoekingen("ljansen"));
+        assertThat(rekeningen("jdevries")).containsExactly("betaal", "spaar");
         assertThat(rekeningen("nhendriks")).containsExactly("betaal", "spaar");
-        assertThat(logins).doesNotContain("jdevries", "melamrani").contains("ljansen", "nhendriks", "beheerder");
+        for (DemoKlanten.DemoKlant klant : DemoKlanten.ALLE) {
+            assertThat(transacties(klant.gebruikersnaam())).as(klant.gebruikersnaam()).isEqualTo(aantalBoekingen(klant.gebruikersnaam()));
+        }
+        assertThat(logins).contains("jdevries", "ljansen", "nhendriks", "beheerder");
 
         long aantal = jdbc.sql("SELECT count(*) FROM rekening").query(Long.class).single();
         long geboekt = jdbc.sql("SELECT count(*) FROM transactie").query(Long.class).single();
