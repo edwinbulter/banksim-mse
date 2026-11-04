@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.rekening.Iban;
+import nl.banksim.domain.transactie.TransactieType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -62,8 +63,11 @@ class DemoDataTests {
         }
     };
 
+    private final Rentebijschrijvingen rentebijschrijvingen = (spaarrekening, maanden) ->
+            gedaan.add("rentemaanden " + spaarrekening + " " + maanden.size());
+
     private DemoData demo(String klantWachtwoord, String beheerderWachtwoord) {
-        return new DemoData(logins, bestaand::contains, rekeninghouders, spaarrekeningen, transacties, overboekingen,
+        return new DemoData(logins, bestaand::contains, rekeninghouders, spaarrekeningen, transacties, overboekingen, rentebijschrijvingen,
                 () -> Iban.simBank(laatsteIban.incrementAndGet()), TransactionOperations.withoutTransaction(),
                 klantWachtwoord, beheerderWachtwoord);
     }
@@ -72,12 +76,13 @@ class DemoDataTests {
     void maaktTienKlantenMetEenBetaalEnSpaarrekeningEnLoginEnDaarnaDeBeheerder() {
         demo("klant-ww", "beheerder-ww").maak();
 
-        assertThat(gedaan).hasSize(51);
-        assertThat(gedaan.subList(0, 5)).containsExactly(
+        assertThat(gedaan).hasSize(61);
+        assertThat(gedaan.subList(0, 6)).containsExactly(
                 "betaal jdevries Jan de Vries " + Iban.simBank(1L) + " 1800.00",
-                "spaar jdevries 6500.00 false",
+                "spaar jdevries 6500.00 true",
                 "boekingen " + Iban.simBank(1L) + " " + Generator.boekingen(DemoKlanten.ALLE.getFirst()).size(),
-                "overboekingen " + Iban.simBank(1L) + " " + Iban.simBank(99L) + " 63",
+                "overboekingen " + Iban.simBank(1L) + " " + Iban.simBank(99L) + " 126",
+                "rentemaanden " + Iban.simBank(99L) + " 63",
                 "login jdevries klant-ww");
         assertThat(gedaan).contains("betaal melamrani Mohamed El Amrani " + Iban.simBank(3L) + " 1500.00",
                 "betaal nhendriks Noor Hendriks " + Iban.simBank(10L) + " 3500.00", "login nhendriks klant-ww");
@@ -92,6 +97,21 @@ class DemoDataTests {
         assertThat(geschreven).filteredOn(overboeking -> overboeking.van().iban().equals(Iban.simBank(99L)))
                 .extracting(overboeking -> overboeking.naar().iban())
                 .containsExactly(Iban.simBank(3L), Iban.simBank(3L), Iban.simBank(4L));
+    }
+
+    /** ADR 0043: de rente komt van de renterekening van BankSim, met type Rente, en gaat naar de spaarrekening. */
+    @Test
+    void schrijftDeRenteVanBankSimNaarDeSpaarrekening() {
+        demo("klant-ww", "beheerder-ww").maak();
+
+        assertThat(geschreven).filteredOn(overboeking -> overboeking.van().naam().equals("BankSim"))
+                .hasSize(10 * 63)
+                .allSatisfy(overboeking -> {
+                    assertThat(overboeking.van().iban()).isEqualTo(Iban.van("NL24SIMB0000000000"));
+                    assertThat(overboeking.naar().iban()).isEqualTo(Iban.simBank(99L));
+                    assertThat(overboeking.type()).isEqualTo(TransactieType.RENTE);
+                    assertThat(overboeking.omschrijving()).startsWith("Rente ");
+                });
     }
 
     @Test
@@ -109,7 +129,7 @@ class DemoDataTests {
 
         demo("klant-ww", "beheerder-ww").maak();
 
-        assertThat(gedaan).hasSize(46).noneMatch(stap -> stap.contains("jdevries"));
+        assertThat(gedaan).hasSize(55).noneMatch(stap -> stap.contains("jdevries"));
     }
 
     /** Zonder wachtwoord uit het Secret bank-demo wordt er niets half aangemaakt. */

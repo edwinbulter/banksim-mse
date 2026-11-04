@@ -288,6 +288,12 @@ class GeneratorTests {
         assertThat(inleggen.stream().map(inleg -> inleg.tijdstip().toLocalTime()).distinct().count()).isGreaterThan(1);
     }
 
+    /** ADR 0041: de vaste seed bepaalt het tijdstip, dus elke installatie geeft Jan hetzelfde. */
+    @Test
+    void deEersteInlegVanJanLigtVastDoorDeSeed() {
+        assertThat(Generator.inleggen(klant("jdevries")).getFirst().tijdstip()).isEqualTo(LocalDateTime.of(2021, 10, 25, 10, 44));
+    }
+
     /** ADR 0042: de inleg is een overboeking, geen eenzijdige boeking. */
     @Test
     void deInlegStaatNietBijDeEenzijdigeBoekingen() {
@@ -411,5 +417,68 @@ class GeneratorTests {
     void deOpnameStaatNietBijDeEenzijdigeBoekingenMaarTeltWelMee() {
         assertThat(Generator.boekingen(klant("ljansen"))).extracting(Boeking::tegenpartij).doesNotContain("Lisa Jansen");
         assertThat(boodschappen(klant("ljansen"))).isNotEmpty();
+    }
+
+    private static List<Generator.Rente> rente(String gebruikersnaam) {
+        return Generator.rente(klant(gebruikersnaam));
+    }
+
+    /** ADR 0043, FO: 3% per jaar, per dag over het eindsaldo: € 6.500,00, en de inleg van € 400,00 vanaf de 25e. */
+    @Test
+    void deRenteVanJanInOktober2021() {
+        Generator.Rente oktober = rente("jdevries").getFirst();
+
+        assertThat(oktober.maand()).isEqualTo(YearMonth.of(2021, 10));
+        assertThat(oktober.bedrag()).isEqualTo(Bedrag.van("16.79"));
+        assertThat(oktober.tijdstip()).isEqualTo(LocalDateTime.of(2021, 10, 31, 23, 59));
+        assertThat(oktober.omschrijving()).isEqualTo("Rente oktober");
+    }
+
+    /** Een opname telt vanaf de dag zelf mee: Lisa en Mohamed nemen in oktober 2021 op. */
+    @Test
+    void deOpnamesTellenMeeVoorDeRente() {
+        assertThat(rente("ljansen").getFirst().bedrag()).isEqualTo(Bedrag.van("4.16"));
+        assertThat(rente("melamrani").getFirst().bedrag()).isEqualTo(Bedrag.van("10.82"));
+    }
+
+    @Test
+    void elkeKlantKrijgtElkeMaandRente() {
+        assertThat(DemoKlanten.ALLE).allSatisfy(klant -> {
+            List<Generator.Rente> rente = Generator.rente(klant);
+
+            assertThat(rente).as(klant.gebruikersnaam()).hasSize(MAANDEN);
+            assertThat(rente.getFirst().maand()).isEqualTo(YearMonth.of(2021, 10));
+            assertThat(rente.getLast().maand()).isEqualTo(YearMonth.of(2026, 12));
+            assertThat(rente.getLast().omschrijving()).isEqualTo("Rente december");
+        });
+    }
+
+    /** De bedragen uit het scenario, met een los rekenscript nagerekend: rente telt mee in de maanden erna. */
+    @Test
+    void hetSpaarsaldoInclusiefRente() {
+        for (var verwacht : Map.of("jdevries", "34879.82", "ljansen", "12099.71", "melamrani", "21844.08").entrySet()) {
+            var klant = klant(verwacht.getKey());
+            BigDecimal saldo = klant.beginsaldoSpaar().waarde();
+            for (Generator.Inleg inleg : Generator.inleggen(klant)) {
+                saldo = saldo.add(inleg.bedrag().waarde());
+            }
+            for (Generator.Opname opname : Generator.opnames(klant)) {
+                saldo = saldo.subtract(opname.bedrag().waarde());
+            }
+            for (Generator.Rente rente : Generator.rente(klant)) {
+                saldo = saldo.add(rente.bedrag().waarde());
+            }
+
+            assertThat(saldo).as(klant.gebruikersnaam()).isEqualTo(new BigDecimal(verwacht.getValue()));
+        }
+    }
+
+    /** Een maand zonder rente krijgt geen overboeking: die moet groter zijn dan € 0,00. */
+    @Test
+    void zonderSpaargeldIsErGeenRente() {
+        var geen = new DemoKlanten.DemoKlant("geen", "Geen", Bedrag.van("0.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(), List.of(), Optional.empty());
+
+        assertThat(Generator.rente(geen)).isEmpty();
     }
 }

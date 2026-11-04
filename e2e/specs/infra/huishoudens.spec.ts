@@ -72,8 +72,8 @@ test('Elke klant legt elke maand een vast bedrag in op zijn spaarrekening', { ta
   await omgeving.en('is van de betaalrekening van Jan in december 2026 € 400,00 naar zijn spaarrekening gegaan', () =>
     omgeving.verwachtAfschrijvingNaarSpaarrekening('Jan de Vries', '2026-12', '-400.00'),
   );
-  await omgeving.en('staat er op de spaarrekening van Jan € 31.700,00', () =>
-    omgeving.verwachtSpaarsaldo('Jan de Vries', '31700.00'),
+  await omgeving.en('staat er op de spaarrekening van Jan € 34.879,82', () =>
+    omgeving.verwachtSpaarsaldo('Jan de Vries', '34879.82'),
   );
 });
 
@@ -94,11 +94,27 @@ test('Een klant met een dreigend tekort neemt eerst geld op van zijn spaarrekeni
   await omgeving.en('heeft geen van de andere 8 klanten een opname', () =>
     omgeving.verwachtGeenOpnamesBehalveBij(['Lisa Jansen', 'Mohamed El Amrani']),
   );
-  await omgeving.en('staat er op de spaarrekening van Lisa € 11.050,00', () =>
-    omgeving.verwachtSpaarsaldo('Lisa Jansen', '11050.00'),
+  await omgeving.en('staat er op de spaarrekening van Lisa € 12.099,71', () =>
+    omgeving.verwachtSpaarsaldo('Lisa Jansen', '12099.71'),
   );
-  await omgeving.en('staat er op de spaarrekening van Mohamed € 19.850,00', () =>
-    omgeving.verwachtSpaarsaldo('Mohamed El Amrani', '19850.00'),
+  await omgeving.en('staat er op de spaarrekening van Mohamed € 21.844,08', () =>
+    omgeving.verwachtSpaarsaldo('Mohamed El Amrani', '21844.08'),
+  );
+});
+
+test('Elke spaarrekening krijgt elke maand rente, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.dan('krijgt Jan op 31 oktober 2021 € 16,79 rente', () =>
+    omgeving.verwachtRente('Jan de Vries', '2021-10-31', '16.79'),
+  );
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan('heeft elk van de 10 spaarrekeningen in elk van de 63 maanden precies één rentebijschrijving, op de laatste dag van de maand', () =>
+    omgeving.verwachtRentePerMaand('2021-10', '2026-12'),
+  );
+  await omgeving.en('staat er op de spaarrekening van Jan € 34.879,82', () =>
+    omgeving.verwachtSpaarsaldo('Jan de Vries', '34879.82'),
   );
 });
 

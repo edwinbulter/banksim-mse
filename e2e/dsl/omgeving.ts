@@ -209,6 +209,22 @@ export class Omgeving extends Stappen {
     }
   }
 
+  /** S11.1: de rente op één datum, met het bedrag in domeinnotatie. */
+  async verwachtRente(naam: string, datum: string, bedrag: string): Promise<void> {
+    const mutaties = await this.spaarmutatiesVan(gebruikersnaamVan(naam));
+    const rente = mutaties.filter((mutatie) => mutatie.type === 'Rente' && mutatie.datum === datum).map((mutatie) => mutatie.bedrag);
+    expect(rente, `rente van ${naam} op ${datum}`).toEqual([bedrag]);
+  }
+
+  /** S11.1: per klant en per maand precies één rentebijschrijving, op de laatste dag van de maand. */
+  async verwachtRentePerMaand(van: string, tm: string): Promise<void> {
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const rente = (await this.spaarmutatiesVan(gebruikersnaam)).filter((mutatie) => mutatie.type === 'Rente');
+      const datums = rente.map((mutatie) => mutatie.datum).sort();
+      expect(datums, `rentedatums van ${gebruikersnaam}`).toEqual(maanden(van, tm).map(laatsteDag));
+    }
+  }
+
   /** Inloggen als de demo-klant, en alle mutaties van zijn spaarrekening laden. */
   private async spaarmutatiesVan(gebruikersnaam: string): Promise<Spaarmutatie[]> {
     const driver = await this.maakRestDriver();
@@ -366,6 +382,12 @@ function betaalrekening(rekeningen: RekeningInOverzicht[], gebruikersnaam: strin
 /** Een bedrag in domeinnotatie ("-950.00") in centen; geen drijvende komma (ADR 0010). */
 function centen(bedrag: string): bigint {
   return BigInt(bedrag.replace('.', ''));
+}
+
+/** De laatste dag van een maand: "2021-10" wordt "2021-10-31". */
+function laatsteDag(maand: string): string {
+  const [jaar, nummer] = maand.split('-').map(Number);
+  return new Date(Date.UTC(jaar, nummer, 0)).toISOString().slice(0, 10);
 }
 
 /** De maanden van `van` t/m `tm`, zoals "2021-10". */

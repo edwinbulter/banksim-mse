@@ -60,7 +60,7 @@ class DemoDataDatabaseTests {
         var rekeninghouders = new JdbcRekeninghouders(jdbc);
         Supplier<Iban> nieuweIban = () -> Iban.simBank(laatsteIban.incrementAndGet());
         return new DemoData(keycloak, rekeninghouders, rekeninghouders, new JdbcSpaarrekeningen(jdbc, nieuweIban),
-                new JdbcTransacties(jdbc, transactie), new JdbcOverboekingen(jdbc, transactie), nieuweIban,
+                new JdbcTransacties(jdbc, transactie), new JdbcOverboekingen(jdbc, transactie), new JdbcRentebijschrijvingen(jdbc), nieuweIban,
                 transactie, "klant-ww", "beheerder-ww");
     }
 
@@ -71,12 +71,13 @@ class DemoDataDatabaseTests {
                 .param("gebruikersnaam", gebruikersnaam).query(String.class).list();
     }
 
-    /** De eenzijdige boekingen, en van elke inleg en opname de twee kanten (ADR 0042). */
+    /** De eenzijdige boekingen, de twee kanten van elke inleg en opname (ADR 0042), en de bijschrijving van de rente (ADR 0043). */
     private static long aantalBoekingen(String gebruikersnaam) {
         var klant = DemoKlanten.ALLE.stream()
                 .filter(demo -> demo.gebruikersnaam().equals(gebruikersnaam))
                 .findFirst().orElseThrow();
-        return Generator.boekingen(klant).size() + 2L * (Generator.inleggen(klant).size() + Generator.opnames(klant).size());
+        return Generator.boekingen(klant).size() + 2L * (Generator.inleggen(klant).size() + Generator.opnames(klant).size())
+                + Generator.rente(klant).size();
     }
 
     private long transacties(String gebruikersnaam) {
@@ -97,8 +98,9 @@ class DemoDataDatabaseTests {
         assertThat(transacties("melamrani")).isEqualTo(aantalBoekingen("melamrani"));
         assertThat(rekeningen("ljansen")).isEmpty();
         assertThat(transacties("ljansen")).isZero();
-        // Drie klanten zijn klaar: jdevries, sbakker en melamrani, die ook twee keer opneemt; van ljansen is er niets (ADR 0042).
-        assertThat(jdbc.sql("SELECT count(*) FROM overboeking").query(Long.class).single()).isEqualTo(3L * 63 + 2);
+        // Drie klanten zijn klaar: jdevries, sbakker en melamrani, die ook twee keer opneemt; van ljansen is er niets (ADR 0042, 0043).
+        assertThat(jdbc.sql("SELECT count(*) FROM overboeking").query(Long.class).single()).isEqualTo(3L * (63 + 63) + 2);
+        assertThat(jdbc.sql("SELECT count(*) FROM rentebijschrijving").query(Long.class).single()).isEqualTo(3L * 63);
 
         faaltVoor = null;
         logins.clear();

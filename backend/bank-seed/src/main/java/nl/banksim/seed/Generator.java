@@ -6,9 +6,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -17,6 +19,8 @@ import java.util.TreeMap;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.NooitRoodRegel;
 import nl.banksim.domain.grootboek.SaldoVerloop;
+import nl.banksim.domain.rente.DagSaldo;
+import nl.banksim.domain.rente.RenteCalculator;
 import nl.banksim.domain.transactie.TransactieType;
 
 /**
@@ -28,6 +32,8 @@ import nl.banksim.domain.transactie.TransactieType;
 final class Generator {
 
     private static final YearMonth EERSTE_MAAND = YearMonth.of(2021, 10);
+    /** ADR 0043: de eerste dag van de historie; de maandafsluiting en de lopende rente rekenen hiermee. */
+    static final LocalDate GEOPEND_OP = EERSTE_MAAND.atDay(1);
     private static final YearMonth LAATSTE_MAAND = YearMonth.of(2026, 12);
     private static final Bedrag GEEN_BEDRAG = Bedrag.van("0.00");
     private static final BigDecimal HONDERD = BigDecimal.valueOf(100);
@@ -41,6 +47,40 @@ final class Generator {
 
     /** ADR 0042: van de spaarrekening naar de eigen betaalrekening. */
     record Opname(LocalDateTime tijdstip, Bedrag bedrag) {
+    }
+
+    /** ADR 0043: van de renterekening van BankSim naar de spaarrekening, op de laatste dag van de maand. */
+    record Rente(YearMonth maand, Bedrag bedrag) {
+
+        LocalDateTime tijdstip() {
+            return maand.atEndOfMonth().atTime(23, 59);
+        }
+
+        String omschrijving() {
+            return "Rente " + maand.getMonth().getDisplayName(TextStyle.FULL, Locale.of("nl"));
+        }
+    }
+
+    /** ADR 0043, FO: per maand over het eindsaldo van elke dag; de rente telt in de maand erna mee. */
+    static List<Rente> rente(DemoKlanten.DemoKlant klant) {
+        Map<LocalDate, BigDecimal> mutaties = new TreeMap<>();
+        inleggen(klant).forEach(inleg -> mutaties.merge(inleg.tijdstip().toLocalDate(), inleg.bedrag().waarde(), BigDecimal::add));
+        opnames(klant).forEach(opname -> mutaties.merge(opname.tijdstip().toLocalDate(), opname.bedrag().waarde().negate(), BigDecimal::add));
+        List<Rente> renteBoekingen = new ArrayList<>();
+        BigDecimal saldo = klant.beginsaldoSpaar().waarde();
+        for (YearMonth maand = EERSTE_MAAND; !maand.isAfter(LAATSTE_MAAND); maand = maand.plusMonths(1)) {
+            List<DagSaldo> dagen = new ArrayList<>();
+            for (LocalDate dag = maand.atDay(1); !dag.isAfter(maand.atEndOfMonth()); dag = dag.plusDays(1)) {
+                saldo = saldo.add(mutaties.getOrDefault(dag, BigDecimal.ZERO));
+                dagen.add(new DagSaldo(dag, new Bedrag(saldo)));
+            }
+            Bedrag rente = RenteCalculator.rente(dagen);
+            if (rente.waarde().signum() > 0) {
+                renteBoekingen.add(new Rente(maand, rente));
+                saldo = saldo.add(rente.waarde());
+            }
+        }
+        return renteBoekingen;
     }
 
     private Generator() {
