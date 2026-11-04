@@ -338,7 +338,7 @@ Dit zijn de beslissingen die het origineel vooraf nam. Ze staan hier als *kandid
 | Zoeken met `pg_trgm` en vaste SQL-fragmenten | TO §4, §11 (A05) | Uitgesteld bij S5.1: de vaste voorwaarden met parameters volgen het bestaande patroon; de index pas als realistische data (slice 11) of een prestatie-eis erom vraagt |
 | Keycloak als identity provider | TO §1.1, §17 | 6 Inloggen |
 | Backend-for-Frontend in plaats van tokens in de browser | TO §1.2, §10 | 6 Inloggen |
-| BFF-sessie versleuteld in PostgreSQL | TO §2 | 6 Inloggen (zodra er 2 replica's zijn) |
+| BFF-sessie en tokens versleuteld in PostgreSQL | TO §2 | 6 Inloggen (zodra er 2 replica's zijn) |
 | Eigenaarschap in de query; andermans IBAN geeft 404 | TO §10.3 | 6 Inloggen |
 | Eén grootboek, double-entry, alleen via `LedgerService` | TO §1.2, §6 | 7 Betalen |
 | Nooit rood: minimum lopend saldo vanaf D | TO §6 | 7 Betalen |
@@ -1222,6 +1222,7 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Scenario over de sessie-cookies: `Secure` en `HttpOnly` door de echte ingress, en een bewuste keuze over `SameSite` | Beide vlaggen zijn nu aanwezig, maar ongetest; `Secure` hangt af van de doorgestuurde headers van de ingress. `SameSite` ontbreekt, zonder vastgelegde keuze; het CSRF-token vangt het belangrijkste risico al af | CFR-slice OWASP Top 10; ADR-kandidaat voor `SameSite` |
 | Scenario "De browser krijgt nooit een token": de antwoorden tijdens het inloggen en de opslag van de browser nakijken | Dit is de kern van ADR 0008, maar geen test controleert het | CFR-slice OWASP Top 10 |
 | BFF-test voor een verkeerde `state`, en `directAccessGrantsEnabled`, `implicitFlowEnabled` en `bruteForceProtected` in `keycloak_test.yaml` | Een verkeerde `state` wordt nu geweigerd door Spring Security; de realm-instellingen staan alleen in de JSON. Waarde vooral als vangnet | CFR-slice OWASP Top 10 |
+| Uitloggen wist de tokens van de klant niet uit het geheugen van de BFF: de sessie wordt ongeldig, maar de access en refresh tokens blijven in `InMemoryOAuth2AuthorizedClientService` staan tot de volgende login van die klant of een herstart. Gezien met een tijdelijke test op 2026-11-04. Mogelijke oplossingen, geen van beide getest: een bean `HttpSessionOAuth2AuthorizedClientRepository`, die de tokens per sessie bewaart, of een `LogoutHandler` die ze wist. Die handler raakt waarschijnlijk ook een andere sessie van dezelfde klant, want de opslag is per gebruiker | Via de BFF zijn de tokens zonder sessie niet te gebruiken, dus het risico is beperkt tot het geheugen van de pod | CFR-slice OWASP Top 10 |
 | De duur van de PIT-job wisselt sterk bij gelijke productiecode: 15:02 in run 41726343182 (`bank-api` 10:54, `bank-seed` 2:47) en 8:55 in run 41808389719 (`bank-api` 6:22, `bank-seed` 1:37). Het verschil zit dus niet in de code; de snelheid van de runner is de waarschijnlijke oorzaak, maar dat is niet gemeten | De time-out van de job staat op 20 minuten, zodat een trage runner de pipeline niet afbreekt; optimaliseren alleen op basis van een meting | Zodra de job de 20 minuten nadert: meten welke tests de mutanten traag maken |
 
 #### Opgeloste losse backlogpunten

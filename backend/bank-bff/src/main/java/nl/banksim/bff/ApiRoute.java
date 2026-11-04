@@ -20,7 +20,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerResponse;
 
-/** {@code /api/**} naar bank-api, met het access token uit de sessie en zonder de cookies van de browser (ADR 0008). */
+/** {@code /api/**} naar bank-api, met het access token van de ingelogde gebruiker en zonder de cookies van de browser (ADR 0008). */
 @Configuration
 class ApiRoute {
 

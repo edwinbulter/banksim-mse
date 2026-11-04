@@ -109,7 +109,7 @@ Nee. `POST /api/betalingen` boekt alleen vanaf een eigen rekening, en een beheer
 
 **Dit moet je van ons systeem weten**
 - De route van het inloggen, pijl voor pijl: [Een story door de stack, 2.3](story-door-de-stack.md#23-als-jan-logt-in).
-- De BFF houdt de tokens en de sessie; `bank-api` is een resource server ([ADR 0008](adr/0008-bff-in-plaats-van-tokens-in-de-browser.md)).
+- De BFF houdt de tokens en de sessie, allebei in zijn geheugen maar los van elkaar: de sessie in Tomcat, de tokens per gebruiker in `InMemoryOAuth2AuthorizedClientService`; `bank-api` is een resource server ([ADR 0008](adr/0008-bff-in-plaats-van-tokens-in-de-browser.md)).
 - Elk endpoint heeft `@PreAuthorize` ([ADR 0022](adr/0022-toegang-per-endpoint-met-preauthorize.md)). Eigenaarschap staat in de query ([ADR 0023](adr/0023-eigenaarschap-in-de-query-andermans-iban-geeft-404.md)).
 
 **2.1 Waarom krijgt de browser nooit de tokens?**
@@ -868,7 +868,7 @@ Dat weet je niet zeker: de BFF wacht maximaal 5 seconden (read-timeout), terwijl
 **14.7 Waarom kun je `bank-bff` niet zomaar op twee replica's zetten?**
 <details><summary>Antwoord</summary>
 
-De sessies staan in het geheugen, dus een klant zou bij de andere replica uitgelogd lijken. Een sessie in PostgreSQL vraagt een eigen ADR. Voor meer replica's van `bank-api` geldt iets vergelijkbaars: de migraties moeten dan naar een eigen Job.
+De sessies staan in het geheugen, dus een klant zou bij de andere replica uitgelogd lijken. De tokens staan los van de sessie, ook in het geheugen van één pod. Een sessie in PostgreSQL vraagt een eigen ADR en moet de tokens meenemen. Voor meer replica's van `bank-api` geldt iets vergelijkbaars: de migraties moeten dan naar een eigen Job.
 
 *Bron:* [ADR 0008](adr/0008-bff-in-plaats-van-tokens-in-de-browser.md), [ADR 0009](adr/0009-postgresql-flyway-en-jdbcclient.md).
 </details>

@@ -15,7 +15,7 @@ server:
   forward-headers-strategy: native
   shutdown: graceful
 
-# De sessie staat in het geheugen; daarom één replica (ADR 0008).
+# De sessie en de tokens staan in het geheugen; daarom één replica (ADR 0008).
 banksim:
   bff:
     public-url: ${BANKSIM_PUBLIC_URL:https://bank-mse.localtest.me}

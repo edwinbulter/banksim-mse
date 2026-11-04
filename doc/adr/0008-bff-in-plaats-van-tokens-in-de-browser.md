@@ -14,6 +14,7 @@ Opties:
 Optie 1. Een nieuwe module `bank-bff` op Spring Cloud Gateway (zelfde aanpak als het origineel). De ingress stuurt `/api`, `/oauth2`, `/login` en `/logout` naar `bank-bff`, en niet meer rechtstreeks naar `bank-api`. `bank-api` wordt een OAuth2 resource server die alleen JWT's van de realm `banksim-mse` accepteert. De sessie staat voorlopig in het geheugen van de BFF, met één replica. Een sessie in PostgreSQL volgt in een eigen ADR, zodra er meer replica's komen (CFR resilience).
 
 ## Gevolgen
+- De sessie en de access en refresh tokens staan op twee plekken in het geheugen: de sessie in Tomcat, de tokens in de `Map` van `InMemoryOAuth2AuthorizedClientService`, per gebruiker en niet per sessie. Dat is de standaard van Spring Boot. Een sessie in PostgreSQL moet de tokens dus meenemen.
 - De browser ziet nooit een token; CSRF-bescherming is nodig voor muterende verzoeken (vanaf betalen, slice 7).
 - De REST-driver moet ook via de BFF: hij doorloopt de inlogflow met cookies, net als de browser.
 - `GET /api/versie` gaat via de BFF en blijft zonder login bereikbaar, zodat het skeletscenario blijft werken.
