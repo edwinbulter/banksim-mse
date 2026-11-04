@@ -1219,6 +1219,7 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Scenario over de sessie-cookies: `Secure` en `HttpOnly` door de echte ingress, en een bewuste keuze over `SameSite` | Beide vlaggen zijn nu aanwezig, maar ongetest; `Secure` hangt af van de doorgestuurde headers van de ingress. `SameSite` ontbreekt, zonder vastgelegde keuze; het CSRF-token vangt het belangrijkste risico al af | CFR-slice OWASP Top 10; ADR-kandidaat voor `SameSite` |
 | Scenario "De browser krijgt nooit een token": de antwoorden tijdens het inloggen en de opslag van de browser nakijken | Dit is de kern van ADR 0008, maar geen test controleert het | CFR-slice OWASP Top 10 |
 | BFF-test voor een verkeerde `state`, en `directAccessGrantsEnabled`, `implicitFlowEnabled` en `bruteForceProtected` in `keycloak_test.yaml` | Een verkeerde `state` wordt nu geweigerd door Spring Security; de realm-instellingen staan alleen in de JSON. Waarde vooral als vangnet | CFR-slice OWASP Top 10 |
+| De duur van de PIT-job: in run 41726343182 (`fdc1089`) 15:02, waarvan `bank-api` 10:54 en `bank-seed` 2:47; `bank-seed` groeit met elke stap van de generator (1:59, 2:13, 2:47) | Eerst de time-out van de job naar 20 minuten, zodat de pipeline weer scheidsrechter is; optimaliseren alleen op basis van een meting | Zodra de job de 20 minuten nadert: meten welke tests de mutanten traag maken, met als eerste kandidaat hoe vaak `GeneratorTests` de hele generator draait |
 
 #### Opgeloste losse backlogpunten
 
