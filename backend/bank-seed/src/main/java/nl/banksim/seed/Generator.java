@@ -25,8 +25,8 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e en de inleg op de 25e. Daarna de boodschappen, met een
- * vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een boodschap vervalt (FO). Eenzijdig: de tegenpartij heeft geen
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e en de inleg op de 25e. Daarna de boodschappen en de
+ * webwinkels, met een vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een aankoop vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
 final class Generator {
@@ -37,9 +37,18 @@ final class Generator {
     private static final YearMonth LAATSTE_MAAND = YearMonth.of(2026, 12);
     private static final Bedrag GEEN_BEDRAG = Bedrag.van("0.00");
     private static final BigDecimal HONDERD = BigDecimal.valueOf(100);
-    private static final long SEED = 42;
     private static final long SEED_INLEG = 43;
-    private static final List<String> SUPERMARKTEN = List.of("BuurtSuper", "Prijsvast Supermarkt", "Versmarkt");
+    /** FO: 6–12 keer per maand, € 8–120, aan de betaalautomaat. */
+    private static final Aankopen BOODSCHAPPEN = new Aankopen(42, 6, 12, 800, 12_000,
+            List.of("BuurtSuper", "Prijsvast Supermarkt", "Versmarkt"), TransactieType.BETAALAUTOMAAT);
+    /** FO: 1–4 keer per maand, € 10–250, via iDEAL | Wero. */
+    private static final Aankopen WEBWINKELS = new Aankopen(44, 1, 4, 1_000, 25_000,
+            List.of("Webwinkel Alles", "BoekenBox", "ModeOnline", "ElektroShop"), TransactieType.IDEAL_WERO);
+
+    /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
+    private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, List<String> winkels,
+            TransactieType type) {
+    }
 
     /** ADR 0042: van de betaalrekening naar de eigen spaarrekening. */
     record Inleg(LocalDateTime tijdstip, Bedrag bedrag) {
@@ -145,7 +154,8 @@ final class Generator {
         opnames(klant).forEach(opname -> verloop.add(new Boeking(opname.tijdstip(), opname.bedrag(), klant.naam(),
                 TransactieType.OVERSCHRIJVING, Optional.empty())));
         controleerNooitRood(klant, verloop);
-        eenzijdig.addAll(boodschappen(klant, verloop));
+        eenzijdig.addAll(aankopen(klant, verloop, BOODSCHAPPEN));
+        eenzijdig.addAll(aankopen(klant, verloop, WEBWINKELS));
         eenzijdig.sort(Comparator.comparing(Boeking::tijdstip));
         return eenzijdig;
     }
@@ -167,44 +177,44 @@ final class Generator {
         return boekingen;
     }
 
-    /** FO: 6–12 keer per maand, € 8–120, tussen 8:00 en 21:00. Dezelfde klant krijgt altijd dezelfde boodschappen. */
-    private static List<Boeking> boodschappen(DemoKlanten.DemoKlant klant, List<Boeking> verloop) {
-        List<Boeking> boodschappen = new ArrayList<>();
-        Random toeval = new Random(SEED + klant.gebruikersnaam().hashCode());
+    /** Vaste seed per klant: dezelfde klant krijgt altijd dezelfde aankopen. Een aankoop die de rekening rood zou maken, vervalt (FO). */
+    private static List<Boeking> aankopen(DemoKlanten.DemoKlant klant, List<Boeking> verloop, Aankopen soort) {
+        List<Boeking> aankopen = new ArrayList<>();
+        Random toeval = new Random(soort.seed() + klant.gebruikersnaam().hashCode());
         for (YearMonth maand = EERSTE_MAAND; !maand.isAfter(LAATSTE_MAAND); maand = maand.plusMonths(1)) {
-            int aantal = 6 + toeval.nextInt(7);
+            int aantal = soort.minPerMaand() + toeval.nextInt(soort.maxPerMaand() - soort.minPerMaand() + 1);
             for (int i = 0; i < aantal; i++) {
-                Boeking boodschap = boodschap(maand, toeval);
-                if (past(klant, verloop, boodschap)) {
-                    verloop.add(boodschap);
-                    boodschappen.add(boodschap);
+                Boeking aankoop = aankoop(maand, toeval, soort);
+                if (past(klant, verloop, aankoop)) {
+                    verloop.add(aankoop);
+                    aankopen.add(aankoop);
                 }
             }
         }
-        return boodschappen;
+        return aankopen;
     }
 
-    private static Boeking boodschap(YearMonth maand, Random toeval) {
+    private static Boeking aankoop(YearMonth maand, Random toeval, Aankopen soort) {
         LocalDateTime tijdstip = maand.atDay(1 + toeval.nextInt(maand.lengthOfMonth()))
                 .atTime(LocalTime.of(8, 0).plusMinutes(toeval.nextInt(13 * 60 + 1)));
-        BigDecimal bedrag = BigDecimal.valueOf(800 + toeval.nextInt(11_201), 2).negate();
-        String supermarkt = SUPERMARKTEN.get(toeval.nextInt(SUPERMARKTEN.size()));
-        return new Boeking(tijdstip, new Bedrag(bedrag), supermarkt, TransactieType.BETAALAUTOMAAT, Optional.empty());
+        BigDecimal bedrag = BigDecimal.valueOf(soort.minCenten() + toeval.nextInt(soort.maxCenten() - soort.minCenten() + 1), 2).negate();
+        String winkel = soort.winkels().get(toeval.nextInt(soort.winkels().size()));
+        return new Boeking(tijdstip, new Bedrag(bedrag), winkel, soort.type(), Optional.empty());
     }
 
     /** FO, ADR 0025: dezelfde regel als bij een betaling in de bank, dus inclusief de latere boekingen. */
-    private static boolean past(DemoKlanten.DemoKlant klant, List<Boeking> boekingen, Boeking boodschap) {
+    private static boolean past(DemoKlanten.DemoKlant klant, List<Boeking> boekingen, Boeking aankoop) {
         BigDecimal saldo = klant.beginsaldo().waarde();
         Map<LocalDate, BigDecimal> later = new TreeMap<>();
         for (Boeking boeking : boekingen) {
-            if (boeking.datum().isAfter(boodschap.datum())) {
+            if (boeking.datum().isAfter(aankoop.datum())) {
                 later.merge(boeking.datum(), boeking.bedrag().waarde(), BigDecimal::add);
             } else {
                 saldo = saldo.add(boeking.bedrag().waarde());
             }
         }
         var verloop = new SaldoVerloop(new Bedrag(saldo), later.values().stream().map(Bedrag::new).toList());
-        return NooitRoodRegel.staatToe(verloop, new Bedrag(boodschap.bedrag().waarde().negate()));
+        return NooitRoodRegel.staatToe(verloop, new Bedrag(aankoop.bedrag().waarde().negate()));
     }
 
     /** FO, ADR 0025: dezelfde regel als in de bank, over het saldo aan het eind van elke dag vanaf het beginsaldo. */

@@ -41,6 +41,10 @@ class GeneratorTests {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.BETAALAUTOMAAT).toList();
     }
 
+    private static List<Boeking> webwinkelaankopen(DemoKlanten.DemoKlant klant) {
+        return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.IDEAL_WERO).toList();
+    }
+
     private static Boeking incasso(int jaar, int maand, int dag, String bedrag, String aan) {
         return woonlasten(LocalDateTime.of(jaar, maand, dag, 6, 0), bedrag, aan);
     }
@@ -480,5 +484,83 @@ class GeneratorTests {
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(), List.of(), Optional.empty());
 
         assertThat(Generator.rente(geen)).isEmpty();
+    }
+
+    /** FO: webwinkels 1–4 keer per maand. pvisser heeft geen woonlasten en komt dus nooit in de buurt van een tekort. */
+    @Test
+    void eenKlantZonderTekortKooptElkeMaand1Tot4KeerBijEenWebwinkel() {
+        Map<YearMonth, Long> perMaand = webwinkelaankopen(klant("pvisser")).stream()
+                .collect(Collectors.groupingBy(boeking -> YearMonth.from(boeking.tijdstip()), Collectors.counting()));
+
+        assertThat(perMaand).hasSize(MAANDEN);
+        assertThat(perMaand.values()).allSatisfy(aantal -> assertThat(aantal).isBetween(1L, 4L));
+        assertThat(perMaand.values()).contains(1L, 4L);
+    }
+
+    /** FO: een bedrag van € 10–250 aan een webwinkel, via iDEAL | Wero, tussen 8:00 en 21:00, zonder tegen-IBAN. */
+    @Test
+    void eenWebwinkelaankoopHeeftHetBedragDeTegenpartijEnHetTijdstipUitHetFo() {
+        for (DemoKlanten.DemoKlant klant : DemoKlanten.ALLE) {
+            assertThat(webwinkelaankopen(klant)).as(klant.gebruikersnaam()).isNotEmpty().allSatisfy(boeking -> {
+                assertThat(boeking.bedrag().waarde()).isBetween(new BigDecimal("-250.00"), new BigDecimal("-10.00"));
+                assertThat(boeking.tegenpartij()).isIn("Webwinkel Alles", "BoekenBox", "ModeOnline", "ElektroShop");
+                assertThat(boeking.tijdstip().toLocalTime()).isBetween(LocalTime.of(8, 0), LocalTime.of(21, 0));
+                assertThat(boeking.tegenIban()).isEmpty();
+            });
+        }
+    }
+
+    /** De grenzen worden ook echt gehaald: alle vier de webwinkels, en bedragen en dagen over het hele bereik. */
+    @Test
+    void deWebwinkelaankopenVarierenOverHetHeleBereik() {
+        List<Boeking> alle = DemoKlanten.ALLE.stream().flatMap(klant -> webwinkelaankopen(klant).stream()).toList();
+
+        assertThat(alle).extracting(Boeking::tegenpartij).contains("Webwinkel Alles", "BoekenBox", "ModeOnline", "ElektroShop");
+        assertThat(alle).extracting(boeking -> boeking.bedrag().waarde()).anyMatch(bedrag -> bedrag.compareTo(new BigDecimal("-15.00")) > 0);
+        assertThat(alle).extracting(boeking -> boeking.bedrag().waarde()).anyMatch(bedrag -> bedrag.compareTo(new BigDecimal("-245.00")) < 0);
+        assertThat(alle).extracting(boeking -> boeking.tijdstip().getDayOfMonth()).contains(1, 31);
+    }
+
+    /** Vaste seed per klant (ADR 0041). */
+    @Test
+    void elkeKlantHeeftEigenWebwinkelaankopen() {
+        assertThat(webwinkelaankopen(klant("pvisser"))).isNotEqualTo(webwinkelaankopen(klant("rmulder")));
+    }
+
+    /** FO: een niet-vaste uitgave vervalt bij een dreigend tekort; tot het salaris op de 24e staat er € 0,00. */
+    @Test
+    void bijEenDreigendTekortVervaltEenWebwinkelaankoop() {
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+
+        assertThat(webwinkelaankopen(krap))
+                .isNotEmpty()
+                .filteredOn(boeking -> boeking.tijdstip().isBefore(LocalDateTime.of(2021, 10, 24, 0, 0)))
+                .isEmpty();
+    }
+
+    /** De webwinkels gebruiken wat er na de boodschappen over is: samen maken ze de rekening nooit rood. */
+    @Test
+    void boodschappenEnWebwinkelaankopenSamenMakenDeRekeningNietRood() {
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("1000.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("800.00")),
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("100.00"))), List.of(), Optional.empty());
+
+        BigDecimal lopend = krap.beginsaldo().waarde();
+        Map<LocalDate, BigDecimal> perDag = new TreeMap<>();
+        Generator.boekingen(krap).forEach(boeking -> perDag.merge(boeking.datum(), boeking.bedrag().waarde(), BigDecimal::add));
+        for (BigDecimal beweging : perDag.values()) {
+            lopend = lopend.add(beweging);
+            assertThat(lopend).isGreaterThanOrEqualTo(BigDecimal.ZERO);
+        }
+        assertThat(boodschappen(krap)).isNotEmpty();
+        assertThat(webwinkelaankopen(krap)).isNotEmpty();
+    }
+
+    /** Het salaris van de 24e gaat de 25e helemaal naar de spaarrekening, dus er is niets over voor webwinkels. */
+    @Test
+    void eenWebwinkelaankoopMagEenLatereInlegNietRoodMaken() {
+        assertThat(webwinkelaankopen(spaarder("100.00"))).isEmpty();
     }
 }

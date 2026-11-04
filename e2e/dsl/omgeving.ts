@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { BankDriver, RekeningInOverzicht, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
-import { DEMO_BEHEERDER, DEMO_KLANTEN, SUPERMARKTEN, VASTE_LASTEN } from './huishoudens';
+import { DEMO_BEHEERDER, DEMO_KLANTEN, SUPERMARKTEN, VASTE_LASTEN, WEBWINKELS } from './huishoudens';
 import { Stappen, type Stap } from './stappen';
 
 const NAMESPACE = 'banksim-mse';
@@ -131,12 +131,28 @@ export class Omgeving extends Stappen {
 
   /** S11.1: per klant en per maand het aantal betalingen aan een supermarkt, en elk bedrag in centen. */
   async verwachtBoodschappenPerMaand(van: string, tm: string, aantal: { min: number; max: number }, bedrag: { min: string; max: string }): Promise<void> {
+    await this.verwachtAankopenPerMaand('boodschappen', SUPERMARKTEN, van, tm, aantal, bedrag);
+  }
+
+  /** S11.1: per klant en per maand een aantal betalingen aan webwinkels, elk binnen het bereik. */
+  async verwachtWebwinkelsPerMaand(van: string, tm: string, aantal: { min: number; max: number }, bedrag: { min: string; max: string }): Promise<void> {
+    await this.verwachtAankopenPerMaand('webwinkelaankopen', WEBWINKELS, van, tm, aantal, bedrag);
+  }
+
+  private async verwachtAankopenPerMaand(
+    soort: string,
+    tegenpartijen: string[],
+    van: string,
+    tm: string,
+    aantal: { min: number; max: number },
+    bedrag: { min: string; max: string },
+  ): Promise<void> {
     for (const { gebruikersnaam } of DEMO_KLANTEN) {
       const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
       const perMaand = new Map(maanden(van, tm).map((maand) => [maand, 0]));
       const buitenBereik: string[] = [];
-      for (const dag of transacties) {
-        for (const transactie of dag.transacties.filter(({ tegenpartij }) => SUPERMARKTEN.includes(tegenpartij))) {
+      for (const dag of transacties.filter(({ datum }) => perMaand.has(datum.slice(0, 7)))) {
+        for (const transactie of dag.transacties.filter(({ tegenpartij }) => tegenpartijen.includes(tegenpartij))) {
           const maand = dag.datum.slice(0, 7);
           perMaand.set(maand, (perMaand.get(maand) ?? 0) + 1);
           const afgeschreven = -centen(transactie.bedrag);
@@ -144,8 +160,8 @@ export class Omgeving extends Stappen {
         }
       }
       const fout = [...perMaand].filter(([, n]) => n < aantal.min || n > aantal.max).map(([maand, n]) => `${maand}: ${n}`);
-      expect(fout, `maanden met een verkeerd aantal boodschappen bij ${gebruikersnaam}`).toEqual([]);
-      expect(buitenBereik, `boodschappen buiten het bereik bij ${gebruikersnaam}`).toEqual([]);
+      expect(fout, `maanden met een verkeerd aantal ${soort} bij ${gebruikersnaam}`).toEqual([]);
+      expect(buitenBereik, `${soort} buiten het bereik bij ${gebruikersnaam}`).toEqual([]);
     }
   }
 

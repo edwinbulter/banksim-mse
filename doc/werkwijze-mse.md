@@ -1167,7 +1167,7 @@ Tot nu toe maakten de scenario's hun eigen data via de seed-CLI. Een demo met 10
 Deze slice wordt in kleine stappen gebouwd, elk met een eigen scenario in `e2e/specs/infra/huishoudens.spec.ts`:
 
 1. Na installatie kunnen 10 klanten en een beheerder inloggen, en ziet elke klant een betaal- en een spaarrekening (gebouwd, ADR 0040).
-2. Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026 (gebouwd voor het inkomen, de woonlasten, de vaste lasten, de boodschappen, de inleg, de opname bij een dreigend tekort en de rente, ADR 0041, 0042 en 0043); de andere soorten uit het FO volgen.
+2. Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026 (gebouwd voor het inkomen, de woonlasten, de vaste lasten, de boodschappen, de webwinkels, de inleg, de opname bij een dreigend tekort en de rente, ADR 0041, 0042 en 0043); de andere soorten uit het FO volgen.
 3. Geen enkele rekening staat op enige dag rood (gebouwd voor de betaalrekening; op de spaarrekening voorkomt de generator het, maar een scenario beweert het nog niet).
 4. Een upgrade wist de demo-data niet en maakt die ook niet dubbel (gebouwd; de code bestond al, het scenario is met twee sabotages rood gezien).
 5. Golden master: seed 42 geeft steeds dezelfde data.
@@ -1202,6 +1202,8 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 
 | Punt | Reden van uitstel | Komt terug bij |
 | --- | --- | --- |
+| De schermen hebben geen styling: `frontend/src/styles.scss` bevat alleen een opmerking en het CSS-bestand in de browser is leeg (0 bytes), gezien op 2026-11-04. Het origineel heeft 478 regels in `styles.scss` en 30 in `app.scss` | Beloofd voor slice 1, maar nooit gebouwd. De scenario's zoeken op rol en tekst en zien het verschil niet. De gebruiker koos om eerst de webwinkels af te maken | Eigen stap: de styling uit het origineel overnemen en aanpassen aan de schermen, met minstens een test die rood wordt als de stylesheet leeg is |
+| Een webwinkelaankoop van de demo-klanten heeft geen omschrijving ("Bestelling 12345678") en geen betalingskenmerk, zoals in het origineel (`Huishouden.java` in `bank-datagen`) | Het FO noemt ze niet bij het transactiepatroon, en `Boeking` in `bank-seed` kent die velden nog niet | Een eigen scenario in `infra/huishoudens.spec.ts`, als de details van de demo-data aan de beurt zijn |
 | Het aantal resultaten ("12 resultaten", FO) | Niet in S5.1 meegenomen | Eigen scenario in `zoeken.spec.ts` |
 | `pg_trgm`-index voor zoeken | Geen test kan de prestatie nu eisen | Zie de ADR-backlog (hoofdstuk 6): slice 11 of een prestatie-eis |
 | `npm audit`: 18 kwetsbaarheden met niveau moderate in de lint-keten van de frontend (`minimatch` via `eslint`, `typescript-eslint` en `angular-eslint`), en 3 in de generator in `api/` (`openapi-typescript`), gezien op 2026-11-02 | Alleen gereedschap voor lint en genereren, niet in de app. npm stelt alleen downgrades voor (`typescript-eslint` 8.14, `openapi-typescript` 6) | CFR Supply chain (`npm audit` in CI), of bij een nieuwe versie van die tools |

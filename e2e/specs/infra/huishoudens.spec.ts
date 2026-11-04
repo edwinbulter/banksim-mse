@@ -40,6 +40,20 @@ test('Elke klant doet elke maand boodschappen, van oktober 2021 t/m december 202
   );
 });
 
+test('Elke klant koopt elke maand bij webwinkels, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'heeft elk van de 10 klanten van november 2021 t/m december 2026 elke maand 1 tot en met 4 betalingen aan Webwinkel Alles, BoekenBox, ModeOnline of ElektroShop, elk tussen € 10,00 en € 250,00',
+    () => omgeving.verwachtWebwinkelsPerMaand('2021-11', '2026-12', { min: 1, max: 4 }, { min: '10.00', max: '250.00' }),
+  );
+  await omgeving.en('heeft elk van de 10 klanten in oktober 2021 hoogstens 4 van zulke betalingen, want daar vervalt een aankoop als het geld krap is', () =>
+    omgeving.verwachtWebwinkelsPerMaand('2021-10', '2021-10', { min: 0, max: 4 }, { min: '10.00', max: '250.00' }),
+  );
+});
+
 test('Elke klant betaalt elke maand zijn vaste lasten', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
