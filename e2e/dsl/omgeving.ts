@@ -192,6 +192,23 @@ export class Omgeving extends Stappen {
     expect(rekeningen.find((rekening) => rekening.soort === 'spaar')?.saldo, `spaarsaldo van ${naam}`).toBe(saldo);
   }
 
+  /** S11.1: de opnames op de spaarrekening van de klant, op datum, met het bedrag in domeinnotatie. */
+  async verwachtOpnames(naam: string, verwacht: { datum: string; bedrag: string }[]): Promise<void> {
+    const mutaties = await this.spaarmutatiesVan(gebruikersnaamVan(naam));
+    const opnames = mutaties
+      .filter((mutatie) => mutatie.type === 'Opname')
+      .map(({ datum, bedrag }) => ({ datum, bedrag }))
+      .sort((a, b) => a.datum.localeCompare(b.datum));
+    expect(opnames, `opnames van ${naam}`).toEqual(verwacht);
+  }
+
+  async verwachtGeenOpnamesBehalveBij(namen: string[]): Promise<void> {
+    for (const { naam, gebruikersnaam } of DEMO_KLANTEN.filter((klant) => !namen.includes(klant.naam))) {
+      const mutaties = await this.spaarmutatiesVan(gebruikersnaam);
+      expect(mutaties.filter((mutatie) => mutatie.type === 'Opname'), `opnames van ${naam}`).toEqual([]);
+    }
+  }
+
   /** Inloggen als de demo-klant, en alle mutaties van zijn spaarrekening laden. */
   private async spaarmutatiesVan(gebruikersnaam: string): Promise<Spaarmutatie[]> {
     const driver = await this.maakRestDriver();

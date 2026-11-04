@@ -1,6 +1,7 @@
 package nl.banksim.seed;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -21,7 +22,7 @@ import nl.banksim.domain.transactie.TransactieType;
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
  * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e en de inleg op de 25e. Daarna de boodschappen, met een
- * vaste seed per klant; een boodschap die de rekening rood zou maken, vervalt (FO). Eenzijdig: de tegenpartij heeft geen
+ * vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een boodschap vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
 final class Generator {
@@ -29,12 +30,17 @@ final class Generator {
     private static final YearMonth EERSTE_MAAND = YearMonth.of(2021, 10);
     private static final YearMonth LAATSTE_MAAND = YearMonth.of(2026, 12);
     private static final Bedrag GEEN_BEDRAG = Bedrag.van("0.00");
+    private static final BigDecimal HONDERD = BigDecimal.valueOf(100);
     private static final long SEED = 42;
     private static final long SEED_INLEG = 43;
     private static final List<String> SUPERMARKTEN = List.of("BuurtSuper", "Prijsvast Supermarkt", "Versmarkt");
 
     /** ADR 0042: van de betaalrekening naar de eigen spaarrekening. */
     record Inleg(LocalDateTime tijdstip, Bedrag bedrag) {
+    }
+
+    /** ADR 0042: van de spaarrekening naar de eigen betaalrekening. */
+    record Opname(LocalDateTime tijdstip, Bedrag bedrag) {
     }
 
     private Generator() {
@@ -52,12 +58,52 @@ final class Generator {
         return inleggen;
     }
 
-    /** De eenzijdige boekingen. De inleg staat er niet bij, maar telt wel mee voor nooit rood (ADR 0042). */
+    /**
+     * FO, origineel: dreigt een boeking de betaalrekening rood te maken, dan komt er een minuut eerder geld van de spaarrekening.
+     * Is daar te weinig, dan volgt er geen opname en faalt de controle op nooit rood.
+     */
+    static List<Opname> opnames(DemoKlanten.DemoKlant klant) {
+        List<Opname> opnames = new ArrayList<>();
+        BigDecimal betaal = klant.beginsaldo().waarde();
+        BigDecimal spaar = klant.beginsaldoSpaar().waarde();
+        for (Boeking boeking : vasteBoekingenEnInleggen(klant)) {
+            BigDecimal saldoNa = betaal.add(boeking.bedrag().waarde());
+            if (saldoNa.signum() < 0) {
+                BigDecimal opname = rondeOpname(saldoNa.negate());
+                if (spaar.compareTo(opname) >= 0) {
+                    opnames.add(new Opname(boeking.tijdstip().minusMinutes(1), new Bedrag(opname)));
+                    saldoNa = saldoNa.add(opname);
+                    spaar = spaar.subtract(opname);
+                }
+            }
+            betaal = saldoNa;
+            if (boeking.tegenpartij().equals(klant.naam())) {
+                spaar = spaar.subtract(boeking.bedrag().waarde());
+            }
+        }
+        return opnames;
+    }
+
+    /** Origineel: het tekort naar boven afgerond op honderdtallen, plus 100. */
+    private static BigDecimal rondeOpname(BigDecimal tekort) {
+        return tekort.divide(HONDERD, 0, RoundingMode.CEILING).add(BigDecimal.ONE).multiply(HONDERD).setScale(2);
+    }
+
+    /** Op tijdsvolgorde. De inleg staat er als afschrijving bij, met de klant zelf als tegenpartij. */
+    private static List<Boeking> vasteBoekingenEnInleggen(DemoKlanten.DemoKlant klant) {
+        List<Boeking> boekingen = vasteBoekingen(klant);
+        inleggen(klant).forEach(inleg -> boekingen.add(new Boeking(inleg.tijdstip(), new Bedrag(inleg.bedrag().waarde().negate()),
+                klant.naam(), TransactieType.OVERSCHRIJVING, Optional.empty())));
+        boekingen.sort(Comparator.comparing(Boeking::tijdstip));
+        return boekingen;
+    }
+
+    /** De eenzijdige boekingen. De inleg en de opname staan er niet bij, maar tellen wel mee voor nooit rood (ADR 0042). */
     static List<Boeking> boekingen(DemoKlanten.DemoKlant klant) {
         List<Boeking> eenzijdig = vasteBoekingen(klant);
-        List<Boeking> verloop = new ArrayList<>(eenzijdig);
-        inleggen(klant).forEach(inleg -> verloop.add(new Boeking(inleg.tijdstip(), new Bedrag(inleg.bedrag().waarde().negate()),
-                klant.naam(), TransactieType.OVERSCHRIJVING, Optional.empty())));
+        List<Boeking> verloop = vasteBoekingenEnInleggen(klant);
+        opnames(klant).forEach(opname -> verloop.add(new Boeking(opname.tijdstip(), opname.bedrag(), klant.naam(),
+                TransactieType.OVERSCHRIJVING, Optional.empty())));
         controleerNooitRood(klant, verloop);
         eenzijdig.addAll(boodschappen(klant, verloop));
         eenzijdig.sort(Comparator.comparing(Boeking::tijdstip));

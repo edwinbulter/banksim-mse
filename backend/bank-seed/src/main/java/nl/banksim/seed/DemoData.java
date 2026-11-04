@@ -2,8 +2,8 @@ package nl.banksim.seed;
 
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
-import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.grootboek.Partij;
 import nl.banksim.domain.rekening.Iban;
@@ -15,8 +15,6 @@ import org.springframework.transaction.support.TransactionOperations;
  * dan volgt alles bij de volgende installatie opnieuw.
  */
 class DemoData {
-
-    private static final Bedrag LEEG = Bedrag.van("0.00");
 
     private final DemoLogins logins;
     private final BestaandeKlanten bestaand;
@@ -59,12 +57,15 @@ class DemoData {
     private void maak(DemoKlanten.DemoKlant klant) {
         Iban betaalrekening = nieuweIban.get();
         rekeninghouders.voegToeMetBetaalrekening(klant.gebruikersnaam(), klant.naam(), betaalrekening, klant.beginsaldo());
-        Iban spaarrekening = spaarrekeningen.open(klant.gebruikersnaam(), LEEG, Optional.empty());
+        Iban spaarrekening = spaarrekeningen.open(klant.gebruikersnaam(), klant.beginsaldoSpaar(), Optional.empty());
         transacties.boekAlle(betaalrekening, Generator.boekingen(klant));
         Partij betaal = new Partij(betaalrekening, klant.naam());
         Partij spaar = new Partij(spaarrekening, klant.naam());
-        overboekingen.schrijfAlle(Generator.inleggen(klant).stream()
-                .map(inleg -> Overboeking.inleg(betaal, spaar, inleg.bedrag(), inleg.tijdstip(), "Maandelijks sparen"))
+        overboekingen.schrijfAlle(Stream.concat(
+                Generator.inleggen(klant).stream()
+                        .map(inleg -> Overboeking.inleg(betaal, spaar, inleg.bedrag(), inleg.tijdstip(), "Maandelijks sparen")),
+                Generator.opnames(klant).stream()
+                        .map(opname -> Overboeking.opname(spaar, betaal, opname.bedrag(), opname.tijdstip(), "Aanvulling betaalrekening")))
                 .toList());
         logins.zorgVoorKlant(klant.gebruikersnaam(), klantWachtwoord);
     }

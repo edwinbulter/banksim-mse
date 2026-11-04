@@ -72,8 +72,33 @@ test('Elke klant legt elke maand een vast bedrag in op zijn spaarrekening', { ta
   await omgeving.en('is van de betaalrekening van Jan in december 2026 € 400,00 naar zijn spaarrekening gegaan', () =>
     omgeving.verwachtAfschrijvingNaarSpaarrekening('Jan de Vries', '2026-12', '-400.00'),
   );
-  await omgeving.en('staat er op de spaarrekening van Jan € 25.200,00', () =>
-    omgeving.verwachtSpaarsaldo('Jan de Vries', '25200.00'),
+  await omgeving.en('staat er op de spaarrekening van Jan € 31.700,00', () =>
+    omgeving.verwachtSpaarsaldo('Jan de Vries', '31700.00'),
+  );
+});
+
+test('Een klant met een dreigend tekort neemt eerst geld op van zijn spaarrekening', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan('heeft Lisa op 1 oktober 2021 een opname van € 200,00 op haar spaarrekening', () =>
+    omgeving.verwachtOpnames('Lisa Jansen', [{ datum: '2021-10-01', bedrag: '-200.00' }]),
+  );
+  await omgeving.en('heeft Mohamed op 1 en op 15 oktober 2021 een opname van € 200,00', () =>
+    omgeving.verwachtOpnames('Mohamed El Amrani', [
+      { datum: '2021-10-01', bedrag: '-200.00' },
+      { datum: '2021-10-15', bedrag: '-200.00' },
+    ]),
+  );
+  await omgeving.en('heeft geen van de andere 8 klanten een opname', () =>
+    omgeving.verwachtGeenOpnamesBehalveBij(['Lisa Jansen', 'Mohamed El Amrani']),
+  );
+  await omgeving.en('staat er op de spaarrekening van Lisa € 11.050,00', () =>
+    omgeving.verwachtSpaarsaldo('Lisa Jansen', '11050.00'),
+  );
+  await omgeving.en('staat er op de spaarrekening van Mohamed € 19.850,00', () =>
+    omgeving.verwachtSpaarsaldo('Mohamed El Amrani', '19850.00'),
   );
 });
 

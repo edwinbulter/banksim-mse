@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 class GeneratorTests {
 
     private static final int MAANDEN = 63;
+    private static final Bedrag GEEN_SPAARGELD = Bedrag.van("0.00");
 
     private static DemoKlanten.DemoKlant klant(String gebruikersnaam) {
         return DemoKlanten.ALLE.stream().filter(klant -> klant.gebruikersnaam().equals(gebruikersnaam)).findFirst().orElseThrow();
@@ -100,7 +101,7 @@ class GeneratorTests {
     /** S11.1, FO: dezelfde regel als in de bank; een profiel dat rood zou gaan, wordt geen demo-data. */
     @Test
     void eenKlantDieRoodZouGaanGeeftEenFout() {
-        var teWeinig = new DemoKlanten.DemoKlant("rood", "Rood", Bedrag.van("949.99"),
+        var teWeinig = new DemoKlanten.DemoKlant("rood", "Rood", Bedrag.van("949.99"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
                 Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
 
@@ -112,7 +113,7 @@ class GeneratorTests {
     /** Precies op € 0,00 is niet rood. */
     @Test
     void eenKlantDiePreciesOpNulKomtMag() {
-        var precies = new DemoKlanten.DemoKlant("nul", "Nul", Bedrag.van("950.00"),
+        var precies = new DemoKlanten.DemoKlant("nul", "Nul", Bedrag.van("950.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
                 Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
 
@@ -122,7 +123,7 @@ class GeneratorTests {
     /** Elke dag telt: pas later in de maand komt het inkomen binnen. */
     @Test
     void eenDipTussenTweeBoekingenTeltOokAlsHetEindsaldoPositiefIs() {
-        var dip = new DemoKlanten.DemoKlant("dip", "Dip", Bedrag.van("100.00"),
+        var dip = new DemoKlanten.DemoKlant("dip", "Dip", Bedrag.van("100.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
                 Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
 
@@ -173,7 +174,7 @@ class GeneratorTests {
     /** FO: bij een dreigend tekort wordt een niet-vaste uitgave overgeslagen; tot het salaris op de 24e staat er € 0,00. */
     @Test
     void bijEenDreigendTekortWordtEenBoodschapOvergeslagen() {
-        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"),
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
                 Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
 
@@ -186,7 +187,7 @@ class GeneratorTests {
     /** Ook een latere vaste boeking telt mee: geen boodschap mag de huur van 1 november rood maken. */
     @Test
     void eenBoodschapMagEenLatereBoekingNietRoodMaken() {
-        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("1000.00"),
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("1000.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")),
                 Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("100.00"))), List.of(), Optional.empty());
 
@@ -240,7 +241,7 @@ class GeneratorTests {
     /** Een vaste last vervalt niet (FO): zou hij de rekening rood maken, dan faalt de generator. */
     @Test
     void eenVasteLastDieRoodZouMakenGeeftEenFout() {
-        var teWeinig = new DemoKlanten.DemoKlant("rood", "Rood", Bedrag.van("100.00"),
+        var teWeinig = new DemoKlanten.DemoKlant("rood", "Rood", Bedrag.van("100.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")), Optional.empty(),
                 List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("100.01"))), Optional.empty());
 
@@ -250,7 +251,7 @@ class GeneratorTests {
     /** Een boodschap houdt rekening met een vaste last later in de maand. */
     @Test
     void eenBoodschapMagEenLatereVasteLastNietRoodMaken() {
-        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("100.00"),
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("100.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")), Optional.empty(),
                 List.of(new DemoKlanten.VasteLast(23, "Energie", Bedrag.van("100.00"))), Optional.empty());
 
@@ -294,7 +295,7 @@ class GeneratorTests {
     }
 
     private static DemoKlanten.DemoKlant spaarder(String inleg) {
-        return new DemoKlanten.DemoKlant("spaarder", "Spaarder", Bedrag.van("0.00"),
+        return new DemoKlanten.DemoKlant("spaarder", "Spaarder", Bedrag.van("0.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(), List.of(),
                 Optional.of(Bedrag.van(inleg)));
     }
@@ -313,9 +314,102 @@ class GeneratorTests {
 
     @Test
     void zonderInlegZijnErGeenInleggen() {
-        var geen = new DemoKlanten.DemoKlant("geen", "Geen", Bedrag.van("0.00"),
+        var geen = new DemoKlanten.DemoKlant("geen", "Geen", Bedrag.van("0.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(), List.of(), Optional.empty());
 
         assertThat(Generator.inleggen(geen)).isEmpty();
+    }
+
+    /** Origineel: de beginsaldi van de betaalrekening en de spaarrekening. */
+    @Test
+    void deBeginsaldiKomenUitHetOrigineel() {
+        Map<String, List<String>> beginsaldi = Map.of("jdevries", List.of("1800.00", "6500.00"),
+                "sbakker", List.of("2500.00", "14000.00"), "melamrani", List.of("1500.00", "4500.00"),
+                "ljansen", List.of("900.00", "1800.00"), "pvisser", List.of("3000.00", "38000.00"),
+                "fyilmaz", List.of("2200.00", "16000.00"), "dsmit", List.of("4000.00", "12000.00"),
+                "edeboer", List.of("1700.00", "9000.00"), "rmulder", List.of("2000.00", "22000.00"),
+                "nhendriks", List.of("3500.00", "25000.00"));
+
+        assertThat(DemoKlanten.ALLE).hasSize(10).allSatisfy(klant -> assertThat(List.of(klant.beginsaldo(), klant.beginsaldoSpaar()))
+                .as(klant.gebruikersnaam())
+                .containsExactly(Bedrag.van(beginsaldi.get(klant.gebruikersnaam()).get(0)),
+                        Bedrag.van(beginsaldi.get(klant.gebruikersnaam()).get(1))));
+    }
+
+    private static DemoKlanten.DemoKlant metTekort(String beginsaldo, String spaargeld, String last) {
+        return new DemoKlanten.DemoKlant("tekort", "Tekort", Bedrag.van(beginsaldo), Bedrag.van(spaargeld),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van(last)), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van(last))), Optional.empty());
+    }
+
+    private static Generator.Opname opname(int maand, int dag, String bedrag) {
+        return new Generator.Opname(LocalDateTime.of(2021, maand, dag, 5, 59), Bedrag.van(bedrag));
+    }
+
+    /** FO: bij een dreigend tekort eerst geld van de spaarrekening, een minuut voor de vaste last. */
+    @Test
+    void lisaEnMohamedNemenInOktober2021GeldOpVanHunSpaarrekening() {
+        assertThat(Generator.opnames(klant("ljansen"))).containsExactly(opname(10, 1, "200.00"));
+        assertThat(Generator.opnames(klant("melamrani"))).containsExactly(opname(10, 1, "200.00"), opname(10, 15, "200.00"));
+    }
+
+    @Test
+    void deAndereKlantenNemenNietsOp() {
+        assertThat(DemoKlanten.ALLE).filteredOn(klant -> !List.of("ljansen", "melamrani").contains(klant.gebruikersnaam()))
+                .hasSize(8).allSatisfy(klant -> assertThat(Generator.opnames(klant)).as(klant.gebruikersnaam()).isEmpty());
+    }
+
+    /** Origineel: het tekort naar boven afgerond op honderdtallen, plus 100. */
+    @Test
+    void deOpnameIsHetTekortAfgerondOpHonderdtallenPlusHonderd() {
+        assertThat(Generator.opnames(metTekort("100.00", "1000.00", "100.01")).getFirst()).isEqualTo(opname(10, 1, "200.00"));
+        assertThat(Generator.opnames(metTekort("100.00", "1000.00", "200.00")).getFirst()).isEqualTo(opname(10, 1, "200.00"));
+        assertThat(Generator.opnames(metTekort("100.00", "1000.00", "200.01")).getFirst()).isEqualTo(opname(10, 1, "300.00"));
+    }
+
+    @Test
+    void eenVasteLastDiePreciesOpNulUitkomtVraagtGeenOpname() {
+        assertThat(Generator.opnames(metTekort("100.00", "1000.00", "100.00"))).isEmpty();
+    }
+
+    /** Het inkomen en de last zijn even groot, dus de opname van € 200,00 blijft het hele verloop dekken. */
+    @Test
+    void preciesGenoegSpaargeldIsGenoeg() {
+        assertThat(Generator.boekingen(metTekort("100.00", "200.00", "100.01"))).isNotEmpty();
+        assertThat(Generator.opnames(metTekort("100.00", "200.00", "100.01"))).containsExactly(opname(10, 1, "200.00"));
+    }
+
+    /** Nooit rood blijft de laatste controle: zonder genoeg spaargeld wordt het profiel geen demo-data. */
+    @Test
+    void teWeinigSpaargeldGeeftEenFout() {
+        assertThatThrownBy(() -> Generator.boekingen(metTekort("100.00", "199.99", "100.01")))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    /** Elke maand € 100,00 minder: de eerste € 300,00 raakt op, waarna de tweede opname het spaargeld te boven gaat. */
+    @Test
+    void eenOpnameHaaltHetGeldVanDeSpaarrekening() {
+        var krimpend = new DemoKlanten.DemoKlant("krimpend", "Krimpend", Bedrag.van("0.00"), Bedrag.van("399.99"),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("200.00"))), Optional.empty());
+
+        assertThatThrownBy(() -> Generator.boekingen(krimpend)).isInstanceOf(IllegalStateException.class);
+    }
+
+    /** De spaarrekening begint leeg en heeft op 1 december twee inleggen van € 100,00: precies de opname. */
+    @Test
+    void deInleggenTellenMeeVoorHetSpaargeld() {
+        var spaarder = new DemoKlanten.DemoKlant("spaarder", "Spaarder", Bedrag.van("300.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("200.00")), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("200.00"))), Optional.of(Bedrag.van("100.00")));
+
+        assertThat(Generator.opnames(spaarder).getFirst()).isEqualTo(opname(12, 1, "200.00"));
+    }
+
+    /** ADR 0042: de opname is een overboeking, maar telt wel mee voor nooit rood en voor de boodschappen. */
+    @Test
+    void deOpnameStaatNietBijDeEenzijdigeBoekingenMaarTeltWelMee() {
+        assertThat(Generator.boekingen(klant("ljansen"))).extracting(Boeking::tegenpartij).doesNotContain("Lisa Jansen");
+        assertThat(boodschappen(klant("ljansen"))).isNotEmpty();
     }
 }

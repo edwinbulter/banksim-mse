@@ -1167,7 +1167,7 @@ Tot nu toe maakten de scenario's hun eigen data via de seed-CLI. Een demo met 10
 Deze slice wordt in kleine stappen gebouwd, elk met een eigen scenario in `e2e/specs/infra/huishoudens.spec.ts`:
 
 1. Na installatie kunnen 10 klanten en een beheerder inloggen, en ziet elke klant een betaal- en een spaarrekening (gebouwd, ADR 0040).
-2. Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026 (gebouwd voor het inkomen, de woonlasten, de vaste lasten, de boodschappen en de inleg, ADR 0041 en 0042); de andere soorten uit het FO volgen.
+2. Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026 (gebouwd voor het inkomen, de woonlasten, de vaste lasten, de boodschappen, de inleg en de opname bij een dreigend tekort, ADR 0041 en 0042); de andere soorten uit het FO volgen.
 3. Geen enkele rekening staat op enige dag rood (gebouwd voor de betaalrekening; de spaarrekening komt mee met sparen en rente).
 4. Een upgrade wist de demo-data niet en maakt die ook niet dubbel (gebouwd; de code bestond al, het scenario is met twee sabotages rood gezien).
 5. Golden master: seed 42 geeft steeds dezelfde data.
@@ -1219,7 +1219,7 @@ Wat tijdens het bouwen is uitgesteld, met de reden en wanneer het terugkomt. Hie
 | Scenario over de sessie-cookies: `Secure` en `HttpOnly` door de echte ingress, en een bewuste keuze over `SameSite` | Beide vlaggen zijn nu aanwezig, maar ongetest; `Secure` hangt af van de doorgestuurde headers van de ingress. `SameSite` ontbreekt, zonder vastgelegde keuze; het CSRF-token vangt het belangrijkste risico al af | CFR-slice OWASP Top 10; ADR-kandidaat voor `SameSite` |
 | Scenario "De browser krijgt nooit een token": de antwoorden tijdens het inloggen en de opslag van de browser nakijken | Dit is de kern van ADR 0008, maar geen test controleert het | CFR-slice OWASP Top 10 |
 | BFF-test voor een verkeerde `state`, en `directAccessGrantsEnabled`, `implicitFlowEnabled` en `bruteForceProtected` in `keycloak_test.yaml` | Een verkeerde `state` wordt nu geweigerd door Spring Security; de realm-instellingen staan alleen in de JSON. Waarde vooral als vangnet | CFR-slice OWASP Top 10 |
-| De duur van de PIT-job: in run 41726343182 (`fdc1089`) 15:02, waarvan `bank-api` 10:54 en `bank-seed` 2:47; `bank-seed` groeit met elke stap van de generator (1:59, 2:13, 2:47) | Eerst de time-out van de job naar 20 minuten, zodat de pipeline weer scheidsrechter is; optimaliseren alleen op basis van een meting | Zodra de job de 20 minuten nadert: meten welke tests de mutanten traag maken, met als eerste kandidaat hoe vaak `GeneratorTests` de hele generator draait |
+| De duur van de PIT-job wisselt sterk bij gelijke productiecode: 15:02 in run 41726343182 (`bank-api` 10:54, `bank-seed` 2:47) en 8:55 in run 41808389719 (`bank-api` 6:22, `bank-seed` 1:37). Het verschil zit dus niet in de code; de snelheid van de runner is de waarschijnlijke oorzaak, maar dat is niet gemeten | De time-out van de job staat op 20 minuten, zodat een trage runner de pipeline niet afbreekt; optimaliseren alleen op basis van een meting | Zodra de job de 20 minuten nadert: meten welke tests de mutanten traag maken |
 
 #### Opgeloste losse backlogpunten
 
