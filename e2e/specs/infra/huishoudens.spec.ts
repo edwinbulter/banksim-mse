@@ -54,6 +54,18 @@ test('Elke klant koopt elke maand bij webwinkels, van oktober 2021 t/m december 
   );
 });
 
+test('Klanten nemen contant geld op bij de geldautomaat, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'heeft elk van de 10 klanten in elk van de 63 maanden hoogstens 2 opnames bij Geldautomaat Utrecht Centrum, Geldautomaat Amersfoort Centrum of Geldautomaat Zuidstad Centrum, elk tussen € 20,00 en € 200,00, in hele tientjes',
+    () => omgeving.verwachtGeldopnamesPerMaand('2021-10', '2026-12', { min: 0, max: 2 }, { min: '20.00', max: '200.00' }),
+  );
+  await omgeving.en('heeft elk van de 10 klanten minstens één opname', () => omgeving.verwachtMinstensEenGeldopname());
+});
+
 test('Elke klant betaalt elke maand zijn vaste lasten', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>

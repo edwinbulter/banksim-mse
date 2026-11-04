@@ -25,8 +25,8 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e en de inleg op de 25e. Daarna de boodschappen en de
- * webwinkels, met een vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een aankoop vervalt (FO). Eenzijdig: de tegenpartij heeft geen
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e en de inleg op de 25e. Daarna de boodschappen, de
+ * webwinkels en de geldopnames, met een vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een aankoop vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
 final class Generator {
@@ -39,14 +39,17 @@ final class Generator {
     private static final BigDecimal HONDERD = BigDecimal.valueOf(100);
     private static final long SEED_INLEG = 43;
     /** FO: 6–12 keer per maand, € 8–120, aan de betaalautomaat. */
-    private static final Aankopen BOODSCHAPPEN = new Aankopen(42, 6, 12, 800, 12_000,
+    private static final Aankopen BOODSCHAPPEN = new Aankopen(42, 6, 12, 800, 12_000, 1,
             List.of("BuurtSuper", "Prijsvast Supermarkt", "Versmarkt"), TransactieType.BETAALAUTOMAAT);
     /** FO: 1–4 keer per maand, € 10–250, via iDEAL | Wero. */
-    private static final Aankopen WEBWINKELS = new Aankopen(44, 1, 4, 1_000, 25_000,
+    private static final Aankopen WEBWINKELS = new Aankopen(44, 1, 4, 1_000, 25_000, 1,
             List.of("Webwinkel Alles", "BoekenBox", "ModeOnline", "ElektroShop"), TransactieType.IDEAL_WERO);
+    /** FO: 0–2 keer per maand, € 20–200, bij een geldautomaat. Origineel: in hele tientjes. */
+    private static final Aankopen GELDOPNAMES = new Aankopen(45, 0, 2, 2_000, 20_000, 1_000,
+            List.of("Geldautomaat Utrecht Centrum", "Geldautomaat Amersfoort Centrum", "Geldautomaat Zuidstad Centrum"), TransactieType.GELDAUTOMAAT);
 
     /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
-    private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, List<String> winkels,
+    private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, int stapCenten, List<String> winkels,
             TransactieType type) {
     }
 
@@ -156,6 +159,7 @@ final class Generator {
         controleerNooitRood(klant, verloop);
         eenzijdig.addAll(aankopen(klant, verloop, BOODSCHAPPEN));
         eenzijdig.addAll(aankopen(klant, verloop, WEBWINKELS));
+        eenzijdig.addAll(aankopen(klant, verloop, GELDOPNAMES));
         eenzijdig.sort(Comparator.comparing(Boeking::tijdstip));
         return eenzijdig;
     }
@@ -197,7 +201,8 @@ final class Generator {
     private static Boeking aankoop(YearMonth maand, Random toeval, Aankopen soort) {
         LocalDateTime tijdstip = maand.atDay(1 + toeval.nextInt(maand.lengthOfMonth()))
                 .atTime(LocalTime.of(8, 0).plusMinutes(toeval.nextInt(13 * 60 + 1)));
-        BigDecimal bedrag = BigDecimal.valueOf(soort.minCenten() + toeval.nextInt(soort.maxCenten() - soort.minCenten() + 1), 2).negate();
+        int stappen = (soort.maxCenten() - soort.minCenten()) / soort.stapCenten() + 1;
+        BigDecimal bedrag = BigDecimal.valueOf(soort.minCenten() + toeval.nextInt(stappen) * soort.stapCenten(), 2).negate();
         String winkel = soort.winkels().get(toeval.nextInt(soort.winkels().size()));
         return new Boeking(tijdstip, new Bedrag(bedrag), winkel, soort.type(), Optional.empty());
     }

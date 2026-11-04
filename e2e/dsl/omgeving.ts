@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { BankDriver, RekeningInOverzicht, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
-import { DEMO_BEHEERDER, DEMO_KLANTEN, SUPERMARKTEN, VASTE_LASTEN, WEBWINKELS } from './huishoudens';
+import { DEMO_BEHEERDER, DEMO_KLANTEN, GELDAUTOMATEN, SUPERMARKTEN, VASTE_LASTEN, WEBWINKELS } from './huishoudens';
 import { Stappen, type Stap } from './stappen';
 
 const NAMESPACE = 'banksim-mse';
@@ -137,6 +137,27 @@ export class Omgeving extends Stappen {
   /** S11.1: per klant en per maand een aantal betalingen aan webwinkels, elk binnen het bereik. */
   async verwachtWebwinkelsPerMaand(van: string, tm: string, aantal: { min: number; max: number }, bedrag: { min: string; max: string }): Promise<void> {
     await this.verwachtAankopenPerMaand('webwinkelaankopen', WEBWINKELS, van, tm, aantal, bedrag);
+  }
+
+  /** S11.1: per klant en per maand een aantal opnames bij een geldautomaat, elk binnen het bereik en in hele tientjes. */
+  async verwachtGeldopnamesPerMaand(van: string, tm: string, aantal: { min: number; max: number }, bedrag: { min: string; max: string }): Promise<void> {
+    await this.verwachtAankopenPerMaand('geldopnames', GELDAUTOMATEN, van, tm, aantal, bedrag);
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const geenTientje = (await this.geldopnamesVan(gebruikersnaam)).filter((bedragVanOpname) => centen(bedragVanOpname) % 1000n !== 0n);
+      expect(geenTientje, `geldopnames die geen hele tientjes zijn bij ${gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  /** S11.1: "0 tot en met 2 per maand" klopt ook zonder opnames; daarom moet elke klant er minstens één hebben. */
+  async verwachtMinstensEenGeldopname(): Promise<void> {
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      expect(await this.geldopnamesVan(gebruikersnaam), `geldopnames van ${gebruikersnaam}`).not.toEqual([]);
+    }
+  }
+
+  private async geldopnamesVan(gebruikersnaam: string): Promise<string[]> {
+    const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+    return transacties.flatMap((dag) => dag.transacties.filter(({ tegenpartij }) => GELDAUTOMATEN.includes(tegenpartij)).map(({ bedrag }) => bedrag));
   }
 
   private async verwachtAankopenPerMaand(

@@ -20,6 +20,9 @@ export const SUPERMARKTEN = ['BuurtSuper', 'Prijsvast Supermarkt', 'Versmarkt'];
 /** S11.1 (FO "Transactiepatroon per maand"): waar de demo-klanten online kopen, met de namen uit het origineel. */
 export const WEBWINKELS = ['Webwinkel Alles', 'BoekenBox', 'ModeOnline', 'ElektroShop'];
 
+/** S11.1 (FO "Transactiepatroon per maand"): waar de demo-klanten contant geld opnemen, met de namen uit het origineel. */
+export const GELDAUTOMATEN = ['Geldautomaat Utrecht Centrum', 'Geldautomaat Amersfoort Centrum', 'Geldautomaat Zuidstad Centrum'];
+
 /** S11.1 (FO "Transactiepatroon per maand"): de vaste lasten, met de namen uit het origineel. */
 export const VASTE_LASTEN = [
   'Groenstroom Energie',

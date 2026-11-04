@@ -45,6 +45,10 @@ class GeneratorTests {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.IDEAL_WERO).toList();
     }
 
+    private static List<Boeking> geldopnames(DemoKlanten.DemoKlant klant) {
+        return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.GELDAUTOMAAT).toList();
+    }
+
     private static Boeking incasso(int jaar, int maand, int dag, String bedrag, String aan) {
         return woonlasten(LocalDateTime.of(jaar, maand, dag, 6, 0), bedrag, aan);
     }
@@ -562,5 +566,69 @@ class GeneratorTests {
     @Test
     void eenWebwinkelaankoopMagEenLatereInlegNietRoodMaken() {
         assertThat(webwinkelaankopen(spaarder("100.00"))).isEmpty();
+    }
+
+    /** FO: contant geld 0–2 keer per maand. pvisser heeft geen woonlasten en komt dus nooit in de buurt van een tekort. */
+    @Test
+    void eenKlantZonderTekortNeemtElkeMaandHoogstensTweeKeerContantGeldOp() {
+        Map<YearMonth, Long> perMaand = geldopnames(klant("pvisser")).stream()
+                .collect(Collectors.groupingBy(boeking -> YearMonth.from(boeking.tijdstip()), Collectors.counting()));
+
+        assertThat(perMaand.values()).allSatisfy(aantal -> assertThat(aantal).isBetween(1L, 2L));
+        assertThat(perMaand.values()).contains(1L, 2L);
+        assertThat(perMaand).hasSizeLessThan(MAANDEN);
+    }
+
+    /** FO, origineel: € 20–200 in hele tientjes, bij een geldautomaat, tussen 8:00 en 21:00, zonder tegen-IBAN. */
+    @Test
+    void eenGeldopnameHeeftHetBedragDeTegenpartijEnHetTijdstipUitHetFo() {
+        for (DemoKlanten.DemoKlant klant : DemoKlanten.ALLE) {
+            assertThat(geldopnames(klant)).as(klant.gebruikersnaam()).isNotEmpty().allSatisfy(boeking -> {
+                assertThat(boeking.bedrag().waarde()).isBetween(new BigDecimal("-200.00"), new BigDecimal("-20.00"));
+                assertThat(boeking.bedrag().waarde().remainder(BigDecimal.TEN)).isEqualByComparingTo(BigDecimal.ZERO);
+                assertThat(boeking.tegenpartij()).isIn("Geldautomaat Utrecht Centrum", "Geldautomaat Amersfoort Centrum", "Geldautomaat Zuidstad Centrum");
+                assertThat(boeking.tijdstip().toLocalTime()).isBetween(LocalTime.of(8, 0), LocalTime.of(21, 0));
+                assertThat(boeking.tegenIban()).isEmpty();
+            });
+        }
+    }
+
+    /** De grenzen worden ook echt gehaald: alle drie de geldautomaten, en de laagste en hoogste opname. */
+    @Test
+    void deGeldopnamesVarierenOverHetHeleBereik() {
+        List<Boeking> alle = DemoKlanten.ALLE.stream().flatMap(klant -> geldopnames(klant).stream()).toList();
+
+        assertThat(alle).extracting(Boeking::tegenpartij).contains("Geldautomaat Utrecht Centrum", "Geldautomaat Amersfoort Centrum", "Geldautomaat Zuidstad Centrum");
+        assertThat(alle).extracting(boeking -> boeking.bedrag().waarde()).contains(new BigDecimal("-20.00"), new BigDecimal("-200.00"));
+    }
+
+    /** Vaste seed per klant (ADR 0041). */
+    @Test
+    void elkeKlantHeeftEigenGeldopnames() {
+        assertThat(geldopnames(klant("pvisser"))).isNotEqualTo(geldopnames(klant("rmulder")));
+    }
+
+    /** FO: een niet-vaste uitgave vervalt bij een dreigend tekort; tot het salaris op de 24e staat er € 0,00. */
+    @Test
+    void bijEenDreigendTekortVervaltEenGeldopname() {
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+
+        assertThat(geldopnames(krap))
+                .isNotEmpty()
+                .filteredOn(boeking -> boeking.tijdstip().isBefore(LocalDateTime.of(2021, 10, 24, 0, 0)))
+                .isEmpty();
+    }
+
+    /** Een opname bij de geldautomaat vervalt bij een tekort, en haalt dus nooit geld van de spaarrekening. */
+    @Test
+    void eenGeldopnameLeidtNietTotEenOpnameVanDeSpaarrekening() {
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"), Bedrag.van("5000.00"),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
+                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+
+        assertThat(geldopnames(krap)).isNotEmpty();
+        assertThat(Generator.opnames(krap)).isEmpty();
     }
 }
