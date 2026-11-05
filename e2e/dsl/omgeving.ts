@@ -10,6 +10,7 @@ const RELEASE = 'banksim-mse';
 const LABEL = `app.kubernetes.io/instance=${RELEASE}`;
 const ORIGINEEL = 'banksim';
 const DEMO_SECRET = 'bank-demo';
+const GEMEENTE = 'Gemeente Zuidstad';
 
 /** Per resource: uid, generation en een hash van spec of data. Verschilt er iets, dan is er iets veranderd. */
 export type Momentopname = Record<string, string>;
@@ -311,6 +312,43 @@ export class Omgeving extends Stappen {
     );
   }
 
+  /** S11.1: per klant precies één termijn in elke maand van maart t/m december. */
+  async verwachtGemeentelijkeBelastingenPerMaand(van: string, tm: string): Promise<void> {
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      const fout = maanden(van, tm)
+        .filter((maand) => !isJanuariOfFebruari(maand))
+        .map((maand) => ({ maand, aantal: betalingenAan(transacties, maand, GEMEENTE).length }))
+        .filter(({ aantal }) => aantal !== 1)
+        .map(({ maand, aantal }) => `${maand}: ${aantal}`);
+      expect(fout, `maanden zonder precies één termijn bij ${gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  /** S11.1: de termijnen beginnen in maart. */
+  async verwachtGeenGemeentelijkeBelastingenInJanuariEnFebruari(van: string, tm: string): Promise<void> {
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      const betaald = maanden(van, tm).filter(isJanuariOfFebruari).flatMap((maand) => betalingenAan(transacties, maand, GEMEENTE));
+      expect(betaald, `termijnen in januari of februari bij ${gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  /** S11.1: elke termijn van deze klanten heeft dit bedrag, in domeinnotatie. */
+  async verwachtTermijnGemeentelijkeBelastingen(namen: string[], bedrag: string): Promise<void> {
+    for (const naam of namen) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+      const termijnen = transacties.flatMap((dag) => dag.transacties.filter(({ tegenpartij }) => tegenpartij === GEMEENTE).map((t) => t.bedrag));
+      expect(new Set(termijnen), `termijnen van ${naam}`).toEqual(new Set([bedrag]));
+    }
+  }
+
+  async verwachtTermijnGemeentelijkeBelastingenVanDeAnderen(namen: string[], bedrag: string): Promise<void> {
+    const anderen = DEMO_KLANTEN.map(({ naam }) => naam).filter((naam) => !namen.includes(naam));
+    expect(anderen, 'de andere klanten').toHaveLength(6);
+    await this.verwachtTermijnGemeentelijkeBelastingen(anderen, bedrag);
+  }
+
   /** S11.1: per klant en per maand precies één inleg op de spaarrekening. */
   async verwachtInlegPerMaand(van: string, tm: string): Promise<void> {
     for (const { gebruikersnaam } of DEMO_KLANTEN) {
@@ -509,6 +547,10 @@ function gebruikersnaamVan(naam: string): string {
 }
 
 /** De bedragen van de betalingen aan een tegenpartij in een maand, zoals "2026-12". */
+function isJanuariOfFebruari(maand: string): boolean {
+  return maand.endsWith('-01') || maand.endsWith('-02');
+}
+
 function betalingenAan(transacties: TransactiesOpDatum[], maand: string, tegenpartij: string): string[] {
   return transacties
     .filter(({ datum }) => datum.startsWith(maand))

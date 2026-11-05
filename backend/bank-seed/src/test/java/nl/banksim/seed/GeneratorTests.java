@@ -51,6 +51,16 @@ class GeneratorTests {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.VERZAMELBETALING).toList();
     }
 
+    private static List<Boeking> termijnen(DemoKlanten.DemoKlant klant) {
+        return Generator.boekingen(klant).stream().filter(boeking -> boeking.tegenpartij().equals("Gemeente Zuidstad")).toList();
+    }
+
+    private static DemoKlanten.DemoKlant metTermijn(String inkomen) {
+        return new DemoKlanten.DemoKlant("termijn", "Termijn", Bedrag.van("0.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Pensioenfonds", Bedrag.van(inkomen)), Optional.empty(), List.of(), Optional.empty(),
+                DemoKlanten.Soort.ZZP, Optional.of(Bedrag.van("38.00")));
+    }
+
     private static List<Boeking> teruggaven(DemoKlanten.DemoKlant klant) {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.tegenpartij().equals("Belastingdienst")).toList();
     }
@@ -58,7 +68,7 @@ class GeneratorTests {
     private static DemoKlanten.DemoKlant gepensioneerde(String gebruikersnaam, String inkomenEnLast) {
         return new DemoKlanten.DemoKlant(gebruikersnaam, gebruikersnaam, Bedrag.van("0.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Pensioenfonds", Bedrag.van(inkomenEnLast)), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van(inkomenEnLast))), Optional.empty(), DemoKlanten.Soort.GEPENSIONEERD);
+                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van(inkomenEnLast))), Optional.empty(), DemoKlanten.Soort.GEPENSIONEERD, Optional.empty());
     }
 
     private static List<Boeking> geldopnames(DemoKlanten.DemoKlant klant) {
@@ -778,7 +788,7 @@ class GeneratorTests {
     @Test
     void hetVakantiegeldVanEenKromInkomenWordtAfgerondOpCenten() {
         var werknemer = new DemoKlanten.DemoKlant("krom", "Krom", Bedrag.van("0.00"), GEEN_SPAARGELD,
-                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.01")), Optional.empty(), List.of(), Optional.empty(), DemoKlanten.Soort.WERKNEMER);
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.01")), Optional.empty(), List.of(), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
 
         assertThat(vakantiegeld(werknemer).getFirst().bedrag()).isEqualTo(Bedrag.van("92.01"));
     }
@@ -794,7 +804,7 @@ class GeneratorTests {
         // Het salaris en de last heffen elkaar op, dus het enige geld is het vakantiegeld van 24 mei 2022.
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("0.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van("100.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER);
+                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van("100.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
 
         assertThat(boodschappen(krap)).isNotEmpty();
         assertThat(boodschappen(krap)).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(LocalDate.of(2022, 5, 24)));
@@ -856,5 +866,40 @@ class GeneratorTests {
 
         assertThat(boodschappen(krap)).isNotEmpty();
         assertThat(boodschappen(krap)).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(eerste));
+    }
+
+    /** Origineel: 10 termijnen, van maart t/m december, op de 28e, als incasso. */
+    @Test
+    void janBetaaltIn2022TienTermijnenVanMaartTotEnMetDecember() {
+        var verwacht = IntStream.rangeClosed(3, 12).mapToObj(maand -> incasso(2022, maand, 28, "-38.00", "Gemeente Zuidstad")).toList();
+
+        assertThat(termijnen(klant("jdevries")).stream().filter(termijn -> termijn.tijdstip().getYear() == 2022)).isEqualTo(verwacht);
+    }
+
+    @Test
+    void elkeKlantBetaalt53TermijnenMetHetBedragVanZijnHuishouden() {
+        var perKlant = DemoKlanten.ALLE.stream().collect(Collectors.toMap(DemoKlanten.DemoKlant::gebruikersnaam, klant -> {
+            assertThat(termijnen(klant)).as(klant.gebruikersnaam()).hasSize(53);
+            assertThat(termijnen(klant)).extracting(Boeking::bedrag).as(klant.gebruikersnaam()).containsOnly(termijnen(klant).getFirst().bedrag());
+            return termijnen(klant).getFirst().bedrag();
+        }));
+
+        assertThat(perKlant).isEqualTo(Map.of(
+                "jdevries", Bedrag.van("-38.00"), "ljansen", Bedrag.van("-38.00"), "dsmit", Bedrag.van("-38.00"), "rmulder", Bedrag.van("-38.00"),
+                "sbakker", Bedrag.van("-55.00"), "melamrani", Bedrag.van("-55.00"), "pvisser", Bedrag.van("-55.00"), "fyilmaz", Bedrag.van("-55.00"),
+                "edeboer", Bedrag.van("-55.00"), "nhendriks", Bedrag.van("-55.00")));
+    }
+
+    /** Een vaste last vervalt niet (FO): zou de termijn de rekening rood maken, dan faalt de generator. */
+    @Test
+    void eenTermijnDieRoodZouMakenGeeftEenFout() {
+        assertThatThrownBy(() -> Generator.boekingen(metTermijn("37.99"))).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void eenBoodschapMagEenLatereTermijnNietRoodMaken() {
+        // Het inkomen gaat op aan de termijn, dus er is pas geld over als de termijnen in januari stoppen.
+        assertThat(boodschappen(metTermijn("38.00"))).isNotEmpty();
+        assertThat(boodschappen(metTermijn("38.00"))).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(LocalDate.of(2022, 1, 24)));
     }
 }

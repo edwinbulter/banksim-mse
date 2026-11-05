@@ -26,7 +26,7 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, in mei met het vakantiegeld van een werknemer, de belastingteruggave in het voorjaar en de inleg op de 25e. Daarna de boodschappen, de
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, in mei met het vakantiegeld van een werknemer, de belastingteruggave in het voorjaar, de inleg op de 25e en de gemeentelijke belastingen op de 28e, van maart t/m december. Daarna de boodschappen, de
  * webwinkels en de geldopnames, met een vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een aankoop vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
@@ -216,6 +216,10 @@ final class Generator {
             if (klant.soort() == DemoKlanten.Soort.WERKNEMER && maand.getMonth() == Month.MAY) {
                 boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), vakantiegeld(klant),
                         klant.inkomen().tegenpartij(), TransactieType.VERZAMELBETALING, Optional.empty()));
+            }
+            if (maand.getMonth().compareTo(Month.MARCH) >= 0) {
+                klant.termijnGemeente().ifPresent(termijn -> boekingen.add(new Boeking(deze.atDay(28).atTime(LocalTime.of(6, 0)),
+                        new Bedrag(termijn.waarde().negate()), "Gemeente Zuidstad", TransactieType.INCASSO, Optional.empty())));
             }
             for (DemoKlanten.VasteLast last : klant.vasteLasten()) {
                 boekingen.add(new Boeking(maand.atDay(last.dag()).atTime(LocalTime.of(6, 0)),
