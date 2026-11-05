@@ -26,7 +26,7 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, in mei met het vakantiegeld van een werknemer, en de inleg op de 25e. Daarna de boodschappen, de
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, in mei met het vakantiegeld van een werknemer, de belastingteruggave in het voorjaar en de inleg op de 25e. Daarna de boodschappen, de
  * webwinkels en de geldopnames, met een vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een aankoop vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
@@ -53,6 +53,7 @@ final class Generator {
     /** Op deze volgorde: een aankoop krijgt wat er na de vorige soort over is, en een nieuwe soort verschuift de bestaande dus niet. */
     private static final List<Aankopen> AANKOPEN = List.of(BOODSCHAPPEN, WEBWINKELS, GELDOPNAMES);
     private static final long SEED_BETALINGEN = 46;
+    private static final long SEED_TERUGGAVE = 47;
 
     /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
     private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, int stapCenten, List<String> tegenpartijen,
@@ -212,7 +213,7 @@ final class Generator {
                     Optional.empty())));
             boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), klant.inkomen().bedrag(),
                     klant.inkomen().tegenpartij(), TransactieType.OVERSCHRIJVING, Optional.empty()));
-            if (klant.werknemer() && maand.getMonth() == Month.MAY) {
+            if (klant.soort() == DemoKlanten.Soort.WERKNEMER && maand.getMonth() == Month.MAY) {
                 boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), vakantiegeld(klant),
                         klant.inkomen().tegenpartij(), TransactieType.VERZAMELBETALING, Optional.empty()));
             }
@@ -221,7 +222,23 @@ final class Generator {
                         new Bedrag(last.bedrag().waarde().negate()), last.tegenpartij(), TransactieType.INCASSO, Optional.empty()));
             }
         }
+        if (klant.soort() != DemoKlanten.Soort.ZZP) {
+            boekingen.addAll(belastingteruggaven(klant));
+        }
         return boekingen;
+    }
+
+    /** Origineel: één keer per jaar in april, mei of juni, op dag 1 t/m 28, tussen 1:00 en 6:00, € 80–1.200. */
+    private static List<Boeking> belastingteruggaven(DemoKlanten.DemoKlant klant) {
+        List<Boeking> teruggaven = new ArrayList<>();
+        Random toeval = new Random(SEED_TERUGGAVE + klant.gebruikersnaam().hashCode());
+        for (int jaar = EERSTE_MAAND.getYear() + 1; jaar <= LAATSTE_MAAND.getYear(); jaar++) {
+            LocalDateTime tijdstip = LocalDate.of(jaar, 4 + toeval.nextInt(3), 1 + toeval.nextInt(28))
+                    .atTime(LocalTime.of(1, 0).plusMinutes(toeval.nextInt(5 * 60 + 1)));
+            BigDecimal bedrag = BigDecimal.valueOf(8_000 + toeval.nextInt(112_001), 2);
+            teruggaven.add(new Boeking(tijdstip, new Bedrag(bedrag), "Belastingdienst", TransactieType.OVERSCHRIJVING, Optional.empty()));
+        }
+        return teruggaven;
     }
 
     /** Origineel: 92% van het inkomen. */

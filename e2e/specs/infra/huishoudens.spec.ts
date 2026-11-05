@@ -183,6 +183,20 @@ test('Werknemers krijgen elke mei vakantiegeld, van 2022 t/m 2026', { tag: '@sim
   );
 });
 
+test('Klanten krijgen elk jaar belastingteruggave, van 2022 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'krijgt elk van de 9 klanten, behalve Daan Smit, in elk van de 5 jaren precies één bijschrijving van de Belastingdienst, in april, mei of juni, tussen € 80,00 en € 1.200,00',
+    () => omgeving.verwachtBelastingteruggave('Daan Smit', [2022, 2023, 2024, 2025, 2026], { min: '80.00', max: '1200.00' }),
+  );
+  await omgeving.en('krijgt Daan Smit nooit iets van de Belastingdienst', () =>
+    omgeving.verwachtNietsVanDeBelastingdienst('Daan Smit'),
+  );
+});
+
 /** @destructief: de upgrade vervangt de draaiende installatie door een andere versie; alleen in het CI-cluster. */
 test('Een upgrade laat de demo-data ongemoeid', { tag: '@destructief' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());

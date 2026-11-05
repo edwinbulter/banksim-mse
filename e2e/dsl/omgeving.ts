@@ -282,6 +282,35 @@ export class Omgeving extends Stappen {
     }
   }
 
+  /** S11.1: elk jaar precies één bijschrijving van de Belastingdienst, in april, mei of juni en binnen het bereik; ook geen in een andere maand. */
+  async verwachtBelastingteruggave(behalve: string, jaren: number[], bedrag: { min: string; max: string }): Promise<void> {
+    for (const { naam, gebruikersnaam } of DEMO_KLANTEN.filter((klant) => klant.naam !== behalve)) {
+      const teruggaven = await this.bedragenVanDeBelastingdienst(gebruikersnaam);
+      const fout = jaren
+        .map((jaar) => ({ jaar, aantal: teruggaven.filter(({ datum }) => datum.startsWith(`${jaar}-`)).length }))
+        .filter(({ aantal }) => aantal !== 1)
+        .map(({ jaar, aantal }) => `${jaar}: ${aantal}`);
+      expect(fout, `jaren zonder precies één teruggave bij ${naam}`).toEqual([]);
+      const buitenBereik = teruggaven
+        .filter((teruggave) => !['04', '05', '06'].includes(teruggave.datum.slice(5, 7)) || centen(teruggave.bedrag) < centen(bedrag.min) || centen(teruggave.bedrag) > centen(bedrag.max))
+        .map((teruggave) => `${teruggave.datum}: ${teruggave.bedrag}`);
+      expect(buitenBereik, `teruggaven buiten de maanden of het bereik bij ${naam}`).toEqual([]);
+      expect(teruggaven, `teruggaven buiten de jaren bij ${naam}`).toHaveLength(jaren.length);
+    }
+  }
+
+  /** S11.1: een zzp'er krijgt niets. */
+  async verwachtNietsVanDeBelastingdienst(naam: string): Promise<void> {
+    expect(await this.bedragenVanDeBelastingdienst(gebruikersnaamVan(naam)), `van de Belastingdienst aan ${naam}`).toEqual([]);
+  }
+
+  private async bedragenVanDeBelastingdienst(gebruikersnaam: string): Promise<{ datum: string; bedrag: string }[]> {
+    const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+    return transacties.flatMap((dag) =>
+      dag.transacties.filter(({ tegenpartij }) => tegenpartij === 'Belastingdienst').map(({ bedrag }) => ({ datum: dag.datum, bedrag })),
+    );
+  }
+
   /** S11.1: per klant en per maand precies één inleg op de spaarrekening. */
   async verwachtInlegPerMaand(van: string, tm: string): Promise<void> {
     for (const { gebruikersnaam } of DEMO_KLANTEN) {

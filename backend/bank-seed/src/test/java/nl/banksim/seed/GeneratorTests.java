@@ -51,6 +51,16 @@ class GeneratorTests {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.VERZAMELBETALING).toList();
     }
 
+    private static List<Boeking> teruggaven(DemoKlanten.DemoKlant klant) {
+        return Generator.boekingen(klant).stream().filter(boeking -> boeking.tegenpartij().equals("Belastingdienst")).toList();
+    }
+
+    private static DemoKlanten.DemoKlant gepensioneerde(String gebruikersnaam, String inkomenEnLast) {
+        return new DemoKlanten.DemoKlant(gebruikersnaam, gebruikersnaam, Bedrag.van("0.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Pensioenfonds", Bedrag.van(inkomenEnLast)), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van(inkomenEnLast))), Optional.empty(), DemoKlanten.Soort.GEPENSIONEERD);
+    }
+
     private static List<Boeking> geldopnames(DemoKlanten.DemoKlant klant) {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.GELDAUTOMAAT).toList();
     }
@@ -752,7 +762,7 @@ class GeneratorTests {
     @Test
     void hetVakantiegeldIs92ProcentVanHetInkomen() {
         var bedragen = DemoKlanten.ALLE.stream()
-                .filter(DemoKlanten.DemoKlant::werknemer)
+                .filter(klant -> klant.soort() == DemoKlanten.Soort.WERKNEMER)
                 .collect(Collectors.toMap(DemoKlanten.DemoKlant::gebruikersnaam, klant -> vakantiegeld(klant).getFirst().bedrag()));
 
         assertThat(bedragen).isEqualTo(Map.of(
@@ -768,7 +778,7 @@ class GeneratorTests {
     @Test
     void hetVakantiegeldVanEenKromInkomenWordtAfgerondOpCenten() {
         var werknemer = new DemoKlanten.DemoKlant("krom", "Krom", Bedrag.van("0.00"), GEEN_SPAARGELD,
-                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.01")), Optional.empty(), List.of(), Optional.empty(), true);
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.01")), Optional.empty(), List.of(), Optional.empty(), DemoKlanten.Soort.WERKNEMER);
 
         assertThat(vakantiegeld(werknemer).getFirst().bedrag()).isEqualTo(Bedrag.van("92.01"));
     }
@@ -784,9 +794,67 @@ class GeneratorTests {
         // Het salaris en de last heffen elkaar op, dus het enige geld is het vakantiegeld van 24 mei 2022.
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("0.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van("100.00"))), Optional.empty(), true);
+                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van("100.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER);
 
         assertThat(boodschappen(krap)).isNotEmpty();
         assertThat(boodschappen(krap)).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(LocalDate.of(2022, 5, 24)));
+    }
+
+    /** Origineel: één keer per jaar in april, mei of juni, op dag 1 t/m 28, tussen 1:00 en 6:00, € 80–1.200, als overschrijving. */
+    @Test
+    void elkeKlantBehalveDeZzperKrijgtElkJaarEenTeruggaveZoalsInHetOrigineel() {
+        var ontvangers = DemoKlanten.ALLE.stream().filter(klant -> !klant.gebruikersnaam().equals("dsmit")).toList();
+
+        assertThat(ontvangers).hasSize(9).allSatisfy(klant -> {
+            assertThat(teruggaven(klant)).extracting(boeking -> boeking.tijdstip().getYear()).containsExactly(2022, 2023, 2024, 2025, 2026);
+            assertThat(teruggaven(klant)).allSatisfy(teruggave -> {
+                assertThat(teruggave.tijdstip().getMonthValue()).isBetween(4, 6);
+                assertThat(teruggave.tijdstip().getDayOfMonth()).isBetween(1, 28);
+                assertThat(teruggave.tijdstip().toLocalTime()).isBetween(LocalTime.of(1, 0), LocalTime.of(6, 0));
+                assertThat(teruggave.bedrag().waarde()).isBetween(new BigDecimal("80.00"), new BigDecimal("1200.00"));
+                assertThat(teruggave.type()).isEqualTo(TransactieType.OVERSCHRIJVING);
+                assertThat(teruggave.tegenIban()).isEmpty();
+            });
+        });
+    }
+
+    @Test
+    void eenZzperKrijgtGeenTeruggave() {
+        assertThat(teruggaven(klant("dsmit"))).isEmpty();
+    }
+
+    @Test
+    void deTeruggavenVarierenOverHetHeleBereik() {
+        var alle = IntStream.range(0, 400).mapToObj(i -> gepensioneerde("klant" + i, "100.00")).flatMap(klant -> teruggaven(klant).stream()).toList();
+
+        assertThat(alle).extracting(teruggave -> teruggave.tijdstip().getMonthValue()).containsOnly(4, 5, 6);
+        assertThat(alle).extracting(teruggave -> teruggave.tijdstip().getDayOfMonth()).contains(1, 28).doesNotContain(29, 30, 31);
+        assertThat(alle).extracting(teruggave -> teruggave.tijdstip().toLocalTime()).anyMatch(tijd -> tijd.isBefore(LocalTime.of(1, 10)));
+        assertThat(alle).extracting(teruggave -> teruggave.tijdstip().toLocalTime()).anyMatch(tijd -> tijd.isAfter(LocalTime.of(5, 50)));
+        assertThat(alle).extracting(teruggave -> teruggave.bedrag().waarde()).anyMatch(bedrag -> bedrag.compareTo(new BigDecimal("85.00")) < 0);
+        assertThat(alle).extracting(teruggave -> teruggave.bedrag().waarde()).anyMatch(bedrag -> bedrag.compareTo(new BigDecimal("1195.00")) > 0);
+    }
+
+    /** ADR 0041: de vaste seed geeft elke installatie dezelfde teruggaven; elke klant heeft zijn eigen reeks. */
+    @Test
+    void deTeruggavenLiggenVastDoorDeSeed() {
+        assertThat(teruggaven(klant("pvisser"))).isEqualTo(teruggaven(klant("pvisser")));
+        assertThat(teruggaven(klant("pvisser"))).isNotEqualTo(teruggaven(klant("rmulder")));
+    }
+
+    @Test
+    void deEersteTeruggaveVanJanLigtVastDoorDeSeed() {
+        assertThat(teruggaven(klant("jdevries")).getFirst()).isEqualTo(new Boeking(LocalDateTime.of(2022, 4, 17, 2, 17), Bedrag.van("555.84"),
+                "Belastingdienst", TransactieType.OVERSCHRIJVING, Optional.empty()));
+    }
+
+    @Test
+    void eenAankoopKanDeTeruggavePasNaOntvangstUitgeven() {
+        // Het pensioen en de last heffen elkaar op, dus het enige geld is de teruggave.
+        var krap = gepensioneerde("krap", "100.00");
+        LocalDate eerste = teruggaven(krap).getFirst().datum();
+
+        assertThat(boodschappen(krap)).isNotEmpty();
+        assertThat(boodschappen(krap)).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(eerste));
     }
 }
