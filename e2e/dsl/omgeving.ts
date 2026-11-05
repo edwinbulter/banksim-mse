@@ -17,6 +17,14 @@ export type Momentopname = Record<string, string>;
 /** Per demo-klant: zijn rekeningen met saldo en de transacties van zijn betaalrekening. */
 export type DemoDataStand = Record<string, BetaalrekeningVanKlant>;
 
+/** Een demo-klant met een werkgever, en de bedragen die hij van die werkgever hoort te krijgen. */
+export interface Werknemer {
+  naam: string;
+  werkgever: string;
+  salaris: string;
+  vakantiegeld: string;
+}
+
 interface BetaalrekeningVanKlant {
   rekeningen: RekeningInOverzicht[];
   transacties: TransactiesOpDatum[];
@@ -248,6 +256,30 @@ export class Omgeving extends Stappen {
     const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
     const betaald = Object.fromEntries(VASTE_LASTEN.map((last) => [last, betalingenAan(transacties, maand, last)[0]]));
     expect(betaald, `vaste lasten van ${naam} in ${maand}`).toEqual(verwacht);
+  }
+
+  /** S11.1: in mei van elk jaar komen van de werkgever precies twee bedragen binnen: het salaris en het vakantiegeld. */
+  async verwachtVakantiegeldInMei(werknemers: Werknemer[], jaren: number[]): Promise<void> {
+    for (const { naam, werkgever, salaris, vakantiegeld } of werknemers) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+      for (const jaar of jaren) {
+        const ontvangen = betalingenAan(transacties, `${jaar}-05`, werkgever).sort();
+        expect(ontvangen, `van ${werkgever} aan ${naam} in mei ${jaar}`).toEqual([salaris, vakantiegeld].sort());
+      }
+    }
+  }
+
+  /** S11.1: buiten mei komt van de werkgever elke maand precies één bedrag binnen: het salaris. */
+  async verwachtAlleenSalarisBuitenMei(werknemers: Werknemer[], van: string, tm: string): Promise<void> {
+    for (const { naam, werkgever, salaris } of werknemers) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+      const fout = maanden(van, tm)
+        .filter((maand) => !maand.endsWith('-05'))
+        .map((maand) => ({ maand, ontvangen: betalingenAan(transacties, maand, werkgever) }))
+        .filter(({ ontvangen }) => ontvangen.length !== 1 || ontvangen[0] !== salaris)
+        .map(({ maand, ontvangen }) => `${maand}: ${ontvangen.join(', ')}`);
+      expect(fout, `maanden waarin ${naam} iets anders krijgt dan het salaris van ${werkgever}`).toEqual([]);
+    }
   }
 
   /** S11.1: per klant en per maand precies één inleg op de spaarrekening. */

@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Month;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
@@ -25,7 +26,7 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e en de inleg op de 25e. Daarna de boodschappen, de
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, in mei met het vakantiegeld van een werknemer, en de inleg op de 25e. Daarna de boodschappen, de
  * webwinkels en de geldopnames, met een vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een aankoop vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
@@ -37,6 +38,7 @@ final class Generator {
     private static final YearMonth LAATSTE_MAAND = YearMonth.of(2026, 12);
     private static final Bedrag GEEN_BEDRAG = Bedrag.van("0.00");
     private static final BigDecimal HONDERD = BigDecimal.valueOf(100);
+    private static final BigDecimal VAKANTIEGELD_DEEL = new BigDecimal("0.92");
     private static final long SEED_INLEG = 43;
     /** FO: 6–12 keer per maand, € 8–120, aan de betaalautomaat. */
     private static final Aankopen BOODSCHAPPEN = new Aankopen(42, 6, 12, 800, 12_000, 1,
@@ -210,12 +212,21 @@ final class Generator {
                     Optional.empty())));
             boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), klant.inkomen().bedrag(),
                     klant.inkomen().tegenpartij(), TransactieType.OVERSCHRIJVING, Optional.empty()));
+            if (klant.werknemer() && maand.getMonth() == Month.MAY) {
+                boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), vakantiegeld(klant),
+                        klant.inkomen().tegenpartij(), TransactieType.VERZAMELBETALING, Optional.empty()));
+            }
             for (DemoKlanten.VasteLast last : klant.vasteLasten()) {
                 boekingen.add(new Boeking(maand.atDay(last.dag()).atTime(LocalTime.of(6, 0)),
                         new Bedrag(last.bedrag().waarde().negate()), last.tegenpartij(), TransactieType.INCASSO, Optional.empty()));
             }
         }
         return boekingen;
+    }
+
+    /** Origineel: 92% van het inkomen. */
+    private static Bedrag vakantiegeld(DemoKlanten.DemoKlant klant) {
+        return new Bedrag(klant.inkomen().bedrag().waarde().multiply(VAKANTIEGELD_DEEL).setScale(2, RoundingMode.HALF_UP));
     }
 
     /** Vaste seed per klant: dezelfde klant krijgt altijd dezelfde aankopen. Een aankoop die de rekening rood zou maken, vervalt (FO). */

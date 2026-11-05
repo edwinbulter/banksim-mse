@@ -161,6 +161,28 @@ test('Elke spaarrekening krijgt elke maand rente, van oktober 2021 t/m december 
   );
 });
 
+test('Werknemers krijgen elke mei vakantiegeld, van 2022 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  const werknemers = [
+    { naam: 'Jan de Vries', werkgever: 'Techniek Noord B.V.', salaris: '3100.00', vakantiegeld: '2852.00' },
+    { naam: 'Sanne Bakker', werkgever: 'Zorggroep Rivierenland', salaris: '4800.00', vakantiegeld: '4416.00' },
+    { naam: 'Mohamed El Amrani', werkgever: 'Logistiek Centraal B.V.', salaris: '4200.00', vakantiegeld: '3864.00' },
+    { naam: 'Lisa Jansen', werkgever: 'Onderwijsgroep Midden', salaris: '2350.00', vakantiegeld: '2162.00' },
+    { naam: 'Fatma Yilmaz', werkgever: 'Gemeente Zuidstad Salarisadministratie', salaris: '5200.00', vakantiegeld: '4784.00' },
+    { naam: 'Emma de Boer', werkgever: 'Kompas Advies B.V.', salaris: '3900.00', vakantiegeld: '3588.00' },
+    { naam: 'Noor Hendriks', werkgever: 'Bouwbedrijf Van Dijk B.V.', salaris: '6000.00', vakantiegeld: '5520.00' },
+  ];
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan('krijgt elk van de 7 werknemers in mei van elk van de 5 jaren, naast zijn salaris, precies één keer zijn vakantiegeld van zijn werkgever', () =>
+    omgeving.verwachtVakantiegeldInMei(werknemers, [2022, 2023, 2024, 2025, 2026]),
+  );
+  await omgeving.en('krijgen zij in de andere maanden alleen hun salaris van die werkgever', () =>
+    omgeving.verwachtAlleenSalarisBuitenMei(werknemers, '2021-10', '2026-12'),
+  );
+});
+
 /** @destructief: de upgrade vervangt de draaiende installatie door een andere versie; alleen in het CI-cluster. */
 test('Een upgrade laat de demo-data ongemoeid', { tag: '@destructief' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());

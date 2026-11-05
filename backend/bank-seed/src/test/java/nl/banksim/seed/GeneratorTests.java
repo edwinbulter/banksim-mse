@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.transactie.TransactieType;
@@ -29,9 +30,10 @@ class GeneratorTests {
         return DemoKlanten.ALLE.stream().filter(klant -> klant.gebruikersnaam().equals(gebruikersnaam)).findFirst().orElseThrow();
     }
 
-    /** Alleen het inkomen en de woonlasten. */
+    /** Alleen het inkomen en de woonlasten, dus zonder het vakantiegeld. */
     private static List<Boeking> vasteBoekingen(DemoKlanten.DemoKlant klant) {
         return Generator.boekingen(klant).stream()
+                .filter(boeking -> boeking.type() != TransactieType.VERZAMELBETALING)
                 .filter(boeking -> boeking.tegenpartij().equals(klant.inkomen().tegenpartij())
                         || klant.woonlasten().filter(woonlasten -> woonlasten.tegenpartij().equals(boeking.tegenpartij())).isPresent())
                 .toList();
@@ -43,6 +45,10 @@ class GeneratorTests {
 
     private static List<Boeking> webwinkelaankopen(DemoKlanten.DemoKlant klant) {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.IDEAL_WERO).toList();
+    }
+
+    private static List<Boeking> vakantiegeld(DemoKlanten.DemoKlant klant) {
+        return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.VERZAMELBETALING).toList();
     }
 
     private static List<Boeking> geldopnames(DemoKlanten.DemoKlant klant) {
@@ -731,5 +737,56 @@ class GeneratorTests {
 
         assertThat(betalingen).extracting(Generator.BetalingTussenKlanten::van).containsOnly("rijk");
         assertThat(betalingen).extracting(Generator.BetalingTussenKlanten::naar).containsOnly("zonder");
+    }
+
+    @Test
+    void eenWerknemerKrijgtElkeMeiVakantiegeldOpDe24e() {
+        var verwacht = IntStream.rangeClosed(2022, 2026)
+                .mapToObj(jaar -> new Boeking(LocalDateTime.of(jaar, 5, 24, 7, 0), Bedrag.van("2852.00"), "Techniek Noord B.V.",
+                        TransactieType.VERZAMELBETALING, Optional.empty()))
+                .toList();
+
+        assertThat(vakantiegeld(klant("jdevries"))).isEqualTo(verwacht);
+    }
+
+    @Test
+    void hetVakantiegeldIs92ProcentVanHetInkomen() {
+        var bedragen = DemoKlanten.ALLE.stream()
+                .filter(DemoKlanten.DemoKlant::werknemer)
+                .collect(Collectors.toMap(DemoKlanten.DemoKlant::gebruikersnaam, klant -> vakantiegeld(klant).getFirst().bedrag()));
+
+        assertThat(bedragen).isEqualTo(Map.of(
+                "jdevries", Bedrag.van("2852.00"),
+                "sbakker", Bedrag.van("4416.00"),
+                "melamrani", Bedrag.van("3864.00"),
+                "ljansen", Bedrag.van("2162.00"),
+                "fyilmaz", Bedrag.van("4784.00"),
+                "edeboer", Bedrag.van("3588.00"),
+                "nhendriks", Bedrag.van("5520.00")));
+    }
+
+    @Test
+    void hetVakantiegeldVanEenKromInkomenWordtAfgerondOpCenten() {
+        var werknemer = new DemoKlanten.DemoKlant("krom", "Krom", Bedrag.van("0.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.01")), Optional.empty(), List.of(), Optional.empty(), true);
+
+        assertThat(vakantiegeld(werknemer).getFirst().bedrag()).isEqualTo(Bedrag.van("92.01"));
+    }
+
+    @Test
+    void wieGeenWerknemerIsKrijgtGeenVakantiegeld() {
+        assertThat(List.of("pvisser", "dsmit", "rmulder")).allSatisfy(gebruikersnaam ->
+                assertThat(vakantiegeld(klant(gebruikersnaam))).as(gebruikersnaam).isEmpty());
+    }
+
+    @Test
+    void eenAankoopKanHetVakantiegeldPasNaOntvangstUitgeven() {
+        // Het salaris en de last heffen elkaar op, dus het enige geld is het vakantiegeld van 24 mei 2022.
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("0.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van("100.00"))), Optional.empty(), true);
+
+        assertThat(boodschappen(krap)).isNotEmpty();
+        assertThat(boodschappen(krap)).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(LocalDate.of(2022, 5, 24)));
     }
 }
