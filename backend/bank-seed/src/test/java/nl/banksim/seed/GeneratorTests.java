@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.List;
@@ -294,6 +295,10 @@ class GeneratorTests {
                 .isEmpty();
     }
 
+    private static List<Generator.Inleg> vasteInleggen(DemoKlanten.DemoKlant klant) {
+        return Generator.inleggen(klant).stream().filter(inleg -> inleg.tijdstip().getDayOfMonth() == 25).toList();
+    }
+
     /** Origineel: elke maand op de 25e, tussen 9:00 en 11:00, een vast bedrag per klant. */
     @Test
     void elkeKlantLegtElkeMaandZijnVasteBedragIn() {
@@ -302,11 +307,10 @@ class GeneratorTests {
                 "rmulder", "150.00", "nhendriks", "800.00");
 
         for (DemoKlanten.DemoKlant klant : DemoKlanten.ALLE) {
-            List<Generator.Inleg> inleggen = Generator.inleggen(klant);
+            List<Generator.Inleg> inleggen = vasteInleggen(klant);
 
             assertThat(inleggen).as(klant.gebruikersnaam()).hasSize(MAANDEN).allSatisfy(inleg -> {
                 assertThat(inleg.bedrag()).isEqualTo(Bedrag.van(bedragen.get(klant.gebruikersnaam())));
-                assertThat(inleg.tijdstip().getDayOfMonth()).isEqualTo(25);
                 assertThat(inleg.tijdstip().toLocalTime()).isBetween(LocalTime.of(9, 0), LocalTime.of(11, 0));
             });
             assertThat(YearMonth.from(inleggen.getFirst().tijdstip())).isEqualTo(YearMonth.of(2021, 10));
@@ -490,7 +494,7 @@ class GeneratorTests {
     /** De bedragen uit het scenario, met een los rekenscript nagerekend: rente telt mee in de maanden erna. */
     @Test
     void hetSpaarsaldoInclusiefRente() {
-        for (var verwacht : Map.of("jdevries", "34879.82", "ljansen", "12099.71", "melamrani", "21844.08").entrySet()) {
+        for (var verwacht : Map.of("jdevries", "41588.06", "ljansen", "17185.01", "melamrani", "30932.70").entrySet()) {
             var klant = klant(verwacht.getKey());
             BigDecimal saldo = klant.beginsaldoSpaar().waarde();
             for (Generator.Inleg inleg : Generator.inleggen(klant)) {
@@ -808,6 +812,96 @@ class GeneratorTests {
 
         assertThat(boodschappen(krap)).isNotEmpty();
         assertThat(boodschappen(krap)).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(LocalDate.of(2022, 5, 24)));
+    }
+
+    private static List<Generator.Inleg> extraInleggen(DemoKlanten.DemoKlant klant) {
+        return Generator.inleggen(klant).stream().filter(inleg -> inleg.tijdstip().getDayOfMonth() != 25).toList();
+    }
+
+    /** Origineel: na het vakantiegeld, op 27 mei tussen 9:00 en 11:00, 40% van het salaris naar de spaarrekening. */
+    @Test
+    void eenWerknemerLegtElkeMeiOpDe27eExtraIn() {
+        assertThat(extraInleggen(klant("jdevries"))).hasSize(5).allSatisfy(inleg -> {
+            assertThat(inleg.bedrag()).isEqualTo(Bedrag.van("1240.00"));
+            assertThat(inleg.tijdstip().getMonth()).isEqualTo(Month.MAY);
+            assertThat(inleg.tijdstip().getDayOfMonth()).isEqualTo(27);
+            assertThat(inleg.tijdstip().toLocalTime()).isBetween(LocalTime.of(9, 0), LocalTime.of(11, 0));
+        });
+        assertThat(extraInleggen(klant("jdevries"))).extracting(inleg -> inleg.tijdstip().getYear()).containsExactly(2022, 2023, 2024, 2025, 2026);
+    }
+
+    @Test
+    void deExtraInlegIs40ProcentVanHetSalaris() {
+        var bedragen = DemoKlanten.ALLE.stream()
+                .filter(klant -> klant.soort() == DemoKlanten.Soort.WERKNEMER)
+                .collect(Collectors.toMap(DemoKlanten.DemoKlant::gebruikersnaam, klant -> extraInleggen(klant).getFirst().bedrag()));
+
+        assertThat(bedragen).isEqualTo(Map.of(
+                "jdevries", Bedrag.van("1240.00"),
+                "sbakker", Bedrag.van("1920.00"),
+                "melamrani", Bedrag.van("1680.00"),
+                "ljansen", Bedrag.van("940.00"),
+                "fyilmaz", Bedrag.van("2080.00"),
+                "edeboer", Bedrag.van("1560.00"),
+                "nhendriks", Bedrag.van("2400.00")));
+    }
+
+    @Test
+    void deExtraInlegVanEenKromSalarisWordtAfgerondOpCenten() {
+        var werknemer = new DemoKlanten.DemoKlant("krom", "Krom", Bedrag.van("0.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.04")), Optional.empty(), List.of(), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
+
+        assertThat(extraInleggen(werknemer).getFirst().bedrag()).isEqualTo(Bedrag.van("40.02"));
+    }
+
+    @Test
+    void wieGeenWerknemerIsLegtNietExtraIn() {
+        assertThat(List.of("pvisser", "dsmit", "rmulder")).allSatisfy(gebruikersnaam ->
+                assertThat(extraInleggen(klant(gebruikersnaam))).as(gebruikersnaam).isEmpty());
+    }
+
+    /** ADR 0041: de vaste seed bepaalt het tijdstip, dus elke installatie geeft Jan hetzelfde. */
+    @Test
+    void deEersteExtraInlegVanJanLigtVastDoorDeSeed() {
+        assertThat(extraInleggen(klant("jdevries")).getFirst().tijdstip()).isEqualTo(LocalDateTime.of(2022, 5, 27, 9, 15));
+    }
+
+    /** Met genoeg geld vanaf het begin past ook een inleg vóór oktober 2021, maar de data begint pas in mei 2022. */
+    @Test
+    void deEersteExtraInlegIsInMei2022() {
+        var rijk = new DemoKlanten.DemoKlant("rijk", "Rijk", Bedrag.van("100000.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(), List.of(), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
+
+        assertThat(extraInleggen(rijk)).extracting(inleg -> inleg.tijdstip().getYear()).containsExactly(2022, 2023, 2024, 2025, 2026);
+    }
+
+    /**
+     * Op 1 oktober 2021 komt er € 10.100,00 van de spaarrekening voor de last van € 10.000,00. Zonder die opname zou de rekening
+     * na het vakantiegeld van € 9.200,00 en de teruggave van hooguit € 1.200,00 geen ruimte hebben voor € 4.000,00.
+     */
+    @Test
+    void deOpnamesTellenMeeVoorDeExtraInleg() {
+        var klant = new DemoKlanten.DemoKlant("aangevuld", "Aangevuld", Bedrag.van("0.00"), Bedrag.van("20000.00"),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("10000.00")), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("10000.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
+
+        assertThat(Generator.opnames(klant)).containsExactly(opname(10, 1, "10100.00"));
+        assertThat(extraInleggen(klant)).extracting(inleg -> inleg.tijdstip().getYear()).contains(2022);
+    }
+
+    /**
+     * Elke maand € 700,00 tekort, en een vakantiegeld van € 9.200,00: na een jaar is er hooguit € 800,00 plus de belastingteruggave
+     * over, minder dan de extra inleg van € 4.000,00. De inleg vervalt dan, net als een aankoop, en vraagt geen opname.
+     */
+    @Test
+    void eenExtraInlegDieRoodZouMakenVervaltZonderOpname() {
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("15600.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("10000.00")), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("10700.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
+
+        assertThat(extraInleggen(krap)).extracting(inleg -> inleg.tijdstip().getYear()).doesNotContain(2022);
+        assertThat(Generator.opnames(krap)).isEmpty();
+        assertThat(Generator.boekingen(krap)).isNotEmpty();
     }
 
     /** Origineel: één keer per jaar in april, mei of juni, op dag 1 t/m 28, tussen 1:00 en 6:00, € 80–1.200, als overschrijving. */

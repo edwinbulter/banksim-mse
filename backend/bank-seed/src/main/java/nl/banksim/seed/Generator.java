@@ -26,7 +26,7 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, in mei met het vakantiegeld van een werknemer, de belastingteruggave in het voorjaar, de inleg op de 25e en de gemeentelijke belastingen op de 28e, van maart t/m december. Daarna de boodschappen, de
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, in mei met het vakantiegeld van een werknemer, de belastingteruggave in het voorjaar, de inleg op de 25e, in mei met de extra inleg van een werknemer op de 27e, en de gemeentelijke belastingen op de 28e, van maart t/m december. Daarna de boodschappen, de
  * webwinkels en de geldopnames, met een vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een aankoop vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
@@ -54,6 +54,8 @@ final class Generator {
     private static final List<Aankopen> AANKOPEN = List.of(BOODSCHAPPEN, WEBWINKELS, GELDOPNAMES);
     private static final long SEED_BETALINGEN = 46;
     private static final long SEED_TERUGGAVE = 47;
+    private static final long SEED_EXTRA_INLEG = 48;
+    private static final BigDecimal EXTRA_INLEG_DEEL = new BigDecimal("0.40");
 
     /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
     private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, int stapCenten, List<String> tegenpartijen,
@@ -134,8 +136,37 @@ final class Generator {
         return verloop;
     }
 
-    /** Origineel: elke maand op de 25e, tussen 9:00 en 11:00, dus na het inkomen. */
+    /** De vaste inleg van elke maand, en de extra inleg van een werknemer na zijn vakantiegeld. */
     static List<Inleg> inleggen(DemoKlanten.DemoKlant klant) {
+        List<Inleg> inleggen = vasteInleggen(klant);
+        if (klant.soort() == DemoKlanten.Soort.WERKNEMER) {
+            inleggen.addAll(extraInleggen(klant));
+        }
+        return inleggen;
+    }
+
+    /**
+     * Origineel: elke mei op de 27e, tussen 9:00 en 11:00, 40% van het salaris. Zou hij de rekening rood maken, dan vervalt hij,
+     * net als een aankoop (FO). Hij vraagt dus nooit een opname: de opnames gaan alleen over de vaste boekingen en de vaste inleg.
+     */
+    private static List<Inleg> extraInleggen(DemoKlanten.DemoKlant klant) {
+        List<Inleg> inleggen = new ArrayList<>();
+        List<Boeking> verloop = metInleggen(klant, vasteInleggen(klant));
+        opnames(klant).forEach(opname -> verloop.add(alsBoeking(klant, opname)));
+        Random toeval = new Random(SEED_EXTRA_INLEG + klant.gebruikersnaam().hashCode());
+        Bedrag bedrag = new Bedrag(klant.inkomen().bedrag().waarde().multiply(EXTRA_INLEG_DEEL).setScale(2, RoundingMode.HALF_UP));
+        for (int jaar = EERSTE_MAAND.getYear() + 1; jaar <= LAATSTE_MAAND.getYear(); jaar++) {
+            Inleg inleg = new Inleg(LocalDate.of(jaar, Month.MAY, 27).atTime(LocalTime.of(9, 0).plusMinutes(toeval.nextInt(2 * 60 + 1))), bedrag);
+            if (past(klant, verloop, alsBoeking(klant, inleg))) {
+                verloop.add(alsBoeking(klant, inleg));
+                inleggen.add(inleg);
+            }
+        }
+        return inleggen;
+    }
+
+    /** Origineel: elke maand op de 25e, tussen 9:00 en 11:00, dus na het inkomen. */
+    private static List<Inleg> vasteInleggen(DemoKlanten.DemoKlant klant) {
         List<Inleg> inleggen = new ArrayList<>();
         Random toeval = new Random(SEED_INLEG + klant.gebruikersnaam().hashCode());
         klant.inleg().ifPresent(bedrag -> {
@@ -154,7 +185,7 @@ final class Generator {
         List<Opname> opnames = new ArrayList<>();
         BigDecimal betaal = klant.beginsaldo().waarde();
         BigDecimal spaar = klant.beginsaldoSpaar().waarde();
-        for (Boeking boeking : vasteBoekingenEnInleggen(klant)) {
+        for (Boeking boeking : metInleggen(klant, vasteInleggen(klant))) {
             BigDecimal saldoNa = betaal.add(boeking.bedrag().waarde());
             if (saldoNa.signum() < 0) {
                 BigDecimal opname = rondeOpname(saldoNa.negate());
@@ -177,13 +208,21 @@ final class Generator {
         return tekort.divide(HONDERD, 0, RoundingMode.CEILING).add(BigDecimal.ONE).multiply(HONDERD).setScale(2);
     }
 
-    /** Op tijdsvolgorde. De inleg staat er als afschrijving bij, met de klant zelf als tegenpartij. */
-    private static List<Boeking> vasteBoekingenEnInleggen(DemoKlanten.DemoKlant klant) {
+    /** De vaste boekingen en de inleggen, op tijdsvolgorde. */
+    private static List<Boeking> metInleggen(DemoKlanten.DemoKlant klant, List<Inleg> inleggen) {
         List<Boeking> boekingen = vasteBoekingen(klant);
-        inleggen(klant).forEach(inleg -> boekingen.add(new Boeking(inleg.tijdstip(), new Bedrag(inleg.bedrag().waarde().negate()),
-                klant.naam(), TransactieType.OVERSCHRIJVING, Optional.empty())));
+        inleggen.forEach(inleg -> boekingen.add(alsBoeking(klant, inleg)));
         boekingen.sort(Comparator.comparing(Boeking::tijdstip));
         return boekingen;
+    }
+
+    /** De inleg staat op de betaalrekening als afschrijving, met de klant zelf als tegenpartij. */
+    private static Boeking alsBoeking(DemoKlanten.DemoKlant klant, Inleg inleg) {
+        return new Boeking(inleg.tijdstip(), new Bedrag(inleg.bedrag().waarde().negate()), klant.naam(), TransactieType.OVERSCHRIJVING, Optional.empty());
+    }
+
+    private static Boeking alsBoeking(DemoKlanten.DemoKlant klant, Opname opname) {
+        return new Boeking(opname.tijdstip(), opname.bedrag(), klant.naam(), TransactieType.OVERSCHRIJVING, Optional.empty());
     }
 
     /** De eenzijdige boekingen. De inleg en de opname staan er niet bij, maar tellen wel mee voor nooit rood (ADR 0042). */
@@ -197,9 +236,8 @@ final class Generator {
 
     /** De vaste boekingen, de inleg en de opnames; een profiel dat hiermee rood zou gaan, laat de K8s Job falen. */
     private static List<Boeking> gecontroleerdVerloop(DemoKlanten.DemoKlant klant) {
-        List<Boeking> verloop = vasteBoekingenEnInleggen(klant);
-        opnames(klant).forEach(opname -> verloop.add(new Boeking(opname.tijdstip(), opname.bedrag(), klant.naam(),
-                TransactieType.OVERSCHRIJVING, Optional.empty())));
+        List<Boeking> verloop = metInleggen(klant, inleggen(klant));
+        opnames(klant).forEach(opname -> verloop.add(alsBoeking(klant, opname)));
         controleerNooitRood(klant, verloop);
         return verloop;
     }

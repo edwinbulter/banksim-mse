@@ -81,7 +81,7 @@ class DemoDataTests {
                 "betaal jdevries Jan de Vries " + Iban.simBank(1L) + " 1800.00",
                 "spaar jdevries 6500.00 true",
                 "boekingen " + Iban.simBank(1L) + " " + Generator.boekingen(DemoKlanten.ALLE.getFirst()).size(),
-                "overboekingen " + Iban.simBank(1L) + " " + Iban.simBank(99L) + " 126",
+                "overboekingen " + Iban.simBank(1L) + " " + Iban.simBank(99L) + " 131",
                 "rentemaanden " + Iban.simBank(99L) + " 63",
                 "login jdevries klant-ww");
         assertThat(gedaan).contains("betaal melamrani Mohamed El Amrani " + Iban.simBank(3L) + " 1500.00",

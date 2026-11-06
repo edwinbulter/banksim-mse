@@ -349,15 +349,30 @@ export class Omgeving extends Stappen {
     await this.verwachtTermijnGemeentelijkeBelastingen(anderen, bedrag);
   }
 
-  /** S11.1: per klant en per maand precies één inleg op de spaarrekening. */
+  /** S11.1: per klant en per maand precies één inleg op de spaarrekening op de 25e; de extra inleg in mei valt op de 27e. */
   async verwachtInlegPerMaand(van: string, tm: string): Promise<void> {
     for (const { gebruikersnaam } of DEMO_KLANTEN) {
       const mutaties = await this.spaarmutatiesVan(gebruikersnaam);
       const fout = maanden(van, tm)
-        .map((maand) => ({ maand, aantal: mutaties.filter((m) => m.type === 'Inleg' && m.datum.startsWith(maand)).length }))
+        .map((maand) => ({ maand, aantal: mutaties.filter((m) => m.type === 'Inleg' && m.datum === `${maand}-25`).length }))
         .filter(({ aantal }) => aantal !== 1)
         .map(({ maand, aantal }) => `${maand}: ${aantal}`);
-      expect(fout, `maanden zonder precies één inleg bij ${gebruikersnaam}`).toEqual([]);
+      expect(fout, `maanden zonder precies één inleg op de 25e bij ${gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  /** S11.1: naast de vaste inleg op de 25e alleen de extra inleg op 27 mei van elk jaar, met het bedrag in domeinnotatie. */
+  async verwachtExtraInlegInMei(werknemers: { naam: string; bedrag: string }[], jaren: number[]): Promise<void> {
+    for (const { naam, bedrag } of werknemers) {
+      const extra = inleggenBuitenDe25e(await this.spaarmutatiesVan(gebruikersnaamVan(naam)));
+      expect(extra, `inleggen van ${naam} buiten de 25e`).toEqual(jaren.map((jaar) => ({ datum: `${jaar}-05-27`, bedrag })));
+    }
+  }
+
+  async verwachtAlleenInlegOpDe25e(namen: string[]): Promise<void> {
+    for (const naam of namen) {
+      const extra = inleggenBuitenDe25e(await this.spaarmutatiesVan(gebruikersnaamVan(naam)));
+      expect(extra, `inleggen van ${naam} buiten de 25e`).toEqual([]);
     }
   }
 
@@ -546,11 +561,19 @@ function gebruikersnaamVan(naam: string): string {
   return klant.gebruikersnaam;
 }
 
-/** De bedragen van de betalingen aan een tegenpartij in een maand, zoals "2026-12". */
+/** Op datum oplopend, zodat de volgorde van het scherm er niet toe doet. */
+function inleggenBuitenDe25e(mutaties: Spaarmutatie[]): { datum: string; bedrag: string }[] {
+  return mutaties
+    .filter((mutatie) => mutatie.type === 'Inleg' && !mutatie.datum.endsWith('-25'))
+    .map(({ datum, bedrag }) => ({ datum, bedrag }))
+    .sort((a, b) => a.datum.localeCompare(b.datum));
+}
+
 function isJanuariOfFebruari(maand: string): boolean {
   return maand.endsWith('-01') || maand.endsWith('-02');
 }
 
+/** De bedragen van de betalingen aan een tegenpartij in een maand, zoals "2026-12". */
 function betalingenAan(transacties: TransactiesOpDatum[], maand: string, tegenpartij: string): string[] {
   return transacties
     .filter(({ datum }) => datum.startsWith(maand))
