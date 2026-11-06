@@ -18,13 +18,22 @@ export type Momentopname = Record<string, string>;
 /** Per demo-klant: zijn rekeningen met saldo en de transacties van zijn betaalrekening. */
 export type DemoDataStand = Record<string, BetaalrekeningVanKlant>;
 
-/** Een demo-klant met een werkgever, en de bedragen die hij van die werkgever hoort te krijgen. */
+/** Een demo-klant met een werkgever, en zijn maandsalaris van 2021. */
 export interface Werknemer {
   naam: string;
   werkgever: string;
   salaris: string;
-  vakantiegeld: string;
 }
+
+/** Een demo-klant, van wie hij zijn inkomen krijgt, en het bedrag van 2021. */
+export interface Inkomen {
+  naam: string;
+  van: string;
+  bedrag: string;
+}
+
+/** Per jaar de factor ten opzichte van 2021, zoals "1.04". */
+export type Loonstijging = Record<number, string>;
 
 interface BetaalrekeningVanKlant {
   rekeningen: RekeningInOverzicht[];
@@ -259,25 +268,32 @@ export class Omgeving extends Stappen {
     expect(betaald, `vaste lasten van ${naam} in ${maand}`).toEqual(verwacht);
   }
 
-  /** S11.1: in mei van elk jaar komen van de werkgever precies twee bedragen binnen: het salaris en het vakantiegeld. */
-  async verwachtVakantiegeldInMei(werknemers: Werknemer[], jaren: number[]): Promise<void> {
-    for (const { naam, werkgever, salaris, vakantiegeld } of werknemers) {
+  /** S11.1: in mei van elk jaar komen van de werkgever precies twee bedragen binnen: het salaris van dat jaar en 92% daarvan. */
+  async verwachtVakantiegeldInMei(werknemers: Werknemer[], loonstijging: Loonstijging, jaren: number[]): Promise<void> {
+    for (const { naam, werkgever, salaris } of werknemers) {
       const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
       for (const jaar of jaren) {
+        const salarisVanDatJaar = maal(salaris, loonstijging[jaar]);
         const ontvangen = betalingenAan(transacties, `${jaar}-05`, werkgever).sort();
-        expect(ontvangen, `van ${werkgever} aan ${naam} in mei ${jaar}`).toEqual([salaris, vakantiegeld].sort());
+        expect(ontvangen, `van ${werkgever} aan ${naam} in mei ${jaar}`).toEqual([salarisVanDatJaar, maal(salarisVanDatJaar, '0.92')].sort());
       }
     }
   }
 
-  /** S11.1: buiten mei komt van de werkgever elke maand precies één bedrag binnen: het salaris. */
-  async verwachtAlleenSalarisBuitenMei(werknemers: Werknemer[], van: string, tm: string): Promise<void> {
+  /** S11.1: de bedragen in domeinnotatie die de klant in die maand van die tegenpartij kreeg, in willekeurige volgorde. */
+  async verwachtBetalingenVan(naam: string, van: string, maand: string, bedragen: string[]): Promise<void> {
+    const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+    expect(betalingenAan(transacties, maand, van).sort(), `van ${van} aan ${naam} in ${maand}`).toEqual([...bedragen].sort());
+  }
+
+  /** S11.1: buiten mei komt van de werkgever elke maand precies één bedrag binnen: het salaris van dat jaar. */
+  async verwachtAlleenSalarisBuitenMei(werknemers: Werknemer[], loonstijging: Loonstijging, van: string, tm: string): Promise<void> {
     for (const { naam, werkgever, salaris } of werknemers) {
       const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
       const fout = maanden(van, tm)
         .filter((maand) => !maand.endsWith('-05'))
         .map((maand) => ({ maand, ontvangen: betalingenAan(transacties, maand, werkgever) }))
-        .filter(({ ontvangen }) => ontvangen.length !== 1 || ontvangen[0] !== salaris)
+        .filter(({ maand, ontvangen }) => ontvangen.length !== 1 || ontvangen[0] !== maal(salaris, loonstijging[jaarVan(maand)]))
         .map(({ maand, ontvangen }) => `${maand}: ${ontvangen.join(', ')}`);
       expect(fout, `maanden waarin ${naam} iets anders krijgt dan het salaris van ${werkgever}`).toEqual([]);
     }
@@ -361,12 +377,37 @@ export class Omgeving extends Stappen {
     }
   }
 
-  /** S11.1: naast de vaste inleg op de 25e alleen de extra inleg op 27 mei van elk jaar, met het bedrag in domeinnotatie. */
-  async verwachtExtraInlegInMei(werknemers: { naam: string; bedrag: string }[], jaren: number[]): Promise<void> {
-    for (const { naam, bedrag } of werknemers) {
+  /** S11.1: naast de vaste inleg op de 25e alleen de extra inleg op 27 mei van elk jaar: 40% van het salaris van dat jaar. */
+  async verwachtExtraInlegInMei(werknemers: Werknemer[], loonstijging: Loonstijging, jaren: number[]): Promise<void> {
+    for (const { naam, salaris } of werknemers) {
       const extra = inleggenBuitenDe25e(await this.spaarmutatiesVan(gebruikersnaamVan(naam)));
-      expect(extra, `inleggen van ${naam} buiten de 25e`).toEqual(jaren.map((jaar) => ({ datum: `${jaar}-05-27`, bedrag })));
+      const verwacht = jaren.map((jaar) => ({ datum: `${jaar}-05-27`, bedrag: maal(maal(salaris, loonstijging[jaar]), '0.40') }));
+      expect(extra, `inleggen van ${naam} buiten de 25e`).toEqual(verwacht);
     }
+  }
+
+  /** S11.1: deze inleggen buiten de 25e staan op de spaarrekening, met datum en bedrag in domeinnotatie. */
+  async verwachtExtraInleg(naam: string, verwacht: { datum: string; bedrag: string }[]): Promise<void> {
+    const extra = inleggenBuitenDe25e(await this.spaarmutatiesVan(gebruikersnaamVan(naam)));
+    expect(extra, `inleggen van ${naam} buiten de 25e`).toEqual(expect.arrayContaining(verwacht));
+  }
+
+  /** S11.1: elke maand komt van de bron precies één keer het inkomen van 2021 maal de loonstijging van dat jaar binnen. */
+  async verwachtInkomenMetLoonstijging(inkomens: Inkomen[], loonstijging: Loonstijging, van: string, tm: string): Promise<void> {
+    for (const { naam, van: bron, bedrag } of inkomens) {
+      const perJaar = Object.fromEntries(Object.entries(loonstijging).map(([jaar, factor]) => [jaar, maal(bedrag, factor)]));
+      await this.verwachtInkomenPerJaar(naam, bron, perJaar, van, tm);
+    }
+  }
+
+  /** S11.1: in elke maand komt van de bron precies één keer het bedrag van dat jaar binnen, in domeinnotatie. */
+  async verwachtInkomenPerJaar(naam: string, bron: string, perJaar: Record<number, string>, van: string, tm: string): Promise<void> {
+    const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+    const fout = maanden(van, tm)
+      .map((maand) => ({ maand, ontvangen: betalingenAan(transacties, maand, bron) }))
+      .filter(({ maand, ontvangen }) => ontvangen.filter((bedrag) => bedrag === perJaar[jaarVan(maand)]).length !== 1)
+      .map(({ maand, ontvangen }) => `${maand}: ${ontvangen.join(', ')}`);
+    expect(fout, `maanden waarin ${naam} niet precies één keer zijn inkomen van ${bron} krijgt`).toEqual([]);
   }
 
   async verwachtAlleenInlegOpDe25e(namen: string[]): Promise<void> {
@@ -586,13 +627,24 @@ function betaalrekening(rekeningen: RekeningInOverzicht[], gebruikersnaam: strin
   return betaal;
 }
 
-/** Een bedrag in domeinnotatie ("-950.00") in centen; geen drijvende komma (ADR 0010). */
 function absoluut(centenBedrag: bigint): bigint {
   return centenBedrag < 0n ? -centenBedrag : centenBedrag;
 }
 
+/** Een bedrag in domeinnotatie ("-950.00") in centen; geen drijvende komma (ADR 0010). */
 function centen(bedrag: string): bigint {
   return BigInt(bedrag.replace('.', ''));
+}
+
+/** Een positief bedrag maal een factor met twee decimalen ("1.04"), afgerond op centen, de helft naar boven. */
+function maal(bedrag: string, factor: string): string {
+  const uitkomst = (centen(bedrag) * centen(factor) + 50n) / 100n;
+  return `${uitkomst / 100n}.${String(uitkomst % 100n).padStart(2, '0')}`;
+}
+
+/** Het jaar van een maand zoals "2021-10". */
+function jaarVan(maand: string): number {
+  return Number(maand.slice(0, 4));
 }
 
 /** De laatste dag van een maand: "2021-10" wordt "2021-10-31". */

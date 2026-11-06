@@ -26,7 +26,7 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, in mei met het vakantiegeld van een werknemer, de belastingteruggave in het voorjaar, de inleg op de 25e, in mei met de extra inleg van een werknemer op de 27e, en de gemeentelijke belastingen op de 28e, van maart t/m december. Daarna de boodschappen, de
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, dat elk jaar meestijgt met de lonen, in mei met het vakantiegeld van een werknemer, de belastingteruggave in het voorjaar, de inleg op de 25e, in mei met de extra inleg van een werknemer op de 27e, en de gemeentelijke belastingen op de 28e, van maart t/m december. Daarna de boodschappen, de
  * webwinkels en de geldopnames, met een vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een aankoop vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
@@ -56,6 +56,9 @@ final class Generator {
     private static final long SEED_TERUGGAVE = 47;
     private static final long SEED_EXTRA_INLEG = 48;
     private static final BigDecimal EXTRA_INLEG_DEEL = new BigDecimal("0.40");
+    /** Origineel: de lonen en uitkeringen per jaar ten opzichte van 2021. */
+    private static final Map<Integer, BigDecimal> LOONSTIJGING = Map.of(2021, new BigDecimal("1.00"), 2022, new BigDecimal("1.04"),
+            2023, new BigDecimal("1.12"), 2024, new BigDecimal("1.18"), 2025, new BigDecimal("1.22"), 2026, new BigDecimal("1.26"));
 
     /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
     private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, int stapCenten, List<String> tegenpartijen,
@@ -154,8 +157,8 @@ final class Generator {
         List<Boeking> verloop = metInleggen(klant, vasteInleggen(klant));
         opnames(klant).forEach(opname -> verloop.add(alsBoeking(klant, opname)));
         Random toeval = new Random(SEED_EXTRA_INLEG + klant.gebruikersnaam().hashCode());
-        Bedrag bedrag = new Bedrag(klant.inkomen().bedrag().waarde().multiply(EXTRA_INLEG_DEEL).setScale(2, RoundingMode.HALF_UP));
         for (int jaar = EERSTE_MAAND.getYear() + 1; jaar <= LAATSTE_MAAND.getYear(); jaar++) {
+            Bedrag bedrag = deelVan(inkomen(klant, jaar), EXTRA_INLEG_DEEL);
             Inleg inleg = new Inleg(LocalDate.of(jaar, Month.MAY, 27).atTime(LocalTime.of(9, 0).plusMinutes(toeval.nextInt(2 * 60 + 1))), bedrag);
             if (past(klant, verloop, alsBoeking(klant, inleg))) {
                 verloop.add(alsBoeking(klant, inleg));
@@ -249,10 +252,10 @@ final class Generator {
             klant.woonlasten().ifPresent(woonlasten -> boekingen.add(new Boeking(deze.atDay(1).atTime(LocalTime.of(6, 0)),
                     new Bedrag(woonlasten.bedrag().waarde().negate()), woonlasten.tegenpartij(), TransactieType.INCASSO,
                     Optional.empty())));
-            boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), klant.inkomen().bedrag(),
+            boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), inkomen(klant, maand.getYear()),
                     klant.inkomen().tegenpartij(), TransactieType.OVERSCHRIJVING, Optional.empty()));
             if (klant.soort() == DemoKlanten.Soort.WERKNEMER && maand.getMonth() == Month.MAY) {
-                boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), vakantiegeld(klant),
+                boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), deelVan(inkomen(klant, maand.getYear()), VAKANTIEGELD_DEEL),
                         klant.inkomen().tegenpartij(), TransactieType.VERZAMELBETALING, Optional.empty()));
             }
             if (maand.getMonth().compareTo(Month.MARCH) >= 0) {
@@ -283,9 +286,14 @@ final class Generator {
         return teruggaven;
     }
 
-    /** Origineel: 92% van het inkomen. */
-    private static Bedrag vakantiegeld(DemoKlanten.DemoKlant klant) {
-        return new Bedrag(klant.inkomen().bedrag().waarde().multiply(VAKANTIEGELD_DEEL).setScale(2, RoundingMode.HALF_UP));
+    /** Origineel: het inkomen van 2021 maal de loonstijging van het jaar. */
+    private static Bedrag inkomen(DemoKlanten.DemoKlant klant, int jaar) {
+        return deelVan(klant.inkomen().bedrag(), LOONSTIJGING.get(jaar));
+    }
+
+    /** Afgerond op centen, de helft naar boven: het vakantiegeld is 92% van het inkomen, de extra inleg 40%. */
+    private static Bedrag deelVan(Bedrag bedrag, BigDecimal factor) {
+        return new Bedrag(bedrag.waarde().multiply(factor).setScale(2, RoundingMode.HALF_UP));
     }
 
     /** Vaste seed per klant: dezelfde klant krijgt altijd dezelfde aankopen. Een aankoop die de rekening rood zou maken, vervalt (FO). */

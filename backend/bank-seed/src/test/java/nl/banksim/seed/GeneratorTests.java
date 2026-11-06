@@ -66,10 +66,14 @@ class GeneratorTests {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.tegenpartij().equals("Belastingdienst")).toList();
     }
 
-    private static DemoKlanten.DemoKlant gepensioneerde(String gebruikersnaam, String inkomenEnLast) {
-        return new DemoKlanten.DemoKlant(gebruikersnaam, gebruikersnaam, Bedrag.van("0.00"), GEEN_SPAARGELD,
-                new DemoKlanten.VasteBoeking("Pensioenfonds", Bedrag.van(inkomenEnLast)), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van(inkomenEnLast))), Optional.empty(), DemoKlanten.Soort.GEPENSIONEERD, Optional.empty());
+    /**
+     * Zonder eigen ruimte om uit te geven: in 2021 is de last van € 104,00 op de 24e € 4,00 hoger dan het inkomen, wat het beginsaldo van
+     * € 12,00 in drie maanden opmaakt. In 2022 is het inkomen met de loonstijging precies € 104,00 (ADR 0041, FO).
+     */
+    private static DemoKlanten.DemoKlant krap(String gebruikersnaam, DemoKlanten.Soort soort) {
+        return new DemoKlanten.DemoKlant(gebruikersnaam, gebruikersnaam, Bedrag.van("12.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(),
+                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van("104.00"))), Optional.empty(), soort, Optional.empty());
     }
 
     private static List<Boeking> geldopnames(DemoKlanten.DemoKlant klant) {
@@ -98,7 +102,32 @@ class GeneratorTests {
                 inkomen(LocalDateTime.of(2021, 10, 24, 7, 0), "3100.00", "Techniek Noord B.V."));
         assertThat(boekingen.subList(boekingen.size() - 2, boekingen.size())).containsExactly(
                 woonlasten(LocalDateTime.of(2026, 12, 1, 6, 0), "-950.00", "Woonstichting Thuis"),
-                inkomen(LocalDateTime.of(2026, 12, 24, 7, 0), "3100.00", "Techniek Noord B.V."));
+                inkomen(LocalDateTime.of(2026, 12, 24, 7, 0), "3906.00", "Techniek Noord B.V."));
+    }
+
+    /** Origineel: de lonen en uitkeringen per jaar ten opzichte van 2021, dus 1,00 · 1,04 · 1,12 · 1,18 · 1,22 · 1,26. */
+    @Test
+    void hetInkomenStijgtElkJaarMetDeLonen() {
+        Map<Integer, Bedrag> jan = vasteBoekingen(klant("jdevries")).stream()
+                .filter(boeking -> boeking.tegenpartij().equals("Techniek Noord B.V."))
+                .collect(Collectors.toMap(boeking -> boeking.tijdstip().getYear(), Boeking::bedrag, (eerste, tweede) -> {
+                    assertThat(tweede).isEqualTo(eerste);
+                    return eerste;
+                }));
+
+        assertThat(jan).isEqualTo(Map.of(2021, Bedrag.van("3100.00"), 2022, Bedrag.van("3224.00"), 2023, Bedrag.van("3472.00"),
+                2024, Bedrag.van("3658.00"), 2025, Bedrag.van("3782.00"), 2026, Bedrag.van("3906.00")));
+        assertThat(vasteBoekingen(klant("pvisser")).getLast().bedrag()).isEqualTo(Bedrag.van("3087.00"));
+    }
+
+    /** € 100,13 × 1,04 = € 104,1352: afgerond op centen, de helft naar boven, net als het vakantiegeld. */
+    @Test
+    void eenKromInkomenMetLoonstijgingWordtAfgerondOpCenten() {
+        var krom = new DemoKlanten.DemoKlant("krom", "Krom", Bedrag.van("0.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.13")), Optional.empty(), List.of(), Optional.empty());
+
+        assertThat(vasteBoekingen(krom)).filteredOn(boeking -> boeking.tijdstip().getYear() == 2022)
+                .extracting(Boeking::bedrag).containsOnly(Bedrag.van("104.14"));
     }
 
     @Test
@@ -350,10 +379,10 @@ class GeneratorTests {
         assertThatThrownBy(() -> Generator.boekingen(spaarder("100.01"))).isInstanceOf(IllegalStateException.class);
     }
 
-    /** Het salaris van de 24e gaat de 25e helemaal naar de spaarrekening, dus er is niets over voor boodschappen. */
+    /** In 2021 gaat het salaris van de 24e de 25e helemaal naar de spaarrekening, dus er is niets over voor boodschappen. */
     @Test
     void eenBoodschapMagEenLatereInlegNietRoodMaken() {
-        assertThat(boodschappen(spaarder("100.00"))).isEmpty();
+        assertThat(boodschappen(spaarder("100.00"))).filteredOn(boodschap -> boodschap.tijdstip().getYear() == 2021).isEmpty();
     }
 
     @Test
@@ -494,7 +523,7 @@ class GeneratorTests {
     /** De bedragen uit het scenario, met een los rekenscript nagerekend: rente telt mee in de maanden erna. */
     @Test
     void hetSpaarsaldoInclusiefRente() {
-        for (var verwacht : Map.of("jdevries", "41588.06", "ljansen", "17185.01", "melamrani", "30932.70").entrySet()) {
+        for (var verwacht : Map.of("jdevries", "42666.45", "ljansen", "18002.50", "melamrani", "32393.72").entrySet()) {
             var klant = klant(verwacht.getKey());
             BigDecimal saldo = klant.beginsaldoSpaar().waarde();
             for (Generator.Inleg inleg : Generator.inleggen(klant)) {
@@ -592,10 +621,10 @@ class GeneratorTests {
         assertThat(webwinkelaankopen(krap)).isNotEmpty();
     }
 
-    /** Het salaris van de 24e gaat de 25e helemaal naar de spaarrekening, dus er is niets over voor webwinkels. */
+    /** In 2021 gaat het salaris van de 24e de 25e helemaal naar de spaarrekening, dus er is niets over voor webwinkels. */
     @Test
     void eenWebwinkelaankoopMagEenLatereInlegNietRoodMaken() {
-        assertThat(webwinkelaankopen(spaarder("100.00"))).isEmpty();
+        assertThat(webwinkelaankopen(spaarder("100.00"))).filteredOn(aankoop -> aankoop.tijdstip().getYear() == 2021).isEmpty();
     }
 
     /** FO: contant geld 0–2 keer per maand. pvisser heeft geen woonlasten en komt dus nooit in de buurt van een tekort. */
@@ -754,7 +783,8 @@ class GeneratorTests {
     /** ADR 0044: ontvangen geld telt niet mee als ruimte om zelf te betalen, ook als het op tijd binnenkomt. */
     @Test
     void ontvangenGeldTeltNietMeeAlsRuimteOmZelfTeBetalen() {
-        var zonderGeld = metInkomen("zonder", "Zonder", "1.00", "1.00", "1.00");
+        // € 0,01 × 1,26 is afgerond nog steeds € 0,01, dus de loonstijging geeft deze klant geen ruimte.
+        var zonderGeld = metInkomen("zonder", "Zonder", "1.00", "0.01", "0.01");
         var rijk = metInkomen("rijk", "Rijk", "100000.00", "9000.00", "100.00");
 
         List<Generator.BetalingTussenKlanten> betalingen = Generator.betalingenTussenKlanten(List.of(zonderGeld, rijk));
@@ -765,8 +795,9 @@ class GeneratorTests {
 
     @Test
     void eenWerknemerKrijgtElkeMeiVakantiegeldOpDe24e() {
+        var bedragen = Map.of(2022, "2966.08", 2023, "3194.24", 2024, "3365.36", 2025, "3479.44", 2026, "3593.52");
         var verwacht = IntStream.rangeClosed(2022, 2026)
-                .mapToObj(jaar -> new Boeking(LocalDateTime.of(jaar, 5, 24, 7, 0), Bedrag.van("2852.00"), "Techniek Noord B.V.",
+                .mapToObj(jaar -> new Boeking(LocalDateTime.of(jaar, 5, 24, 7, 0), Bedrag.van(bedragen.get(jaar)), "Techniek Noord B.V.",
                         TransactieType.VERZAMELBETALING, Optional.empty()))
                 .toList();
 
@@ -774,19 +805,19 @@ class GeneratorTests {
     }
 
     @Test
-    void hetVakantiegeldIs92ProcentVanHetInkomen() {
+    void hetVakantiegeldIs92ProcentVanHetInkomenVanDatJaar() {
         var bedragen = DemoKlanten.ALLE.stream()
                 .filter(klant -> klant.soort() == DemoKlanten.Soort.WERKNEMER)
                 .collect(Collectors.toMap(DemoKlanten.DemoKlant::gebruikersnaam, klant -> vakantiegeld(klant).getFirst().bedrag()));
 
         assertThat(bedragen).isEqualTo(Map.of(
-                "jdevries", Bedrag.van("2852.00"),
-                "sbakker", Bedrag.van("4416.00"),
-                "melamrani", Bedrag.van("3864.00"),
-                "ljansen", Bedrag.van("2162.00"),
-                "fyilmaz", Bedrag.van("4784.00"),
-                "edeboer", Bedrag.van("3588.00"),
-                "nhendriks", Bedrag.van("5520.00")));
+                "jdevries", Bedrag.van("2966.08"),
+                "sbakker", Bedrag.van("4592.64"),
+                "melamrani", Bedrag.van("4018.56"),
+                "ljansen", Bedrag.van("2248.48"),
+                "fyilmaz", Bedrag.van("4975.36"),
+                "edeboer", Bedrag.van("3731.52"),
+                "nhendriks", Bedrag.van("5740.80")));
     }
 
     @Test
@@ -794,7 +825,8 @@ class GeneratorTests {
         var werknemer = new DemoKlanten.DemoKlant("krom", "Krom", Bedrag.van("0.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.01")), Optional.empty(), List.of(), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
 
-        assertThat(vakantiegeld(werknemer).getFirst().bedrag()).isEqualTo(Bedrag.van("92.01"));
+        // In 2022 is het salaris € 104,01 (€ 100,01 × 1,04), en 92% daarvan is € 95,6892.
+        assertThat(vakantiegeld(werknemer).getFirst().bedrag()).isEqualTo(Bedrag.van("95.69"));
     }
 
     @Test
@@ -805,10 +837,8 @@ class GeneratorTests {
 
     @Test
     void eenAankoopKanHetVakantiegeldPasNaOntvangstUitgeven() {
-        // Het salaris en de last heffen elkaar op, dus het enige geld is het vakantiegeld van 24 mei 2022.
-        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("0.00"), GEEN_SPAARGELD,
-                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van("100.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
+        // Tot en met 2022 is er geen eigen ruimte, dus het enige geld is het vakantiegeld van 24 mei 2022 en de teruggave.
+        var krap = krap("krap", DemoKlanten.Soort.WERKNEMER);
 
         assertThat(boodschappen(krap)).isNotEmpty();
         assertThat(boodschappen(krap)).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(LocalDate.of(2022, 5, 24)));
@@ -821,8 +851,9 @@ class GeneratorTests {
     /** Origineel: na het vakantiegeld, op 27 mei tussen 9:00 en 11:00, 40% van het salaris naar de spaarrekening. */
     @Test
     void eenWerknemerLegtElkeMeiOpDe27eExtraIn() {
+        assertThat(extraInleggen(klant("jdevries"))).extracting(Generator.Inleg::bedrag).containsExactly(Bedrag.van("1289.60"),
+                Bedrag.van("1388.80"), Bedrag.van("1463.20"), Bedrag.van("1512.80"), Bedrag.van("1562.40"));
         assertThat(extraInleggen(klant("jdevries"))).hasSize(5).allSatisfy(inleg -> {
-            assertThat(inleg.bedrag()).isEqualTo(Bedrag.van("1240.00"));
             assertThat(inleg.tijdstip().getMonth()).isEqualTo(Month.MAY);
             assertThat(inleg.tijdstip().getDayOfMonth()).isEqualTo(27);
             assertThat(inleg.tijdstip().toLocalTime()).isBetween(LocalTime.of(9, 0), LocalTime.of(11, 0));
@@ -831,19 +862,19 @@ class GeneratorTests {
     }
 
     @Test
-    void deExtraInlegIs40ProcentVanHetSalaris() {
+    void deExtraInlegIs40ProcentVanHetSalarisVanDatJaar() {
         var bedragen = DemoKlanten.ALLE.stream()
                 .filter(klant -> klant.soort() == DemoKlanten.Soort.WERKNEMER)
                 .collect(Collectors.toMap(DemoKlanten.DemoKlant::gebruikersnaam, klant -> extraInleggen(klant).getFirst().bedrag()));
 
         assertThat(bedragen).isEqualTo(Map.of(
-                "jdevries", Bedrag.van("1240.00"),
-                "sbakker", Bedrag.van("1920.00"),
-                "melamrani", Bedrag.van("1680.00"),
-                "ljansen", Bedrag.van("940.00"),
-                "fyilmaz", Bedrag.van("2080.00"),
-                "edeboer", Bedrag.van("1560.00"),
-                "nhendriks", Bedrag.van("2400.00")));
+                "jdevries", Bedrag.van("1289.60"),
+                "sbakker", Bedrag.van("1996.80"),
+                "melamrani", Bedrag.van("1747.20"),
+                "ljansen", Bedrag.van("977.60"),
+                "fyilmaz", Bedrag.van("2163.20"),
+                "edeboer", Bedrag.van("1622.40"),
+                "nhendriks", Bedrag.van("2496.00")));
     }
 
     @Test
@@ -851,7 +882,8 @@ class GeneratorTests {
         var werknemer = new DemoKlanten.DemoKlant("krom", "Krom", Bedrag.van("0.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.04")), Optional.empty(), List.of(), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
 
-        assertThat(extraInleggen(werknemer).getFirst().bedrag()).isEqualTo(Bedrag.van("40.02"));
+        // In 2022 is het salaris € 104,04 (€ 100,04 × 1,04 = € 104,0416), en 40% daarvan is € 41,616.
+        assertThat(extraInleggen(werknemer).getFirst().bedrag()).isEqualTo(Bedrag.van("41.62"));
     }
 
     @Test
@@ -890,14 +922,15 @@ class GeneratorTests {
     }
 
     /**
-     * Elke maand € 700,00 tekort, en een vakantiegeld van € 9.200,00: na een jaar is er hooguit € 800,00 plus de belastingteruggave
-     * over, minder dan de extra inleg van € 4.000,00. De inleg vervalt dan, net als een aankoop, en vraagt geen opname.
+     * Een last van € 11.400,00 op de 1e, en in 2022 een salaris van € 10.400,00: elke maand € 1.000,00 tekort. Het beginsaldo is op
+     * 1 mei 2022 precies op. Het vakantiegeld van € 9.568,00 dekt de maanden tot november, maar niet ook nog de extra inleg van
+     * € 4.160,00. Die vervalt dan, net als een aankoop, en vraagt geen opname.
      */
     @Test
     void eenExtraInlegDieRoodZouMakenVervaltZonderOpname() {
-        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("15600.00"), GEEN_SPAARGELD,
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("19600.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("10000.00")), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("10700.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
+                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("11400.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
 
         assertThat(extraInleggen(krap)).extracting(inleg -> inleg.tijdstip().getYear()).doesNotContain(2022);
         assertThat(Generator.opnames(krap)).isEmpty();
@@ -929,7 +962,7 @@ class GeneratorTests {
 
     @Test
     void deTeruggavenVarierenOverHetHeleBereik() {
-        var alle = IntStream.range(0, 400).mapToObj(i -> gepensioneerde("klant" + i, "100.00")).flatMap(klant -> teruggaven(klant).stream()).toList();
+        var alle = IntStream.range(0, 400).mapToObj(i -> krap("klant" + i, DemoKlanten.Soort.GEPENSIONEERD)).flatMap(klant -> teruggaven(klant).stream()).toList();
 
         assertThat(alle).extracting(teruggave -> teruggave.tijdstip().getMonthValue()).containsOnly(4, 5, 6);
         assertThat(alle).extracting(teruggave -> teruggave.tijdstip().getDayOfMonth()).contains(1, 28).doesNotContain(29, 30, 31);
@@ -954,8 +987,8 @@ class GeneratorTests {
 
     @Test
     void eenAankoopKanDeTeruggavePasNaOntvangstUitgeven() {
-        // Het pensioen en de last heffen elkaar op, dus het enige geld is de teruggave.
-        var krap = gepensioneerde("krap", "100.00");
+        // Tot en met 2022 is er geen eigen ruimte, dus het enige geld is de teruggave van 2022.
+        var krap = krap("krap", DemoKlanten.Soort.GEPENSIONEERD);
         LocalDate eerste = teruggaven(krap).getFirst().datum();
 
         assertThat(boodschappen(krap)).isNotEmpty();
