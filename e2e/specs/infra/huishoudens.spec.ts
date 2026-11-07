@@ -132,11 +132,11 @@ test('Elke klant legt elke maand een vast bedrag in op zijn spaarrekening', { ta
   await omgeving.dan('heeft elk van de 10 klanten in elk van de 63 maanden precies één inleg op de 25e op zijn spaarrekening', () =>
     omgeving.verwachtInlegPerMaand('2021-10', '2026-12'),
   );
-  await omgeving.en('is van de betaalrekening van Jan in december 2026 € 400,00 naar zijn spaarrekening gegaan', () =>
-    omgeving.verwachtAfschrijvingNaarSpaarrekening('Jan de Vries', '2026-12', '-400.00'),
+  await omgeving.en('is van de betaalrekening van Jan in december 2026 € 504,00 naar zijn spaarrekening gegaan, zijn inleg van 2021 maal de loonstijging van 2026', () =>
+    omgeving.verwachtAfschrijvingNaarSpaarrekening('Jan de Vries', '2026-12', '-504.00'),
   );
-  await omgeving.en('staat er op de spaarrekening van Jan € 42.666,45', () =>
-    omgeving.verwachtSpaarsaldo('Jan de Vries', '42666.45'),
+  await omgeving.en('staat er op de spaarrekening van Jan € 46.825,89', () =>
+    omgeving.verwachtSpaarsaldo('Jan de Vries', '46825.89'),
   );
 });
 
@@ -157,11 +157,11 @@ test('Een klant met een dreigend tekort neemt eerst geld op van zijn spaarrekeni
   await omgeving.en('heeft geen van de andere 8 klanten een opname', () =>
     omgeving.verwachtGeenOpnamesBehalveBij(['Lisa Jansen', 'Mohamed El Amrani']),
   );
-  await omgeving.en('staat er op de spaarrekening van Lisa € 18.002,50', () =>
-    omgeving.verwachtSpaarsaldo('Lisa Jansen', '18002.50'),
+  await omgeving.en('staat er op de spaarrekening van Lisa € 19.562,32', () =>
+    omgeving.verwachtSpaarsaldo('Lisa Jansen', '19562.32'),
   );
-  await omgeving.en('staat er op de spaarrekening van Mohamed € 32.393,72', () =>
-    omgeving.verwachtSpaarsaldo('Mohamed El Amrani', '32393.72'),
+  await omgeving.en('staat er op de spaarrekening van Mohamed € 34.993,33', () =>
+    omgeving.verwachtSpaarsaldo('Mohamed El Amrani', '34993.33'),
   );
 });
 
@@ -176,8 +176,8 @@ test('Elke spaarrekening krijgt elke maand rente, van oktober 2021 t/m december 
   await omgeving.dan('heeft elk van de 10 spaarrekeningen in elk van de 63 maanden precies één rentebijschrijving, op de laatste dag van de maand', () =>
     omgeving.verwachtRentePerMaand('2021-10', '2026-12'),
   );
-  await omgeving.en('staat er op de spaarrekening van Jan € 42.666,45', () =>
-    omgeving.verwachtSpaarsaldo('Jan de Vries', '42666.45'),
+  await omgeving.en('staat er op de spaarrekening van Jan € 46.825,89', () =>
+    omgeving.verwachtSpaarsaldo('Jan de Vries', '46825.89'),
   );
 });
 
@@ -340,6 +340,22 @@ test('De boodschappen en de webwinkelaankopen stijgen elk jaar met de inflatie, 
   );
   await omgeving.en('betaalt Jan in 2026 minstens één keer meer dan € 250,00 aan een webwinkel', () =>
     omgeving.verwachtWebwinkelaankoopDuurderDan('Jan de Vries', 2026, '250.00'),
+  );
+});
+
+test('De vaste inleg stijgt elk jaar met de lonen, van 2021 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'legt elk van de 10 klanten op de 25e van elke maand zijn bedrag van 2021 in, maal de loonstijging van dat jaar: 1,00 · 1,04 · 1,12 · 1,18 · 1,22 · 1,26',
+    () => omgeving.verwachtVasteInlegMetLoonstijging(LOONSTIJGING, '2021-10', '2026-12'),
+  );
+  await omgeving.en(
+    'legt Jan € 400,00 in in 2021, € 416,00 in 2022, € 448,00 in 2023, € 472,00 in 2024, € 488,00 in 2025 en € 504,00 in 2026',
+    () => omgeving.verwachtVasteInlegPerJaar('Jan de Vries',
+      { 2021: '400.00', 2022: '416.00', 2023: '448.00', 2024: '472.00', 2025: '488.00', 2026: '504.00' }, '2021-10', '2026-12'),
   );
 });
 

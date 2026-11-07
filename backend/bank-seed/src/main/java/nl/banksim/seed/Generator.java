@@ -174,13 +174,14 @@ final class Generator {
         return inleggen;
     }
 
-    /** Origineel: elke maand op de 25e, tussen 9:00 en 11:00, dus na het inkomen. */
+    /** Origineel: elke maand op de 25e, tussen 9:00 en 11:00, dus na het inkomen; het bedrag van 2021 maal de loonstijging van dat jaar. */
     private static List<Inleg> vasteInleggen(DemoKlanten.DemoKlant klant) {
         List<Inleg> inleggen = new ArrayList<>();
         Random toeval = new Random(SEED_INLEG + klant.gebruikersnaam().hashCode());
         klant.inleg().ifPresent(bedrag -> {
             for (YearMonth maand = EERSTE_MAAND; !maand.isAfter(LAATSTE_MAAND); maand = maand.plusMonths(1)) {
-                inleggen.add(new Inleg(maand.atDay(25).atTime(LocalTime.of(9, 0).plusMinutes(toeval.nextInt(2 * 60 + 1))), bedrag));
+                inleggen.add(new Inleg(maand.atDay(25).atTime(LocalTime.of(9, 0).plusMinutes(toeval.nextInt(2 * 60 + 1))),
+                        deelVan(bedrag, LOONSTIJGING.get(maand.getYear()))));
             }
         });
         return inleggen;

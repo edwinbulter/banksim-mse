@@ -479,6 +479,28 @@ export class Omgeving extends Stappen {
     }
   }
 
+  /** S11.1: elke klant legt op de 25e van elke maand de inleg van de eerste maand in, maal de loonstijging van dat jaar. */
+  async verwachtVasteInlegMetLoonstijging(loonstijging: Loonstijging, van: string, tm: string): Promise<void> {
+    for (const { naam, gebruikersnaam } of DEMO_KLANTEN) {
+      const perMaand = vasteInleggenPerMaand(await this.spaarmutatiesVan(gebruikersnaam), van, tm);
+      const eerste = perMaand.get(van) ?? [];
+      expect(eerste, `vaste inleg van ${naam} in ${van}`).toHaveLength(1);
+      const fout = [...perMaand]
+        .filter(([maand, inleggen]) => inleggen.join() !== maal(eerste[0], loonstijging[jaarVan(maand)]))
+        .map(([maand, inleggen]) => `${maand}: ${inleggen.join(', ')}`);
+      expect(fout, `maanden waarin ${naam} niet € ${eerste[0]} maal de loonstijging inlegt`).toEqual([]);
+    }
+  }
+
+  /** S11.1: de klant legt op de 25e van elke maand precies één keer het bedrag van dat jaar in. */
+  async verwachtVasteInlegPerJaar(naam: string, perJaar: Record<number, string>, van: string, tm: string): Promise<void> {
+    const perMaand = vasteInleggenPerMaand(await this.spaarmutatiesVan(gebruikersnaamVan(naam)), van, tm);
+    const fout = [...perMaand]
+      .filter(([maand, inleggen]) => inleggen.join() !== perJaar[jaarVan(maand)])
+      .map(([maand, inleggen]) => `${maand}: ${inleggen.join(', ')}`);
+    expect(fout, `maanden waarin ${naam} niet precies één keer de inleg van dat jaar inlegt`).toEqual([]);
+  }
+
   /** S11.1: naast de vaste inleg op de 25e alleen de extra inleg op 27 mei van elk jaar: 40% van het salaris van dat jaar. */
   async verwachtExtraInlegInMei(werknemers: Werknemer[], loonstijging: Loonstijging, jaren: number[]): Promise<void> {
     for (const { naam, salaris } of werknemers) {
@@ -710,6 +732,14 @@ function gebruikersnaamVan(naam: string): string {
 }
 
 /** Op datum oplopend, zodat de volgorde van het scherm er niet toe doet. */
+/** Per maand de bedragen van de inleggen op de 25e. */
+function vasteInleggenPerMaand(mutaties: Spaarmutatie[], van: string, tm: string): Map<string, string[]> {
+  return new Map(maanden(van, tm).map((maand) => [
+    maand,
+    mutaties.filter((mutatie) => mutatie.type === 'Inleg' && mutatie.datum === `${maand}-25`).map(({ bedrag }) => bedrag),
+  ]));
+}
+
 function inleggenBuitenDe25e(mutaties: Spaarmutatie[]): { datum: string; bedrag: string }[] {
   return mutaties
     .filter((mutatie) => mutatie.type === 'Inleg' && !mutatie.datum.endsWith('-25'))

@@ -402,7 +402,7 @@ class GeneratorTests {
         return Generator.inleggen(klant).stream().filter(inleg -> inleg.tijdstip().getDayOfMonth() == 25).toList();
     }
 
-    /** Origineel: elke maand op de 25e, tussen 9:00 en 11:00, een vast bedrag per klant. */
+    /** Origineel: elke maand op de 25e, tussen 9:00 en 11:00, een vast bedrag per klant; in 2021 zonder loonstijging. */
     @Test
     void elkeKlantLegtElkeMaandZijnVasteBedragIn() {
         Map<String, String> bedragen = Map.of("jdevries", "400.00", "sbakker", "600.00", "melamrani", "250.00",
@@ -412,13 +412,26 @@ class GeneratorTests {
         for (DemoKlanten.DemoKlant klant : DemoKlanten.ALLE) {
             List<Generator.Inleg> inleggen = vasteInleggen(klant);
 
-            assertThat(inleggen).as(klant.gebruikersnaam()).hasSize(MAANDEN).allSatisfy(inleg -> {
-                assertThat(inleg.bedrag()).isEqualTo(Bedrag.van(bedragen.get(klant.gebruikersnaam())));
-                assertThat(inleg.tijdstip().toLocalTime()).isBetween(LocalTime.of(9, 0), LocalTime.of(11, 0));
-            });
+            assertThat(inleggen).as(klant.gebruikersnaam()).hasSize(MAANDEN).allSatisfy(inleg ->
+                    assertThat(inleg.tijdstip().toLocalTime()).isBetween(LocalTime.of(9, 0), LocalTime.of(11, 0)));
+            assertThat(inleggen).filteredOn(inleg -> inleg.tijdstip().getYear() == 2021).as(klant.gebruikersnaam())
+                    .extracting(Generator.Inleg::bedrag).containsOnly(Bedrag.van(bedragen.get(klant.gebruikersnaam())));
             assertThat(YearMonth.from(inleggen.getFirst().tijdstip())).isEqualTo(YearMonth.of(2021, 10));
             assertThat(YearMonth.from(inleggen.getLast().tijdstip())).isEqualTo(YearMonth.of(2026, 12));
         }
+    }
+
+    /** Origineel: de vaste inleg gaat maal de loonstijging van dat jaar, net als het inkomen. */
+    @Test
+    void deVasteInlegStijgtElkJaarMetDeLonen() {
+        Map<Integer, Bedrag> perJaar = vasteInleggen(klant("jdevries")).stream()
+                .collect(Collectors.toMap(inleg -> inleg.tijdstip().getYear(), Generator.Inleg::bedrag, (eerste, tweede) -> {
+                    assertThat(tweede).isEqualTo(eerste);
+                    return eerste;
+                }));
+
+        assertThat(perJaar).isEqualTo(Map.of(2021, Bedrag.van("400.00"), 2022, Bedrag.van("416.00"), 2023, Bedrag.van("448.00"),
+                2024, Bedrag.van("472.00"), 2025, Bedrag.van("488.00"), 2026, Bedrag.van("504.00")));
     }
 
     @Test
@@ -596,7 +609,7 @@ class GeneratorTests {
     /** De bedragen uit het scenario, met een los rekenscript nagerekend: rente telt mee in de maanden erna. */
     @Test
     void hetSpaarsaldoInclusiefRente() {
-        for (var verwacht : Map.of("jdevries", "42666.45", "ljansen", "18002.50", "melamrani", "32393.72").entrySet()) {
+        for (var verwacht : Map.of("jdevries", "46825.89", "ljansen", "19562.32", "melamrani", "34993.33").entrySet()) {
             var klant = klant(verwacht.getKey());
             BigDecimal saldo = klant.beginsaldoSpaar().waarde();
             for (Generator.Inleg inleg : Generator.inleggen(klant)) {

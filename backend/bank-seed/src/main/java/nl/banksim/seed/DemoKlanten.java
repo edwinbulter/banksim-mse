@@ -10,7 +10,7 @@ import nl.banksim.domain.geld.Bedrag;
  * S11.1 (FO "Datamodel en fake data"): de klanten van de 10 huishoudens, met de namen, inkomens, woonlasten en vaste lasten uit
  * het origineel. Bij een gepensioneerde zijn pensioen en AOW samen één inkomen; Daan Smit is zzp'er, met één opdrachtgever. Alleen een werknemer krijgt vakantiegeld; alleen een zzp'er krijgt geen belastingteruggave. De
  * beginsaldi van de betaal- en spaarrekening komen ook uit het origineel. Het water is maandelijks (FO), in het origineel per kwartaal.
- * De inleg op de spaarrekening komt uit het origineel, zonder de stijging per jaar (ADR 0042).
+ * De inleg op de spaarrekening komt uit het origineel, als bedrag van 2021 (ADR 0042).
  */
 final class DemoKlanten {
 
