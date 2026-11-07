@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -26,6 +27,8 @@ class GeneratorTests {
 
     private static final int MAANDEN = 63;
     private static final Bedrag GEEN_SPAARGELD = Bedrag.van("0.00");
+    /** Origineel: het prijsniveau per jaar ten opzichte van 2021. */
+    private static final Map<Integer, String> INFLATIE = Map.of(2021, "1.00", 2022, "1.10", 2023, "1.16", 2024, "1.20", 2025, "1.24", 2026, "1.28");
 
     private static DemoKlanten.DemoKlant klant(String gebruikersnaam) {
         return DemoKlanten.ALLE.stream().filter(klant -> klant.gebruikersnaam().equals(gebruikersnaam)).findFirst().orElseThrow();
@@ -50,6 +53,11 @@ class GeneratorTests {
 
     private static List<Boeking> webwinkelaankopen(DemoKlanten.DemoKlant klant) {
         return Generator.boekingen(klant).stream().filter(boeking -> boeking.type() == TransactieType.IDEAL_WERO).toList();
+    }
+
+    /** Een grens uit het FO als afschrijving, maal de inflatie van het jaar van de boeking, afgerond op centen. */
+    private static BigDecimal grens(String bedrag, Boeking boeking) {
+        return new BigDecimal(bedrag).multiply(new BigDecimal(INFLATIE.get(boeking.tijdstip().getYear()))).setScale(2, RoundingMode.HALF_UP).negate();
     }
 
     private static List<Boeking> vakantiegeld(DemoKlanten.DemoKlant klant) {
@@ -248,12 +256,12 @@ class GeneratorTests {
         assertThat(perMaand.values()).contains(6L, 12L);
     }
 
-    /** FO: een bedrag van € 8–120 aan een supermarkt, aan de betaalautomaat, tussen 8:00 en 21:00, zonder tegen-IBAN. */
+    /** FO: een bedrag van € 8–120 maal de inflatie aan een supermarkt, aan de betaalautomaat, tussen 8:00 en 21:00, zonder tegen-IBAN. */
     @Test
     void eenBoodschapHeeftHetBedragDeTegenpartijEnHetTijdstipUitHetFo() {
         for (DemoKlanten.DemoKlant klant : DemoKlanten.ALLE) {
             assertThat(boodschappen(klant)).as(klant.gebruikersnaam()).isNotEmpty().allSatisfy(boeking -> {
-                assertThat(boeking.bedrag().waarde()).isBetween(new BigDecimal("-120.00"), new BigDecimal("-8.00"));
+                assertThat(boeking.bedrag().waarde()).isBetween(grens("120.00", boeking), grens("8.00", boeking));
                 assertThat(boeking.tegenpartij()).isIn("BuurtSuper", "Prijsvast Supermarkt", "Versmarkt");
                 assertThat(boeking.tijdstip().toLocalTime()).isBetween(LocalTime.of(8, 0), LocalTime.of(21, 0));
                 assertThat(boeking.tegenIban()).isEmpty();
@@ -267,9 +275,19 @@ class GeneratorTests {
         List<Boeking> alle = DemoKlanten.ALLE.stream().flatMap(klant -> boodschappen(klant).stream()).toList();
 
         assertThat(alle).extracting(Boeking::tegenpartij).contains("BuurtSuper", "Prijsvast Supermarkt", "Versmarkt");
-        assertThat(alle).extracting(boeking -> boeking.bedrag().waarde()).contains(new BigDecimal("-8.00"), new BigDecimal("-120.00"));
+        assertThat(alle).anyMatch(boeking -> boeking.bedrag().waarde().compareTo(grens("8.00", boeking)) == 0);
+        assertThat(alle).anyMatch(boeking -> boeking.bedrag().waarde().compareTo(grens("120.00", boeking)) == 0);
         assertThat(alle).extracting(boeking -> boeking.tijdstip().toLocalTime()).contains(LocalTime.of(8, 0), LocalTime.of(21, 0));
         assertThat(alle).extracting(boeking -> boeking.tijdstip().getDayOfMonth()).contains(1, 31);
+    }
+
+    /** Origineel: de boodschappen en de webwinkelaankopen stijgen met de inflatie; in 2026 komen ze dus boven de grens van 2021 uit. */
+    @Test
+    void deBoodschappenEnDeWebwinkelaankopenStijgenMetDeInflatie() {
+        assertThat(boodschappen(klant("jdevries"))).filteredOn(boeking -> boeking.tijdstip().getYear() == 2026)
+                .anyMatch(boeking -> boeking.bedrag().waarde().compareTo(new BigDecimal("-120.00")) < 0);
+        assertThat(webwinkelaankopen(klant("jdevries"))).filteredOn(boeking -> boeking.tijdstip().getYear() == 2026)
+                .anyMatch(boeking -> boeking.bedrag().waarde().compareTo(new BigDecimal("-250.00")) < 0);
     }
 
     /** Vaste seed per klant (ADR 0041): een klant erbij verschuift de data van de anderen niet, en klanten verschillen. */
@@ -615,12 +633,12 @@ class GeneratorTests {
         assertThat(perMaand.values()).contains(1L, 4L);
     }
 
-    /** FO: een bedrag van € 10–250 aan een webwinkel, via iDEAL | Wero, tussen 8:00 en 21:00, zonder tegen-IBAN. */
+    /** FO: een bedrag van € 10–250 maal de inflatie aan een webwinkel, via iDEAL | Wero, tussen 8:00 en 21:00, zonder tegen-IBAN. */
     @Test
     void eenWebwinkelaankoopHeeftHetBedragDeTegenpartijEnHetTijdstipUitHetFo() {
         for (DemoKlanten.DemoKlant klant : DemoKlanten.ALLE) {
             assertThat(webwinkelaankopen(klant)).as(klant.gebruikersnaam()).isNotEmpty().allSatisfy(boeking -> {
-                assertThat(boeking.bedrag().waarde()).isBetween(new BigDecimal("-250.00"), new BigDecimal("-10.00"));
+                assertThat(boeking.bedrag().waarde()).isBetween(grens("250.00", boeking), grens("10.00", boeking));
                 assertThat(boeking.tegenpartij()).isIn("Webwinkel Alles", "BoekenBox", "ModeOnline", "ElektroShop");
                 assertThat(boeking.tijdstip().toLocalTime()).isBetween(LocalTime.of(8, 0), LocalTime.of(21, 0));
                 assertThat(boeking.tegenIban()).isEmpty();
@@ -634,8 +652,8 @@ class GeneratorTests {
         List<Boeking> alle = DemoKlanten.ALLE.stream().flatMap(klant -> webwinkelaankopen(klant).stream()).toList();
 
         assertThat(alle).extracting(Boeking::tegenpartij).contains("Webwinkel Alles", "BoekenBox", "ModeOnline", "ElektroShop");
-        assertThat(alle).extracting(boeking -> boeking.bedrag().waarde()).anyMatch(bedrag -> bedrag.compareTo(new BigDecimal("-15.00")) > 0);
-        assertThat(alle).extracting(boeking -> boeking.bedrag().waarde()).anyMatch(bedrag -> bedrag.compareTo(new BigDecimal("-245.00")) < 0);
+        assertThat(alle).anyMatch(boeking -> boeking.bedrag().waarde().compareTo(grens("15.00", boeking)) > 0);
+        assertThat(alle).anyMatch(boeking -> boeking.bedrag().waarde().compareTo(grens("245.00", boeking)) < 0);
         assertThat(alle).extracting(boeking -> boeking.tijdstip().getDayOfMonth()).contains(1, 31);
     }
 

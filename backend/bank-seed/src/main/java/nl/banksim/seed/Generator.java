@@ -40,15 +40,15 @@ final class Generator {
     private static final BigDecimal HONDERD = BigDecimal.valueOf(100);
     private static final BigDecimal VAKANTIEGELD_DEEL = new BigDecimal("0.92");
     private static final long SEED_INLEG = 43;
-    /** FO: 6–12 keer per maand, € 8–120, aan de betaalautomaat. */
+    /** FO: 6–12 keer per maand, € 8–120, aan de betaalautomaat. Origineel: maal de inflatie. */
     private static final Aankopen BOODSCHAPPEN = new Aankopen(42, 6, 12, 800, 12_000, 1,
-            List.of("BuurtSuper", "Prijsvast Supermarkt", "Versmarkt"), TransactieType.BETAALAUTOMAAT);
-    /** FO: 1–4 keer per maand, € 10–250, via iDEAL | Wero. */
+            List.of("BuurtSuper", "Prijsvast Supermarkt", "Versmarkt"), TransactieType.BETAALAUTOMAAT, true);
+    /** FO: 1–4 keer per maand, € 10–250, via iDEAL | Wero. Origineel: maal de inflatie. */
     private static final Aankopen WEBWINKELS = new Aankopen(44, 1, 4, 1_000, 25_000, 1,
-            List.of("Webwinkel Alles", "BoekenBox", "ModeOnline", "ElektroShop"), TransactieType.IDEAL_WERO);
-    /** FO: 0–2 keer per maand, € 20–200, bij een geldautomaat. Origineel: in hele tientjes. */
+            List.of("Webwinkel Alles", "BoekenBox", "ModeOnline", "ElektroShop"), TransactieType.IDEAL_WERO, true);
+    /** FO: 0–2 keer per maand, € 20–200, bij een geldautomaat. Origineel: in hele tientjes, zonder inflatie. */
     private static final Aankopen GELDOPNAMES = new Aankopen(45, 0, 2, 2_000, 20_000, 1_000,
-            List.of("Geldautomaat Utrecht Centrum", "Geldautomaat Amersfoort Centrum", "Geldautomaat Zuidstad Centrum"), TransactieType.GELDAUTOMAAT);
+            List.of("Geldautomaat Utrecht Centrum", "Geldautomaat Amersfoort Centrum", "Geldautomaat Zuidstad Centrum"), TransactieType.GELDAUTOMAAT, false);
 
     /** Op deze volgorde: een aankoop krijgt wat er na de vorige soort over is, en een nieuwe soort verschuift de bestaande dus niet. */
     private static final List<Aankopen> AANKOPEN = List.of(BOODSCHAPPEN, WEBWINKELS, GELDOPNAMES);
@@ -66,9 +66,9 @@ final class Generator {
     private static final Map<Integer, BigDecimal> ENERGIEPRIJS = Map.of(2021, new BigDecimal("1.00"), 2022, new BigDecimal("1.80"),
             2023, new BigDecimal("1.50"), 2024, new BigDecimal("1.25"), 2025, new BigDecimal("1.20"), 2026, new BigDecimal("1.20"));
 
-    /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
+    /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). Met inflatie geldt het bereik voor 2021 en gaat het bedrag daarna mee. */
     private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, int stapCenten, List<String> tegenpartijen,
-            TransactieType type) {
+            TransactieType type, boolean metInflatie) {
     }
 
     /** ADR 0042: van de betaalrekening naar de eigen spaarrekening. */
@@ -129,7 +129,7 @@ final class Generator {
         for (DemoKlanten.DemoKlant van : klanten) {
             List<DemoKlanten.DemoKlant> anderen = klanten.stream().filter(klant -> !klant.equals(van)).toList();
             var soort = new Aankopen(SEED_BETALINGEN, 0, 3, 500, 15_000, 1,
-                    anderen.stream().map(DemoKlanten.DemoKlant::naam).toList(), TransactieType.ONLINE_BANKIEREN);
+                    anderen.stream().map(DemoKlanten.DemoKlant::naam).toList(), TransactieType.ONLINE_BANKIEREN, false);
             for (Boeking betaling : aankopen(van, volledigVerloop(van), soort)) {
                 String naar = anderen.stream().filter(klant -> klant.naam().equals(betaling.tegenpartij())).findFirst().orElseThrow().gebruikersnaam();
                 betalingen.add(new BetalingTussenKlanten(betaling.tijdstip(), new Bedrag(betaling.bedrag().waarde().negate()), van.gebruikersnaam(), naar));
@@ -340,9 +340,10 @@ final class Generator {
         LocalDateTime tijdstip = maand.atDay(1 + toeval.nextInt(maand.lengthOfMonth()))
                 .atTime(LocalTime.of(8, 0).plusMinutes(toeval.nextInt(13 * 60 + 1)));
         int stappen = (soort.maxCenten() - soort.minCenten()) / soort.stapCenten() + 1;
-        BigDecimal bedrag = BigDecimal.valueOf(soort.minCenten() + toeval.nextInt(stappen) * soort.stapCenten(), 2).negate();
+        Bedrag getrokken = new Bedrag(BigDecimal.valueOf(soort.minCenten() + toeval.nextInt(stappen) * soort.stapCenten(), 2));
+        Bedrag bedrag = soort.metInflatie() ? deelVan(getrokken, INFLATIE.get(maand.getYear())) : getrokken;
         String tegenpartij = soort.tegenpartijen().get(toeval.nextInt(soort.tegenpartijen().size()));
-        return new Boeking(tijdstip, new Bedrag(bedrag), tegenpartij, soort.type(), Optional.empty());
+        return new Boeking(tijdstip, new Bedrag(bedrag.waarde().negate()), tegenpartij, soort.type(), Optional.empty());
     }
 
     /** FO, ADR 0025: dezelfde regel als bij een betaling in de bank, dus inclusief de latere boekingen. */

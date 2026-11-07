@@ -161,14 +161,34 @@ export class Omgeving extends Stappen {
     }
   }
 
-  /** S11.1: per klant en per maand het aantal betalingen aan een supermarkt, en elk bedrag in centen. */
-  async verwachtBoodschappenPerMaand(van: string, tm: string, aantal: { min: number; max: number }, bedrag: { min: string; max: string }): Promise<void> {
-    await this.verwachtAankopenPerMaand('boodschappen', SUPERMARKTEN, van, tm, aantal, bedrag);
+  /** S11.1: per klant en per maand het aantal betalingen aan een supermarkt, en elk bedrag binnen het bereik maal de inflatie van dat jaar. */
+  async verwachtBoodschappenPerMaand(van: string, tm: string, aantal: { min: number; max: number }, bedrag: { min: string; max: string }, inflatie: Inflatie): Promise<void> {
+    await this.verwachtAankopenPerMaand('boodschappen', SUPERMARKTEN, van, tm, aantal, bedrag, inflatie);
   }
 
-  /** S11.1: per klant en per maand een aantal betalingen aan webwinkels, elk binnen het bereik. */
-  async verwachtWebwinkelsPerMaand(van: string, tm: string, aantal: { min: number; max: number }, bedrag: { min: string; max: string }): Promise<void> {
-    await this.verwachtAankopenPerMaand('webwinkelaankopen', WEBWINKELS, van, tm, aantal, bedrag);
+  /** S11.1: per klant en per maand een aantal betalingen aan webwinkels, elk binnen het bereik maal de inflatie van dat jaar. */
+  async verwachtWebwinkelsPerMaand(van: string, tm: string, aantal: { min: number; max: number }, bedrag: { min: string; max: string }, inflatie: Inflatie): Promise<void> {
+    await this.verwachtAankopenPerMaand('webwinkelaankopen', WEBWINKELS, van, tm, aantal, bedrag, inflatie);
+  }
+
+  /** S11.1: van elke klant ligt elke betaling aan een supermarkt binnen het bereik maal de inflatie van dat jaar. */
+  async verwachtBoodschappenMetInflatie(bedrag: { min: string; max: string }, inflatie: Inflatie, van: string, tm: string): Promise<void> {
+    await this.verwachtAankopenBinnenBereik('boodschappen', SUPERMARKTEN, bedrag, inflatie, van, tm);
+  }
+
+  /** S11.1: van elke klant ligt elke betaling aan een webwinkel binnen het bereik maal de inflatie van dat jaar. */
+  async verwachtWebwinkelaankopenMetInflatie(bedrag: { min: string; max: string }, inflatie: Inflatie, van: string, tm: string): Promise<void> {
+    await this.verwachtAankopenBinnenBereik('webwinkelaankopen', WEBWINKELS, bedrag, inflatie, van, tm);
+  }
+
+  /** S11.1: de klant betaalt in dat jaar minstens één keer meer dan het bedrag aan een supermarkt. */
+  async verwachtBoodschapDuurderDan(naam: string, jaar: number, bedrag: string): Promise<void> {
+    await this.verwachtAankoopDuurderDan(naam, SUPERMARKTEN, jaar, bedrag);
+  }
+
+  /** S11.1: de klant betaalt in dat jaar minstens één keer meer dan het bedrag aan een webwinkel. */
+  async verwachtWebwinkelaankoopDuurderDan(naam: string, jaar: number, bedrag: string): Promise<void> {
+    await this.verwachtAankoopDuurderDan(naam, WEBWINKELS, jaar, bedrag);
   }
 
   /** S11.1: per klant en per maand een aantal opnames bij een geldautomaat, elk binnen het bereik en in hele tientjes. */
@@ -243,23 +263,35 @@ export class Omgeving extends Stappen {
     tm: string,
     aantal: { min: number; max: number },
     bedrag: { min: string; max: string },
+    prijsniveau?: Inflatie,
   ): Promise<void> {
     for (const { gebruikersnaam } of DEMO_KLANTEN) {
       const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
       const perMaand = new Map(maanden(van, tm).map((maand) => [maand, 0]));
-      const buitenBereik: string[] = [];
       for (const dag of transacties.filter(({ datum }) => perMaand.has(datum.slice(0, 7)))) {
-        for (const transactie of dag.transacties.filter(({ tegenpartij }) => tegenpartijen.includes(tegenpartij))) {
-          const maand = dag.datum.slice(0, 7);
-          perMaand.set(maand, (perMaand.get(maand) ?? 0) + 1);
-          const afgeschreven = -centen(transactie.bedrag);
-          if (afgeschreven < centen(bedrag.min) || afgeschreven > centen(bedrag.max)) buitenBereik.push(`${dag.datum}: ${transactie.bedrag}`);
-        }
+        const maand = dag.datum.slice(0, 7);
+        perMaand.set(maand, (perMaand.get(maand) ?? 0) + dag.transacties.filter(({ tegenpartij }) => tegenpartijen.includes(tegenpartij)).length);
       }
       const fout = [...perMaand].filter(([, n]) => n < aantal.min || n > aantal.max).map(([maand, n]) => `${maand}: ${n}`);
       expect(fout, `maanden met een verkeerd aantal ${soort} bij ${gebruikersnaam}`).toEqual([]);
-      expect(buitenBereik, `${soort} buiten het bereik bij ${gebruikersnaam}`).toEqual([]);
+      expect(buitenBereik(transacties, tegenpartijen, bedrag, prijsniveau, van, tm), `${soort} buiten het bereik bij ${gebruikersnaam}`).toEqual([]);
     }
+  }
+
+  private async verwachtAankopenBinnenBereik(soort: string, tegenpartijen: string[], bedrag: { min: string; max: string }, prijsniveau: Inflatie, van: string, tm: string): Promise<void> {
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      expect(buitenBereik(transacties, tegenpartijen, bedrag, prijsniveau, van, tm), `${soort} buiten het bereik maal de inflatie bij ${gebruikersnaam}`).toEqual([]);
+    }
+  }
+
+  private async verwachtAankoopDuurderDan(naam: string, tegenpartijen: string[], jaar: number, bedrag: string): Promise<void> {
+    const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+    const afgeschreven = transacties
+      .filter(({ datum }) => jaarVan(datum) === jaar)
+      .flatMap((dag) => dag.transacties.filter(({ tegenpartij }) => tegenpartijen.includes(tegenpartij)))
+      .map((transactie) => -centen(transactie.bedrag));
+    expect(afgeschreven.some((afschrijving) => afschrijving > centen(bedrag)), `betalingen van ${naam} in ${jaar} aan ${tegenpartijen.join(', ')} boven € ${bedrag}`).toBe(true);
   }
 
   /** S11.1: per klant en per maand precies één betaling aan elk van de vaste lasten. */
@@ -711,7 +743,6 @@ function centen(bedrag: string): bigint {
   return BigInt(bedrag.replace('.', ''));
 }
 
-/** Een positief bedrag maal een factor met twee decimalen ("1.04"), afgerond op centen, de helft naar boven. */
 /** Elke maand precies één betaling aan de tegenpartij: het bedrag van de eerste maand maal de factor van dat jaar. */
 function verwachtElkeMaandDeEersteMaal(naam: string, transacties: TransactiesOpDatum[], aan: string, factoren: Record<number, string>, reeks: string, van: string, tm: string): void {
   const eerste = betalingenAan(transacties, van, aan);
@@ -723,6 +754,29 @@ function verwachtElkeMaandDeEersteMaal(naam: string, transacties: TransactiesOpD
   expect(fout, `maanden waarin ${naam} aan ${aan} niet € ${bedragVan(eerste[0])} maal ${reeks} betaalt`).toEqual([]);
 }
 
+/** Betalingen aan de tegenpartijen buiten het bereik; met een prijsniveau is het bereik maal de factor van dat jaar. */
+function buitenBereik(
+  transacties: TransactiesOpDatum[],
+  tegenpartijen: string[],
+  bedrag: { min: string; max: string },
+  prijsniveau: Inflatie | undefined,
+  van: string,
+  tm: string,
+): string[] {
+  const binnenPeriode = new Set(maanden(van, tm));
+  return transacties
+    .filter(({ datum }) => binnenPeriode.has(datum.slice(0, 7)))
+    .flatMap((dag) => {
+      const factor = prijsniveau?.[jaarVan(dag.datum)] ?? '1.00';
+      const [min, max] = [centen(maal(bedrag.min, factor)), centen(maal(bedrag.max, factor))];
+      return dag.transacties
+        .filter(({ tegenpartij }) => tegenpartijen.includes(tegenpartij))
+        .filter((transactie) => -centen(transactie.bedrag) < min || -centen(transactie.bedrag) > max)
+        .map((transactie) => `${dag.datum}: ${transactie.bedrag}`);
+    });
+}
+
+/** Een positief bedrag maal een factor met twee decimalen ("1.04"), afgerond op centen, de helft naar boven. */
 function maal(bedrag: string, factor: string): string {
   const uitkomst = (centen(bedrag) * centen(factor) + 50n) / 100n;
   return `${uitkomst / 100n}.${String(uitkomst % 100n).padStart(2, '0')}`;

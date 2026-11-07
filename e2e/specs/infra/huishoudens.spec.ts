@@ -55,8 +55,8 @@ test('Elke klant doet elke maand boodschappen, van oktober 2021 t/m december 202
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
   await omgeving.dan(
-    'heeft elk van de 10 klanten in elk van de 63 maanden 1 tot en met 12 betalingen aan BuurtSuper, Prijsvast Supermarkt of Versmarkt, elk tussen € 8,00 en € 120,00',
-    () => omgeving.verwachtBoodschappenPerMaand('2021-10', '2026-12', { min: 1, max: 12 }, { min: '8.00', max: '120.00' }),
+    'heeft elk van de 10 klanten in elk van de 63 maanden 1 tot en met 12 betalingen aan BuurtSuper, Prijsvast Supermarkt of Versmarkt, elk tussen € 8,00 en € 120,00 maal de inflatie van dat jaar',
+    () => omgeving.verwachtBoodschappenPerMaand('2021-10', '2026-12', { min: 1, max: 12 }, { min: '8.00', max: '120.00' }, INFLATIE),
   );
 });
 
@@ -66,11 +66,11 @@ test('Elke klant koopt elke maand bij webwinkels, van oktober 2021 t/m december 
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
   await omgeving.dan(
-    'heeft elk van de 10 klanten van november 2021 t/m december 2026 elke maand 1 tot en met 4 betalingen aan Webwinkel Alles, BoekenBox, ModeOnline of ElektroShop, elk tussen € 10,00 en € 250,00',
-    () => omgeving.verwachtWebwinkelsPerMaand('2021-11', '2026-12', { min: 1, max: 4 }, { min: '10.00', max: '250.00' }),
+    'heeft elk van de 10 klanten van november 2021 t/m december 2026 elke maand 1 tot en met 4 betalingen aan Webwinkel Alles, BoekenBox, ModeOnline of ElektroShop, elk tussen € 10,00 en € 250,00 maal de inflatie van dat jaar',
+    () => omgeving.verwachtWebwinkelsPerMaand('2021-11', '2026-12', { min: 1, max: 4 }, { min: '10.00', max: '250.00' }, INFLATIE),
   );
   await omgeving.en('heeft elk van de 10 klanten in oktober 2021 hoogstens 4 van zulke betalingen, want daar vervalt een aankoop als het geld krap is', () =>
-    omgeving.verwachtWebwinkelsPerMaand('2021-10', '2021-10', { min: 0, max: 4 }, { min: '10.00', max: '250.00' }),
+    omgeving.verwachtWebwinkelsPerMaand('2021-10', '2021-10', { min: 0, max: 4 }, { min: '10.00', max: '250.00' }, INFLATIE),
   );
 });
 
@@ -319,6 +319,27 @@ test('De energie volgt elk jaar de energieprijzen, van 2021 t/m 2026', { tag: '@
     'betaalt Jan aan Groenstroom Energie € 95,00 in 2021, € 171,00 in 2022, € 142,50 in 2023, € 118,75 in 2024 en € 114,00 in 2025 en 2026',
     () => omgeving.verwachtEnergiePerJaar('Jan de Vries',
       { 2021: '-95.00', 2022: '-171.00', 2023: '-142.50', 2024: '-118.75', 2025: '-114.00', 2026: '-114.00' }, '2021-10', '2026-12'),
+  );
+});
+
+test('De boodschappen en de webwinkelaankopen stijgen elk jaar met de inflatie, van 2021 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'ligt elke betaling aan een supermarkt tussen € 8,00 en € 120,00 maal de inflatie van dat jaar, in 2026 dus tussen € 10,24 en € 153,60',
+    () => omgeving.verwachtBoodschappenMetInflatie({ min: '8.00', max: '120.00' }, INFLATIE, '2021-10', '2026-12'),
+  );
+  await omgeving.en(
+    'ligt elke betaling aan een webwinkel tussen € 10,00 en € 250,00 maal de inflatie van dat jaar, in 2026 dus tussen € 12,80 en € 320,00',
+    () => omgeving.verwachtWebwinkelaankopenMetInflatie({ min: '10.00', max: '250.00' }, INFLATIE, '2021-10', '2026-12'),
+  );
+  await omgeving.en('betaalt Jan in 2026 minstens één keer meer dan € 120,00 aan een supermarkt', () =>
+    omgeving.verwachtBoodschapDuurderDan('Jan de Vries', 2026, '120.00'),
+  );
+  await omgeving.en('betaalt Jan in 2026 minstens één keer meer dan € 250,00 aan een webwinkel', () =>
+    omgeving.verwachtWebwinkelaankoopDuurderDan('Jan de Vries', 2026, '250.00'),
   );
 });
 
