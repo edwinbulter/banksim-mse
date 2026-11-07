@@ -8,6 +8,9 @@ const LOONSTIJGING = { 2021: '1.00', 2022: '1.04', 2023: '1.12', 2024: '1.18', 2
 /** Origineel: het prijsniveau per jaar ten opzichte van 2021. */
 const INFLATIE = { 2021: '1.00', 2022: '1.10', 2023: '1.16', 2024: '1.20', 2025: '1.24', 2026: '1.28' };
 
+/** Origineel: de energieprijs per jaar ten opzichte van 2021, met de piek van 2022. */
+const ENERGIEPRIJS = { 2021: '1.00', 2022: '1.80', 2023: '1.50', 2024: '1.25', 2025: '1.20', 2026: '1.20' };
+
 /** Het maandsalaris van 2021 van de 7 werknemers. */
 const WERKNEMERS = [
   { naam: 'Jan de Vries', werkgever: 'Techniek Noord B.V.', salaris: '3100.00' },
@@ -109,9 +112,9 @@ test('Elke klant betaalt elke maand zijn vaste lasten', { tag: '@simulatiedatum'
     'heeft elk van de 10 klanten in elk van de 63 maanden precies één betaling aan Groenstroom Energie, Waterbedrijf Midden, NetPlus Internet, Mobiel Direct, Zorgverzekeraar Gezond en Verzekeringen Zeker',
     () => omgeving.verwachtVasteLastenPerMaand('2021-10', '2026-12'),
   );
-  await omgeving.en('betaalt Jan in december 2026 de bedragen uit zijn profiel, maal de inflatie van 2026 behalve de energie', () =>
+  await omgeving.en('betaalt Jan in december 2026 de bedragen uit zijn profiel, maal de inflatie van 2026, en de energie maal de energieprijs van 2026', () =>
     omgeving.verwachtVasteLastenVan('Jan de Vries', '2026-12', {
-      'Groenstroom Energie': '-95.00',
+      'Groenstroom Energie': '-114.00',
       'Waterbedrijf Midden': '-9.60',
       'NetPlus Internet': '-57.60',
       'Mobiel Direct': '-22.40',
@@ -300,6 +303,22 @@ test('De huur en de vaste lasten stijgen elk jaar met de inflatie, van 2021 t/m 
     'betaalt Jan aan Woonstichting Thuis € 950,00 in 2021, € 1.045,00 in 2022, € 1.102,00 in 2023, € 1.140,00 in 2024, € 1.178,00 in 2025 en € 1.216,00 in 2026',
     () => omgeving.verwachtWoonlastenPerJaar('Jan de Vries', 'Woonstichting Thuis',
       { 2021: '-950.00', 2022: '-1045.00', 2023: '-1102.00', 2024: '-1140.00', 2025: '-1178.00', 2026: '-1216.00' }, '2021-10', '2026-12'),
+  );
+});
+
+test('De energie volgt elk jaar de energieprijzen, van 2021 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'betaalt elk van de 10 klanten in elke maand aan Groenstroom Energie zijn bedrag van 2021 maal de energieprijs van dat jaar: 1,00 · 1,80 · 1,50 · 1,25 · 1,20 · 1,20',
+    () => omgeving.verwachtEnergieMetEnergieprijs(ENERGIEPRIJS, '2021-10', '2026-12'),
+  );
+  await omgeving.en(
+    'betaalt Jan aan Groenstroom Energie € 95,00 in 2021, € 171,00 in 2022, € 142,50 in 2023, € 118,75 in 2024 en € 114,00 in 2025 en 2026',
+    () => omgeving.verwachtEnergiePerJaar('Jan de Vries',
+      { 2021: '-95.00', 2022: '-171.00', 2023: '-142.50', 2024: '-118.75', 2025: '-114.00', 2026: '-114.00' }, '2021-10', '2026-12'),
   );
 });
 

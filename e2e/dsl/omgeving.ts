@@ -11,7 +11,7 @@ const LABEL = `app.kubernetes.io/instance=${RELEASE}`;
 const ORIGINEEL = 'banksim';
 const DEMO_SECRET = 'bank-demo';
 const GEMEENTE = 'Gemeente Zuidstad';
-/** Energie heeft een eigen prijsreeks, niet de inflatie. */
+/** Energie volgt de energieprijzen, niet de inflatie. */
 const ENERGIE = 'Groenstroom Energie';
 
 /** Per resource: uid, generation en een hash van spec of data. Verschilt er iets, dan is er iets veranderd. */
@@ -39,6 +39,9 @@ export type Loonstijging = Record<number, string>;
 
 /** Per jaar het prijsniveau ten opzichte van 2021, zoals "1.10". */
 export type Inflatie = Record<number, string>;
+
+/** Per jaar de energieprijs ten opzichte van 2021, zoals "1.80". */
+export type Energieprijs = Record<number, string>;
 
 /** Een demo-klant die huurt, en aan wie hij de huur betaalt. */
 export interface Huurder {
@@ -389,15 +392,22 @@ export class Omgeving extends Stappen {
       const huur = huurders.filter((huurder) => huurder.naam === naam).map(({ aan }) => aan);
       const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
       for (const aan of [...huur, ...VASTE_LASTEN.filter((last) => last !== ENERGIE)]) {
-        const eerste = betalingenAan(transacties, van, aan);
-        expect(eerste, `${naam} aan ${aan} in ${van}`).toHaveLength(1);
-        const fout = maanden(van, tm)
-          .map((maand) => ({ maand, betaald: betalingenAan(transacties, maand, aan) }))
-          .filter(({ maand, betaald }) => betaald.join() !== afschrijving(maal(bedragVan(eerste[0]), inflatie[jaarVan(maand)])))
-          .map(({ maand, betaald }) => `${maand}: ${betaald.join(', ')}`);
-        expect(fout, `maanden waarin ${naam} aan ${aan} niet € ${bedragVan(eerste[0])} maal de inflatie betaalt`).toEqual([]);
+        verwachtElkeMaandDeEersteMaal(naam, transacties, aan, inflatie, 'de inflatie', van, tm);
       }
     }
+  }
+
+  /** S11.1: elke maand betaalt elke klant precies één keer aan de energie, en wel het bedrag van de eerste maand maal de energieprijs van dat jaar. */
+  async verwachtEnergieMetEnergieprijs(energieprijs: Energieprijs, van: string, tm: string): Promise<void> {
+    for (const { naam, gebruikersnaam } of DEMO_KLANTEN) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      verwachtElkeMaandDeEersteMaal(naam, transacties, ENERGIE, energieprijs, 'de energieprijs', van, tm);
+    }
+  }
+
+  /** S11.1: in elke maand betaalt de klant precies één keer het bedrag van dat jaar aan de energie, in domeinnotatie. */
+  async verwachtEnergiePerJaar(naam: string, perJaar: Record<number, string>, van: string, tm: string): Promise<void> {
+    await this.verwachtElkeMaandEenKeer(naam, ENERGIE, perJaar, van, tm, `maanden waarin ${naam} niet precies één keer de energie van dat jaar betaalt`);
   }
 
   /** S11.1: van elke klant is elke termijn het bedrag van de eerste termijn maal de inflatie van het jaar van die termijn. */
@@ -702,6 +712,17 @@ function centen(bedrag: string): bigint {
 }
 
 /** Een positief bedrag maal een factor met twee decimalen ("1.04"), afgerond op centen, de helft naar boven. */
+/** Elke maand precies één betaling aan de tegenpartij: het bedrag van de eerste maand maal de factor van dat jaar. */
+function verwachtElkeMaandDeEersteMaal(naam: string, transacties: TransactiesOpDatum[], aan: string, factoren: Record<number, string>, reeks: string, van: string, tm: string): void {
+  const eerste = betalingenAan(transacties, van, aan);
+  expect(eerste, `${naam} aan ${aan} in ${van}`).toHaveLength(1);
+  const fout = maanden(van, tm)
+    .map((maand) => ({ maand, betaald: betalingenAan(transacties, maand, aan) }))
+    .filter(({ maand, betaald }) => betaald.join() !== afschrijving(maal(bedragVan(eerste[0]), factoren[jaarVan(maand)])))
+    .map(({ maand, betaald }) => `${maand}: ${betaald.join(', ')}`);
+  expect(fout, `maanden waarin ${naam} aan ${aan} niet € ${bedragVan(eerste[0])} maal ${reeks} betaalt`).toEqual([]);
+}
+
 function maal(bedrag: string, factor: string): string {
   const uitkomst = (centen(bedrag) * centen(factor) + 50n) / 100n;
   return `${uitkomst / 100n}.${String(uitkomst % 100n).padStart(2, '0')}`;

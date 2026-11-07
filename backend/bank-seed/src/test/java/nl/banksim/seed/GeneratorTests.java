@@ -308,13 +308,13 @@ class GeneratorTests {
         assertThat(boodschappen(krap)).isNotEmpty();
     }
 
-    /** FO, origineel: vroeg in de ochtend een incasso, per last op de eigen dag; in 2026 maal de inflatie van 1,28, behalve de energie. */
+    /** FO, origineel: vroeg in de ochtend een incasso, per last op de eigen dag; in 2026 maal de inflatie van 1,28, en de energie maal 1,20. */
     @Test
     void deVasteLastenVanJanInDecember2026() {
         assertThat(Generator.boekingen(klant("jdevries"))).containsAll(List.of(
                 incasso(2026, 12, 1, "-179.20", "Zorgverzekeraar Gezond"),
                 incasso(2026, 12, 1, "-23.04", "Verzekeringen Zeker"),
-                incasso(2026, 12, 15, "-95.00", "Groenstroom Energie"),
+                incasso(2026, 12, 15, "-114.00", "Groenstroom Energie"),
                 incasso(2026, 12, 20, "-57.60", "NetPlus Internet"),
                 incasso(2026, 12, 20, "-9.60", "Waterbedrijf Midden"),
                 incasso(2026, 12, 22, "-22.40", "Mobiel Direct")));
@@ -333,11 +333,16 @@ class GeneratorTests {
     }
 
     @Test
-    void deVasteLastenStijgenElkJaarMetDeInflatieBehalveDeEnergie() {
+    void deVasteLastenStijgenElkJaarMetDeInflatie() {
         assertThat(bedragPerJaar(klant("melamrani"), "Zorgverzekeraar Gezond")).isEqualTo(Map.of(2021, Bedrag.van("-280.00"), 2022, Bedrag.van("-308.00"),
                 2023, Bedrag.van("-324.80"), 2024, Bedrag.van("-336.00"), 2025, Bedrag.van("-347.20"), 2026, Bedrag.van("-358.40")));
-        assertThat(bedragPerJaar(klant("melamrani"), "Groenstroom Energie")).containsOnlyKeys(2021, 2022, 2023, 2024, 2025, 2026)
-                .allSatisfy((jaar, bedrag) -> assertThat(bedrag).isEqualTo(Bedrag.van("-175.00")));
+    }
+
+    /** Origineel: de energieprijs piekt in 2022 en daalt daarna langzaam: 1,00 · 1,80 · 1,50 · 1,25 · 1,20 · 1,20. */
+    @Test
+    void deEnergieVolgtElkJaarDeEnergieprijzen() {
+        assertThat(bedragPerJaar(klant("melamrani"), "Groenstroom Energie")).isEqualTo(Map.of(2021, Bedrag.van("-175.00"), 2022, Bedrag.van("-315.00"),
+                2023, Bedrag.van("-262.50"), 2024, Bedrag.van("-218.75"), 2025, Bedrag.van("-210.00"), 2026, Bedrag.van("-210.00")));
     }
 
     @Test

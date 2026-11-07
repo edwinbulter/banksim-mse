@@ -59,11 +59,14 @@ final class Generator {
     /** Origineel: de lonen en uitkeringen per jaar ten opzichte van 2021. */
     private static final Map<Integer, BigDecimal> LOONSTIJGING = Map.of(2021, new BigDecimal("1.00"), 2022, new BigDecimal("1.04"),
             2023, new BigDecimal("1.12"), 2024, new BigDecimal("1.18"), 2025, new BigDecimal("1.22"), 2026, new BigDecimal("1.26"));
-
-    /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
+    /** Origineel: het prijsniveau per jaar ten opzichte van 2021. */
     private static final Map<Integer, BigDecimal> INFLATIE = Map.of(2021, new BigDecimal("1.00"), 2022, new BigDecimal("1.10"),
             2023, new BigDecimal("1.16"), 2024, new BigDecimal("1.20"), 2025, new BigDecimal("1.24"), 2026, new BigDecimal("1.28"));
+    /** Origineel: de energieprijs per jaar ten opzichte van 2021, met de piek van 2022. */
+    private static final Map<Integer, BigDecimal> ENERGIEPRIJS = Map.of(2021, new BigDecimal("1.00"), 2022, new BigDecimal("1.80"),
+            2023, new BigDecimal("1.50"), 2024, new BigDecimal("1.25"), 2025, new BigDecimal("1.20"), 2026, new BigDecimal("1.20"));
 
+    /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
     private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, int stapCenten, List<String> tegenpartijen,
             TransactieType type) {
     }
@@ -303,11 +306,11 @@ final class Generator {
         };
     }
 
-    /** Origineel: een vaste last stijgt met de inflatie; de energie volgt de energieprijzen, en die staan hier nog op het niveau van 2021. */
+    /** Origineel: een vaste last stijgt met de inflatie; de energie volgt de energieprijzen. */
     private static Bedrag bedragVan(DemoKlanten.VasteLast last, int jaar) {
         return switch (last.prijsreeks()) {
             case INFLATIE -> deelVan(last.bedrag(), INFLATIE.get(jaar));
-            case ENERGIE -> last.bedrag();
+            case ENERGIE -> deelVan(last.bedrag(), ENERGIEPRIJS.get(jaar));
         };
     }
 
