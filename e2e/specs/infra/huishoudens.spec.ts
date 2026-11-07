@@ -5,6 +5,9 @@ import { test } from '../../dsl/fixtures';
 /** Origineel: de lonen en uitkeringen per jaar ten opzichte van 2021. */
 const LOONSTIJGING = { 2021: '1.00', 2022: '1.04', 2023: '1.12', 2024: '1.18', 2025: '1.22', 2026: '1.26' };
 
+/** Origineel: het prijsniveau per jaar ten opzichte van 2021. */
+const INFLATIE = { 2021: '1.00', 2022: '1.10', 2023: '1.16', 2024: '1.20', 2025: '1.24', 2026: '1.28' };
+
 /** Het maandsalaris van 2021 van de 7 werknemers. */
 const WERKNEMERS = [
   { naam: 'Jan de Vries', werkgever: 'Techniek Noord B.V.', salaris: '3100.00' },
@@ -106,14 +109,14 @@ test('Elke klant betaalt elke maand zijn vaste lasten', { tag: '@simulatiedatum'
     'heeft elk van de 10 klanten in elk van de 63 maanden precies één betaling aan Groenstroom Energie, Waterbedrijf Midden, NetPlus Internet, Mobiel Direct, Zorgverzekeraar Gezond en Verzekeringen Zeker',
     () => omgeving.verwachtVasteLastenPerMaand('2021-10', '2026-12'),
   );
-  await omgeving.en('betaalt Jan in december 2026 de bedragen uit zijn profiel', () =>
+  await omgeving.en('betaalt Jan in december 2026 de bedragen uit zijn profiel, maal de inflatie van 2026 behalve de energie', () =>
     omgeving.verwachtVasteLastenVan('Jan de Vries', '2026-12', {
       'Groenstroom Energie': '-95.00',
-      'Waterbedrijf Midden': '-7.50',
-      'NetPlus Internet': '-45.00',
-      'Mobiel Direct': '-17.50',
-      'Zorgverzekeraar Gezond': '-140.00',
-      'Verzekeringen Zeker': '-18.00',
+      'Waterbedrijf Midden': '-9.60',
+      'NetPlus Internet': '-57.60',
+      'Mobiel Direct': '-22.40',
+      'Zorgverzekeraar Gezond': '-179.20',
+      'Verzekeringen Zeker': '-23.04',
     }),
   );
 });
@@ -219,11 +222,13 @@ test('Elke klant betaalt gemeentelijke belastingen in 10 termijnen per jaar', { 
   await omgeving.en('betaalt hij in januari en februari niets aan Gemeente Zuidstad', () =>
     omgeving.verwachtGeenGemeentelijkeBelastingenInJanuariEnFebruari('2021-10', '2026-12'),
   );
-  await omgeving.en('betalen Jan, Lisa, Daan en Ruud, die alleen wonen, € 38,00 per termijn', () =>
-    omgeving.verwachtTermijnGemeentelijkeBelastingen(alleenwonenden, '-38.00'),
+  await omgeving.en(
+    'betalen Jan, Lisa, Daan en Ruud, die alleen wonen, in 2021 € 38,00 per termijn, daarna elk jaar maal de inflatie: € 41,80 · € 44,08 · € 45,60 · € 47,12 · € 48,64',
+    () => omgeving.verwachtTermijnGemeentelijkeBelastingen(alleenwonenden, '38.00', INFLATIE),
   );
-  await omgeving.en('betalen de andere 6 klanten € 55,00 per termijn', () =>
-    omgeving.verwachtTermijnGemeentelijkeBelastingenVanDeAnderen(alleenwonenden, '-55.00'),
+  await omgeving.en(
+    'betalen de andere 6 klanten in 2021 € 55,00 per termijn, daarna elk jaar maal de inflatie: € 60,50 · € 63,80 · € 66,00 · € 68,20 · € 70,40',
+    () => omgeving.verwachtTermijnGemeentelijkeBelastingenVanDeAnderen(alleenwonenden, '55.00', INFLATIE),
   );
 });
 
@@ -266,6 +271,35 @@ test('Het inkomen van elke klant stijgt elk jaar met de lonen, van 2021 t/m 2026
     'krijgt Jan van Techniek Noord B.V. € 3.100,00 in 2021, € 3.224,00 in 2022, € 3.472,00 in 2023, € 3.658,00 in 2024, € 3.782,00 in 2025 en € 3.906,00 in 2026',
     () => omgeving.verwachtInkomenPerJaar('Jan de Vries', 'Techniek Noord B.V.',
       { 2021: '3100.00', 2022: '3224.00', 2023: '3472.00', 2024: '3658.00', 2025: '3782.00', 2026: '3906.00' }, '2021-10', '2026-12'),
+  );
+});
+
+test('De huur en de vaste lasten stijgen elk jaar met de inflatie, van 2021 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  const huurders = [
+    { naam: 'Jan de Vries', aan: 'Woonstichting Thuis' },
+    { naam: 'Mohamed El Amrani', aan: 'Woningcorporatie Samen' },
+    { naam: 'Lisa Jansen', aan: 'Woonstichting Thuis' },
+    { naam: 'Emma de Boer', aan: 'Woningcorporatie Samen' },
+    { naam: 'Ruud Mulder', aan: 'Woonstichting Thuis' },
+  ];
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'betaalt elk van de 10 klanten in elke maand zijn huur, zorgverzekering, verzekering, internet, water en mobiel van 2021 maal de inflatie van dat jaar: 1,00 · 1,10 · 1,16 · 1,20 · 1,24 · 1,28',
+    () => omgeving.verwachtVasteLastenMetInflatie(huurders, INFLATIE, '2021-10', '2026-12'),
+  );
+  await omgeving.en('betaalt hij zijn gemeentelijke belastingen per termijn ook maal de inflatie', () =>
+    omgeving.verwachtGemeentelijkeBelastingenMetInflatie(INFLATIE, '2021-10'),
+  );
+  await omgeving.en('blijft de hypotheek van Sanne, Fatma, Daan en Noor elk jaar gelijk', () =>
+    omgeving.verwachtElkeMaandHetzelfdeBedragAan(['Sanne Bakker', 'Fatma Yilmaz', 'Daan Smit', 'Noor Hendriks'], 'Hypotheekbank Hollandia', '2021-10', '2026-12'),
+  );
+  await omgeving.en(
+    'betaalt Jan aan Woonstichting Thuis € 950,00 in 2021, € 1.045,00 in 2022, € 1.102,00 in 2023, € 1.140,00 in 2024, € 1.178,00 in 2025 en € 1.216,00 in 2026',
+    () => omgeving.verwachtWoonlastenPerJaar('Jan de Vries', 'Woonstichting Thuis',
+      { 2021: '-950.00', 2022: '-1045.00', 2023: '-1102.00', 2024: '-1140.00', 2025: '-1178.00', 2026: '-1216.00' }, '2021-10', '2026-12'),
   );
 });
 

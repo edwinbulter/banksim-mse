@@ -26,7 +26,7 @@ import nl.banksim.domain.transactie.TransactieType;
 
 /**
  * ADR 0041, FO "Transactiepatroon per maand": de boekingen van een demo-klant, van oktober 2021 t/m december 2026. Eerst de
- * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, het inkomen op de 24e, dat elk jaar meestijgt met de lonen, in mei met het vakantiegeld van een werknemer, de belastingteruggave in het voorjaar, de inleg op de 25e, in mei met de extra inleg van een werknemer op de 27e, en de gemeentelijke belastingen op de 28e, van maart t/m december. Daarna de boodschappen, de
+ * vaste bedragen: de woonlasten op de 1e en de vaste lasten op hun eigen dag, vroeg in de ochtend, met de huur en de vaste lasten maal de inflatie van dat jaar, het inkomen op de 24e, dat elk jaar meestijgt met de lonen, in mei met het vakantiegeld van een werknemer, de belastingteruggave in het voorjaar, de inleg op de 25e, in mei met de extra inleg van een werknemer op de 27e, en de gemeentelijke belastingen op de 28e, van maart t/m december, ook maal de inflatie. Daarna de boodschappen, de
  * webwinkels en de geldopnames, met een vaste seed per klant; een vaste boeking die de rekening rood zou maken, krijgt een opname, en een aankoop vervalt (FO). Eenzijdig: de tegenpartij heeft geen
  * rekening bij BankSim (ADR 0024).
  */
@@ -61,6 +61,9 @@ final class Generator {
             2023, new BigDecimal("1.12"), 2024, new BigDecimal("1.18"), 2025, new BigDecimal("1.22"), 2026, new BigDecimal("1.26"));
 
     /** Een soort niet-vaste uitgave, tussen 8:00 en 21:00 (FO). */
+    private static final Map<Integer, BigDecimal> INFLATIE = Map.of(2021, new BigDecimal("1.00"), 2022, new BigDecimal("1.10"),
+            2023, new BigDecimal("1.16"), 2024, new BigDecimal("1.20"), 2025, new BigDecimal("1.24"), 2026, new BigDecimal("1.28"));
+
     private record Aankopen(long seed, int minPerMaand, int maxPerMaand, int minCenten, int maxCenten, int stapCenten, List<String> tegenpartijen,
             TransactieType type) {
     }
@@ -250,7 +253,7 @@ final class Generator {
         for (YearMonth maand = EERSTE_MAAND; !maand.isAfter(LAATSTE_MAAND); maand = maand.plusMonths(1)) {
             YearMonth deze = maand;
             klant.woonlasten().ifPresent(woonlasten -> boekingen.add(new Boeking(deze.atDay(1).atTime(LocalTime.of(6, 0)),
-                    new Bedrag(woonlasten.bedrag().waarde().negate()), woonlasten.tegenpartij(), TransactieType.INCASSO,
+                    new Bedrag(woonlasten(woonlasten, deze.getYear()).waarde().negate()), woonlasten.tegenpartij(), TransactieType.INCASSO,
                     Optional.empty())));
             boekingen.add(new Boeking(maand.atDay(24).atTime(LocalTime.of(7, 0)), inkomen(klant, maand.getYear()),
                     klant.inkomen().tegenpartij(), TransactieType.OVERSCHRIJVING, Optional.empty()));
@@ -260,11 +263,12 @@ final class Generator {
             }
             if (maand.getMonth().compareTo(Month.MARCH) >= 0) {
                 klant.termijnGemeente().ifPresent(termijn -> boekingen.add(new Boeking(deze.atDay(28).atTime(LocalTime.of(6, 0)),
-                        new Bedrag(termijn.waarde().negate()), "Gemeente Zuidstad", TransactieType.INCASSO, Optional.empty())));
+                        new Bedrag(deelVan(termijn, INFLATIE.get(deze.getYear())).waarde().negate()), "Gemeente Zuidstad", TransactieType.INCASSO,
+                        Optional.empty())));
             }
             for (DemoKlanten.VasteLast last : klant.vasteLasten()) {
                 boekingen.add(new Boeking(maand.atDay(last.dag()).atTime(LocalTime.of(6, 0)),
-                        new Bedrag(last.bedrag().waarde().negate()), last.tegenpartij(), TransactieType.INCASSO, Optional.empty()));
+                        new Bedrag(bedragVan(last, maand.getYear()).waarde().negate()), last.tegenpartij(), TransactieType.INCASSO, Optional.empty()));
             }
         }
         if (klant.soort() != DemoKlanten.Soort.ZZP) {
@@ -291,7 +295,23 @@ final class Generator {
         return deelVan(klant.inkomen().bedrag(), LOONSTIJGING.get(jaar));
     }
 
-    /** Afgerond op centen, de helft naar boven: het vakantiegeld is 92% van het inkomen, de extra inleg 40%. */
+    /** Origineel: de huur stijgt met de inflatie, de hypotheek blijft gelijk. */
+    private static Bedrag woonlasten(DemoKlanten.Woonlasten woonlasten, int jaar) {
+        return switch (woonlasten.vorm()) {
+            case HUUR -> deelVan(woonlasten.bedrag(), INFLATIE.get(jaar));
+            case HYPOTHEEK -> woonlasten.bedrag();
+        };
+    }
+
+    /** Origineel: een vaste last stijgt met de inflatie; de energie volgt de energieprijzen, en die staan hier nog op het niveau van 2021. */
+    private static Bedrag bedragVan(DemoKlanten.VasteLast last, int jaar) {
+        return switch (last.prijsreeks()) {
+            case INFLATIE -> deelVan(last.bedrag(), INFLATIE.get(jaar));
+            case ENERGIE -> last.bedrag();
+        };
+    }
+
+    /** Afgerond op centen, de helft naar boven: het vakantiegeld is 92% van het inkomen, de extra inleg 40%, en de huur in 2022 110%. */
     private static Bedrag deelVan(Bedrag bedrag, BigDecimal factor) {
         return new Bedrag(bedrag.waarde().multiply(factor).setScale(2, RoundingMode.HALF_UP));
     }

@@ -11,6 +11,8 @@ const LABEL = `app.kubernetes.io/instance=${RELEASE}`;
 const ORIGINEEL = 'banksim';
 const DEMO_SECRET = 'bank-demo';
 const GEMEENTE = 'Gemeente Zuidstad';
+/** Energie heeft een eigen prijsreeks, niet de inflatie. */
+const ENERGIE = 'Groenstroom Energie';
 
 /** Per resource: uid, generation en een hash van spec of data. Verschilt er iets, dan is er iets veranderd. */
 export type Momentopname = Record<string, string>;
@@ -34,6 +36,15 @@ export interface Inkomen {
 
 /** Per jaar de factor ten opzichte van 2021, zoals "1.04". */
 export type Loonstijging = Record<number, string>;
+
+/** Per jaar het prijsniveau ten opzichte van 2021, zoals "1.10". */
+export type Inflatie = Record<number, string>;
+
+/** Een demo-klant die huurt, en aan wie hij de huur betaalt. */
+export interface Huurder {
+  naam: string;
+  aan: string;
+}
 
 interface BetaalrekeningVanKlant {
   rekeningen: RekeningInOverzicht[];
@@ -350,19 +361,68 @@ export class Omgeving extends Stappen {
     }
   }
 
-  /** S11.1: elke termijn van deze klanten heeft dit bedrag, in domeinnotatie. */
-  async verwachtTermijnGemeentelijkeBelastingen(namen: string[], bedrag: string): Promise<void> {
+  /** S11.1: elke termijn van deze klanten is het bedrag van 2021 maal de inflatie van het jaar van die termijn. */
+  async verwachtTermijnGemeentelijkeBelastingen(namen: string[], bedrag: string, inflatie: Inflatie): Promise<void> {
     for (const naam of namen) {
       const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
-      const termijnen = transacties.flatMap((dag) => dag.transacties.filter(({ tegenpartij }) => tegenpartij === GEMEENTE).map((t) => t.bedrag));
-      expect(new Set(termijnen), `termijnen van ${naam}`).toEqual(new Set([bedrag]));
+      const fout = transacties.flatMap(({ datum, transacties: opDatum }) => opDatum
+        .filter(({ tegenpartij }) => tegenpartij === GEMEENTE)
+        .filter((t) => t.bedrag !== afschrijving(maal(bedrag, inflatie[jaarVan(datum)])))
+        .map((t) => `${datum}: ${t.bedrag}`));
+      expect(fout, `termijnen van ${naam} die niet € ${bedrag} maal de inflatie zijn`).toEqual([]);
     }
   }
 
-  async verwachtTermijnGemeentelijkeBelastingenVanDeAnderen(namen: string[], bedrag: string): Promise<void> {
+  async verwachtTermijnGemeentelijkeBelastingenVanDeAnderen(namen: string[], bedrag: string, inflatie: Inflatie): Promise<void> {
     const anderen = DEMO_KLANTEN.map(({ naam }) => naam).filter((naam) => !namen.includes(naam));
     expect(anderen, 'de andere klanten').toHaveLength(6);
-    await this.verwachtTermijnGemeentelijkeBelastingen(anderen, bedrag);
+    await this.verwachtTermijnGemeentelijkeBelastingen(anderen, bedrag, inflatie);
+  }
+
+  /**
+   * S11.1: elke maand betaalt elke klant zijn huur en zijn vaste lasten behalve de energie precies één keer, en wel het bedrag
+   * van de eerste maand maal de inflatie van dat jaar.
+   */
+  async verwachtVasteLastenMetInflatie(huurders: Huurder[], inflatie: Inflatie, van: string, tm: string): Promise<void> {
+    huurders.forEach(({ naam }) => gebruikersnaamVan(naam)); // een tikfout in een naam valt zo op, in plaats van dat zijn huur niet wordt gecontroleerd
+    for (const { naam, gebruikersnaam } of DEMO_KLANTEN) {
+      const huur = huurders.filter((huurder) => huurder.naam === naam).map(({ aan }) => aan);
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      for (const aan of [...huur, ...VASTE_LASTEN.filter((last) => last !== ENERGIE)]) {
+        const eerste = betalingenAan(transacties, van, aan);
+        expect(eerste, `${naam} aan ${aan} in ${van}`).toHaveLength(1);
+        const fout = maanden(van, tm)
+          .map((maand) => ({ maand, betaald: betalingenAan(transacties, maand, aan) }))
+          .filter(({ maand, betaald }) => betaald.join() !== afschrijving(maal(bedragVan(eerste[0]), inflatie[jaarVan(maand)])))
+          .map(({ maand, betaald }) => `${maand}: ${betaald.join(', ')}`);
+        expect(fout, `maanden waarin ${naam} aan ${aan} niet € ${bedragVan(eerste[0])} maal de inflatie betaalt`).toEqual([]);
+      }
+    }
+  }
+
+  /** S11.1: van elke klant is elke termijn het bedrag van de eerste termijn maal de inflatie van het jaar van die termijn. */
+  async verwachtGemeentelijkeBelastingenMetInflatie(inflatie: Inflatie, van: string): Promise<void> {
+    for (const { naam, gebruikersnaam } of DEMO_KLANTEN) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      const eerste = betalingenAan(transacties, van, GEMEENTE);
+      expect(eerste, `${naam} aan ${GEMEENTE} in ${van}`).toHaveLength(1);
+      await this.verwachtTermijnGemeentelijkeBelastingen([naam], bedragVan(eerste[0]), inflatie);
+    }
+  }
+
+  /** S11.1: in elke maand betalen deze klanten precies één keer aan de tegenpartij, en elke keer hetzelfde bedrag. */
+  async verwachtElkeMaandHetzelfdeBedragAan(namen: string[], aan: string, van: string, tm: string): Promise<void> {
+    for (const naam of namen) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+      const perMaand = maanden(van, tm).map((maand) => betalingenAan(transacties, maand, aan));
+      expect(perMaand.filter((betaald) => betaald.length !== 1), `maanden waarin ${naam} niet precies één keer aan ${aan} betaalt`).toEqual([]);
+      expect(new Set(perMaand.flat()).size, `verschillende bedragen van ${naam} aan ${aan}`).toBe(1);
+    }
+  }
+
+  /** S11.1: in elke maand betaalt de klant precies één keer het bedrag van dat jaar aan de verhuurder, in domeinnotatie. */
+  async verwachtWoonlastenPerJaar(naam: string, aan: string, perJaar: Record<number, string>, van: string, tm: string): Promise<void> {
+    await this.verwachtElkeMaandEenKeer(naam, aan, perJaar, van, tm, `maanden waarin ${naam} niet precies één keer de huur van dat jaar aan ${aan} betaalt`);
   }
 
   /** S11.1: per klant en per maand precies één inleg op de spaarrekening op de 25e; de extra inleg in mei valt op de 27e. */
@@ -402,12 +462,17 @@ export class Omgeving extends Stappen {
 
   /** S11.1: in elke maand komt van de bron precies één keer het bedrag van dat jaar binnen, in domeinnotatie. */
   async verwachtInkomenPerJaar(naam: string, bron: string, perJaar: Record<number, string>, van: string, tm: string): Promise<void> {
+    await this.verwachtElkeMaandEenKeer(naam, bron, perJaar, van, tm, `maanden waarin ${naam} niet precies één keer zijn inkomen van ${bron} krijgt`);
+  }
+
+  /** Per maand precies één boeking met de tegenpartij met het bedrag van dat jaar; andere bedragen met dezelfde tegenpartij mogen ook. */
+  private async verwachtElkeMaandEenKeer(naam: string, tegenpartij: string, perJaar: Record<number, string>, van: string, tm: string, melding: string): Promise<void> {
     const { transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
     const fout = maanden(van, tm)
-      .map((maand) => ({ maand, ontvangen: betalingenAan(transacties, maand, bron) }))
-      .filter(({ maand, ontvangen }) => ontvangen.filter((bedrag) => bedrag === perJaar[jaarVan(maand)]).length !== 1)
-      .map(({ maand, ontvangen }) => `${maand}: ${ontvangen.join(', ')}`);
-    expect(fout, `maanden waarin ${naam} niet precies één keer zijn inkomen van ${bron} krijgt`).toEqual([]);
+      .map((maand) => ({ maand, geboekt: betalingenAan(transacties, maand, tegenpartij) }))
+      .filter(({ maand, geboekt }) => geboekt.filter((bedrag) => bedrag === perJaar[jaarVan(maand)]).length !== 1)
+      .map(({ maand, geboekt }) => `${maand}: ${geboekt.join(', ')}`);
+    expect(fout, melding).toEqual([]);
   }
 
   async verwachtAlleenInlegOpDe25e(namen: string[]): Promise<void> {
@@ -642,7 +707,17 @@ function maal(bedrag: string, factor: string): string {
   return `${uitkomst / 100n}.${String(uitkomst % 100n).padStart(2, '0')}`;
 }
 
-/** Het jaar van een maand zoals "2021-10". */
+/** Een afschrijving in domeinnotatie: "38.00" wordt "-38.00". */
+function afschrijving(bedrag: string): string {
+  return `-${bedrag}`;
+}
+
+/** Het bedrag zonder teken: "-38.00" wordt "38.00". */
+function bedragVan(afschrijving: string): string {
+  return afschrijving.replace(/^-/, '');
+}
+
+/** Het jaar van een maand zoals "2021-10", of van een datum zoals "2021-10-28". */
 function jaarVan(maand: string): number {
   return Number(maand.slice(0, 4));
 }

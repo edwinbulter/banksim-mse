@@ -32,6 +32,10 @@ class GeneratorTests {
     }
 
     /** Alleen het inkomen en de woonlasten, dus zonder het vakantiegeld. */
+    private static Optional<DemoKlanten.Woonlasten> huur(String bedrag) {
+        return Optional.of(new DemoKlanten.Woonlasten(DemoKlanten.Woonvorm.HUUR, "Verhuurder", Bedrag.van(bedrag)));
+    }
+
     private static List<Boeking> vasteBoekingen(DemoKlanten.DemoKlant klant) {
         return Generator.boekingen(klant).stream()
                 .filter(boeking -> boeking.type() != TransactieType.VERZAMELBETALING)
@@ -67,13 +71,17 @@ class GeneratorTests {
     }
 
     /**
-     * Zonder eigen ruimte om uit te geven: in 2021 is de last van € 104,00 op de 24e € 4,00 hoger dan het inkomen, wat het beginsaldo van
-     * € 12,00 in drie maanden opmaakt. In 2022 is het inkomen met de loonstijging precies € 104,00 (ADR 0041, FO).
+     * Zonder eigen ruimte om uit te geven: na de eerste hypotheek blijft er € 12,00 over, en in 2021 is de hypotheek van € 104,00 € 4,00
+     * hoger dan het inkomen, wat die € 12,00 in drie maanden opmaakt. In 2022 is het inkomen met de loonstijging precies € 104,00 (ADR 0041, FO).
      */
     private static DemoKlanten.DemoKlant krap(String gebruikersnaam, DemoKlanten.Soort soort) {
-        return new DemoKlanten.DemoKlant(gebruikersnaam, gebruikersnaam, Bedrag.van("12.00"), GEEN_SPAARGELD,
-                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(24, "Energie", Bedrag.van("104.00"))), Optional.empty(), soort, Optional.empty());
+        return new DemoKlanten.DemoKlant(gebruikersnaam, gebruikersnaam, Bedrag.van("116.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")), hypotheek("104.00"), List.of(), Optional.empty(), soort, Optional.empty());
+    }
+
+    /** Een last die elk jaar gelijk blijft, op de 1e om 6:00: voor regels over geld dat net wel of net niet genoeg is. */
+    private static Optional<DemoKlanten.Woonlasten> hypotheek(String bedrag) {
+        return Optional.of(new DemoKlanten.Woonlasten(DemoKlanten.Woonvorm.HYPOTHEEK, "Hypotheekbank", Bedrag.van(bedrag)));
     }
 
     private static List<Boeking> geldopnames(DemoKlanten.DemoKlant klant) {
@@ -101,7 +109,7 @@ class GeneratorTests {
                 woonlasten(LocalDateTime.of(2021, 10, 1, 6, 0), "-950.00", "Woonstichting Thuis"),
                 inkomen(LocalDateTime.of(2021, 10, 24, 7, 0), "3100.00", "Techniek Noord B.V."));
         assertThat(boekingen.subList(boekingen.size() - 2, boekingen.size())).containsExactly(
-                woonlasten(LocalDateTime.of(2026, 12, 1, 6, 0), "-950.00", "Woonstichting Thuis"),
+                woonlasten(LocalDateTime.of(2026, 12, 1, 6, 0), "-1216.00", "Woonstichting Thuis"),
                 inkomen(LocalDateTime.of(2026, 12, 24, 7, 0), "3906.00", "Techniek Noord B.V."));
     }
 
@@ -128,6 +136,41 @@ class GeneratorTests {
 
         assertThat(vasteBoekingen(krom)).filteredOn(boeking -> boeking.tijdstip().getYear() == 2022)
                 .extracting(Boeking::bedrag).containsOnly(Bedrag.van("104.14"));
+    }
+
+    /** Origineel: het prijsniveau per jaar ten opzichte van 2021, dus 1,00 · 1,10 · 1,16 · 1,20 · 1,24 · 1,28. */
+    @Test
+    void deHuurStijgtElkJaarMetDeInflatie() {
+        assertThat(bedragPerJaar(klant("jdevries"), "Woonstichting Thuis")).isEqualTo(Map.of(2021, Bedrag.van("-950.00"), 2022, Bedrag.van("-1045.00"),
+                2023, Bedrag.van("-1102.00"), 2024, Bedrag.van("-1140.00"), 2025, Bedrag.van("-1178.00"), 2026, Bedrag.van("-1216.00")));
+    }
+
+    @Test
+    void deHypotheekBlijftGelijk() {
+        assertThat(Generator.boekingen(klant("sbakker"))).filteredOn(boeking -> boeking.tegenpartij().equals("Hypotheekbank Hollandia"))
+                .hasSize(MAANDEN).extracting(Boeking::bedrag).containsOnly(Bedrag.van("-1350.00"));
+    }
+
+    /** € 100,15 × 1,10 = € 110,165: afgerond op centen, de helft naar boven, net als de loonstijging. */
+    @Test
+    void eenKromeHuurEnVasteLastMetInflatieWordenAfgerondOpCenten() {
+        var krom = new DemoKlanten.DemoKlant("krom", "Krom", Bedrag.van("300.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")), huur("100.15"),
+                List.of(new DemoKlanten.VasteLast(20, "Internet", Bedrag.van("100.15"))), Optional.empty());
+
+        assertThat(Generator.boekingen(krom)).filteredOn(boeking -> boeking.tijdstip().getYear() == 2022)
+                .filteredOn(boeking -> boeking.type() == TransactieType.INCASSO)
+                .extracting(Boeking::bedrag).containsOnly(Bedrag.van("-110.17"));
+    }
+
+    /** Per jaar het ene bedrag aan de tegenpartij; een tweede, ander bedrag in hetzelfde jaar laat de test falen. */
+    private static Map<Integer, Bedrag> bedragPerJaar(DemoKlanten.DemoKlant klant, String tegenpartij) {
+        return Generator.boekingen(klant).stream()
+                .filter(boeking -> boeking.tegenpartij().equals(tegenpartij))
+                .collect(Collectors.toMap(boeking -> boeking.tijdstip().getYear(), Boeking::bedrag, (eerste, tweede) -> {
+                    assertThat(tweede).isEqualTo(eerste);
+                    return eerste;
+                }));
     }
 
     @Test
@@ -167,7 +210,7 @@ class GeneratorTests {
     void eenKlantDieRoodZouGaanGeeftEenFout() {
         var teWeinig = new DemoKlanten.DemoKlant("rood", "Rood", Bedrag.van("949.99"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+                huur("950.00"), List.of(), Optional.empty());
 
         assertThatThrownBy(() -> Generator.boekingen(teWeinig))
                 .isInstanceOf(IllegalStateException.class)
@@ -179,7 +222,7 @@ class GeneratorTests {
     void eenKlantDiePreciesOpNulKomtMag() {
         var precies = new DemoKlanten.DemoKlant("nul", "Nul", Bedrag.van("950.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+                huur("950.00"), List.of(), Optional.empty());
 
         assertThat(vasteBoekingen(precies)).hasSize(2 * MAANDEN);
     }
@@ -189,7 +232,7 @@ class GeneratorTests {
     void eenDipTussenTweeBoekingenTeltOokAlsHetEindsaldoPositiefIs() {
         var dip = new DemoKlanten.DemoKlant("dip", "Dip", Bedrag.van("100.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+                huur("950.00"), List.of(), Optional.empty());
 
         assertThatThrownBy(() -> Generator.boekingen(dip)).isInstanceOf(IllegalStateException.class);
     }
@@ -240,7 +283,7 @@ class GeneratorTests {
     void bijEenDreigendTekortWordtEenBoodschapOvergeslagen() {
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+                huur("950.00"), List.of(), Optional.empty());
 
         assertThat(boodschappen(krap))
                 .isNotEmpty()
@@ -253,7 +296,7 @@ class GeneratorTests {
     void eenBoodschapMagEenLatereBoekingNietRoodMaken() {
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("1000.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("100.00"))), List.of(), Optional.empty());
+                huur("100.00"), List.of(), Optional.empty());
 
         BigDecimal lopend = krap.beginsaldo().waarde();
         Map<LocalDate, BigDecimal> perDag = new TreeMap<>();
@@ -265,28 +308,36 @@ class GeneratorTests {
         assertThat(boodschappen(krap)).isNotEmpty();
     }
 
-    /** FO, origineel: vroeg in de ochtend een incasso, per last op de eigen dag. */
+    /** FO, origineel: vroeg in de ochtend een incasso, per last op de eigen dag; in 2026 maal de inflatie van 1,28, behalve de energie. */
     @Test
     void deVasteLastenVanJanInDecember2026() {
         assertThat(Generator.boekingen(klant("jdevries"))).containsAll(List.of(
-                incasso(2026, 12, 1, "-140.00", "Zorgverzekeraar Gezond"),
-                incasso(2026, 12, 1, "-18.00", "Verzekeringen Zeker"),
+                incasso(2026, 12, 1, "-179.20", "Zorgverzekeraar Gezond"),
+                incasso(2026, 12, 1, "-23.04", "Verzekeringen Zeker"),
                 incasso(2026, 12, 15, "-95.00", "Groenstroom Energie"),
-                incasso(2026, 12, 20, "-45.00", "NetPlus Internet"),
-                incasso(2026, 12, 20, "-7.50", "Waterbedrijf Midden"),
-                incasso(2026, 12, 22, "-17.50", "Mobiel Direct")));
+                incasso(2026, 12, 20, "-57.60", "NetPlus Internet"),
+                incasso(2026, 12, 20, "-9.60", "Waterbedrijf Midden"),
+                incasso(2026, 12, 22, "-22.40", "Mobiel Direct")));
     }
 
-    /** Per volwassene de zorgpremie en het mobiel, per persoon het water, en met een auto een duurdere verzekering. */
+    /** Per volwassene de zorgpremie en het mobiel, per persoon het water, en met een auto een duurdere verzekering; in 2021 zonder inflatie. */
     @Test
     void deVasteLastenHangenAfVanHetHuishouden() {
         assertThat(Generator.boekingen(klant("melamrani"))).containsAll(List.of(
-                incasso(2026, 12, 1, "-280.00", "Zorgverzekeraar Gezond"),
-                incasso(2026, 12, 1, "-73.00", "Verzekeringen Zeker"),
-                incasso(2026, 12, 15, "-175.00", "Groenstroom Energie"),
-                incasso(2026, 12, 20, "-45.00", "NetPlus Internet"),
-                incasso(2026, 12, 20, "-37.50", "Waterbedrijf Midden"),
-                incasso(2026, 12, 22, "-35.00", "Mobiel Direct")));
+                incasso(2021, 12, 1, "-280.00", "Zorgverzekeraar Gezond"),
+                incasso(2021, 12, 1, "-73.00", "Verzekeringen Zeker"),
+                incasso(2021, 12, 15, "-175.00", "Groenstroom Energie"),
+                incasso(2021, 12, 20, "-45.00", "NetPlus Internet"),
+                incasso(2021, 12, 20, "-37.50", "Waterbedrijf Midden"),
+                incasso(2021, 12, 22, "-35.00", "Mobiel Direct")));
+    }
+
+    @Test
+    void deVasteLastenStijgenElkJaarMetDeInflatieBehalveDeEnergie() {
+        assertThat(bedragPerJaar(klant("melamrani"), "Zorgverzekeraar Gezond")).isEqualTo(Map.of(2021, Bedrag.van("-280.00"), 2022, Bedrag.van("-308.00"),
+                2023, Bedrag.van("-324.80"), 2024, Bedrag.van("-336.00"), 2025, Bedrag.van("-347.20"), 2026, Bedrag.van("-358.40")));
+        assertThat(bedragPerJaar(klant("melamrani"), "Groenstroom Energie")).containsOnlyKeys(2021, 2022, 2023, 2024, 2025, 2026)
+                .allSatisfy((jaar, bedrag) -> assertThat(bedrag).isEqualTo(Bedrag.van("-175.00")));
     }
 
     @Test
@@ -411,8 +462,7 @@ class GeneratorTests {
 
     private static DemoKlanten.DemoKlant metTekort(String beginsaldo, String spaargeld, String last) {
         return new DemoKlanten.DemoKlant("tekort", "Tekort", Bedrag.van(beginsaldo), Bedrag.van(spaargeld),
-                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van(last)), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van(last))), Optional.empty());
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van(last)), hypotheek(last), List.of(), Optional.empty());
     }
 
     private static Generator.Opname opname(int maand, int dag, String bedrag) {
@@ -595,7 +645,7 @@ class GeneratorTests {
     void bijEenDreigendTekortVervaltEenWebwinkelaankoop() {
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+                huur("950.00"), List.of(), Optional.empty());
 
         assertThat(webwinkelaankopen(krap))
                 .isNotEmpty()
@@ -608,7 +658,7 @@ class GeneratorTests {
     void boodschappenEnWebwinkelaankopenSamenMakenDeRekeningNietRood() {
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("1000.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("800.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("100.00"))), List.of(), Optional.empty());
+                huur("100.00"), List.of(), Optional.empty());
 
         BigDecimal lopend = krap.beginsaldo().waarde();
         Map<LocalDate, BigDecimal> perDag = new TreeMap<>();
@@ -672,7 +722,7 @@ class GeneratorTests {
     void bijEenDreigendTekortVervaltEenGeldopname() {
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+                huur("950.00"), List.of(), Optional.empty());
 
         assertThat(geldopnames(krap))
                 .isNotEmpty()
@@ -685,7 +735,7 @@ class GeneratorTests {
     void eenGeldopnameLeidtNietTotEenOpnameVanDeSpaarrekening() {
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"), Bedrag.van("5000.00"),
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van("950.00"))), List.of(), Optional.empty());
+                huur("950.00"), List.of(), Optional.empty());
 
         assertThat(geldopnames(krap)).isNotEmpty();
         assertThat(Generator.opnames(krap)).isEmpty();
@@ -698,7 +748,7 @@ class GeneratorTests {
     private static DemoKlanten.DemoKlant metInkomen(String gebruikersnaam, String naam, String beginsaldo, String inkomen, String huur) {
         return new DemoKlanten.DemoKlant(gebruikersnaam, naam, Bedrag.van(beginsaldo), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van(inkomen)),
-                Optional.of(new DemoKlanten.VasteBoeking("Verhuurder", Bedrag.van(huur))), List.of(), Optional.empty());
+                huur(huur), List.of(), Optional.empty());
     }
 
     /** FO: 0–3 keer per maand; alleen wat een klant zelf betaalt, telt mee. */
@@ -908,29 +958,29 @@ class GeneratorTests {
     }
 
     /**
-     * Op 1 oktober 2021 komt er € 10.100,00 van de spaarrekening voor de last van € 10.000,00. Zonder die opname zou de rekening
+     * Op 1 oktober 2021 komt er € 10.100,00 van de spaarrekening voor de hypotheek van € 10.000,00. Zonder die opname zou de rekening
      * na het vakantiegeld van € 9.200,00 en de teruggave van hooguit € 1.200,00 geen ruimte hebben voor € 4.000,00.
      */
     @Test
     void deOpnamesTellenMeeVoorDeExtraInleg() {
         var klant = new DemoKlanten.DemoKlant("aangevuld", "Aangevuld", Bedrag.van("0.00"), Bedrag.van("20000.00"),
-                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("10000.00")), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("10000.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("10000.00")), hypotheek("10000.00"), List.of(), Optional.empty(),
+                DemoKlanten.Soort.WERKNEMER, Optional.empty());
 
         assertThat(Generator.opnames(klant)).containsExactly(opname(10, 1, "10100.00"));
         assertThat(extraInleggen(klant)).extracting(inleg -> inleg.tijdstip().getYear()).contains(2022);
     }
 
     /**
-     * Een last van € 11.400,00 op de 1e, en in 2022 een salaris van € 10.400,00: elke maand € 1.000,00 tekort. Het beginsaldo is op
+     * Een hypotheek van € 11.400,00 op de 1e, en in 2022 een salaris van € 10.400,00: elke maand € 1.000,00 tekort. Het beginsaldo is op
      * 1 mei 2022 precies op. Het vakantiegeld van € 9.568,00 dekt de maanden tot november, maar niet ook nog de extra inleg van
      * € 4.160,00. Die vervalt dan, net als een aankoop, en vraagt geen opname.
      */
     @Test
     void eenExtraInlegDieRoodZouMakenVervaltZonderOpname() {
         var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("19600.00"), GEEN_SPAARGELD,
-                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("10000.00")), Optional.empty(),
-                List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("11400.00"))), Optional.empty(), DemoKlanten.Soort.WERKNEMER, Optional.empty());
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("10000.00")), hypotheek("11400.00"), List.of(), Optional.empty(),
+                DemoKlanten.Soort.WERKNEMER, Optional.empty());
 
         assertThat(extraInleggen(krap)).extracting(inleg -> inleg.tijdstip().getYear()).doesNotContain(2022);
         assertThat(Generator.opnames(krap)).isEmpty();
@@ -995,19 +1045,26 @@ class GeneratorTests {
         assertThat(boodschappen(krap)).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(eerste));
     }
 
+    /** Origineel: de termijn stijgt elk jaar met de inflatie, net als de vaste lasten. */
+    @Test
+    void deTermijnStijgtElkJaarMetDeInflatie() {
+        assertThat(bedragPerJaar(klant("jdevries"), "Gemeente Zuidstad")).isEqualTo(Map.of(2021, Bedrag.van("-38.00"), 2022, Bedrag.van("-41.80"),
+                2023, Bedrag.van("-44.08"), 2024, Bedrag.van("-45.60"), 2025, Bedrag.van("-47.12"), 2026, Bedrag.van("-48.64")));
+        assertThat(bedragPerJaar(klant("sbakker"), "Gemeente Zuidstad")).containsEntry(2026, Bedrag.van("-70.40"));
+    }
+
     /** Origineel: 10 termijnen, van maart t/m december, op de 28e, als incasso. */
     @Test
     void janBetaaltIn2022TienTermijnenVanMaartTotEnMetDecember() {
-        var verwacht = IntStream.rangeClosed(3, 12).mapToObj(maand -> incasso(2022, maand, 28, "-38.00", "Gemeente Zuidstad")).toList();
+        var verwacht = IntStream.rangeClosed(3, 12).mapToObj(maand -> incasso(2022, maand, 28, "-41.80", "Gemeente Zuidstad")).toList();
 
         assertThat(termijnen(klant("jdevries")).stream().filter(termijn -> termijn.tijdstip().getYear() == 2022)).isEqualTo(verwacht);
     }
 
     @Test
-    void elkeKlantBetaalt53TermijnenMetHetBedragVanZijnHuishouden() {
+    void elkeKlantBetaalt53TermijnenMetIn2021HetBedragVanZijnHuishouden() {
         var perKlant = DemoKlanten.ALLE.stream().collect(Collectors.toMap(DemoKlanten.DemoKlant::gebruikersnaam, klant -> {
             assertThat(termijnen(klant)).as(klant.gebruikersnaam()).hasSize(53);
-            assertThat(termijnen(klant)).extracting(Boeking::bedrag).as(klant.gebruikersnaam()).containsOnly(termijnen(klant).getFirst().bedrag());
             return termijnen(klant).getFirst().bedrag();
         }));
 

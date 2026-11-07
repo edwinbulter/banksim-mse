@@ -1167,7 +1167,7 @@ Tot nu toe maakten de scenario's hun eigen data via de seed-CLI. Een demo met 10
 Deze slice wordt in kleine stappen gebouwd, elk met een eigen scenario in `e2e/specs/infra/huishoudens.spec.ts`:
 
 1. Na installatie kunnen 10 klanten en een beheerder inloggen, en ziet elke klant een betaal- en een spaarrekening (gebouwd, ADR 0040).
-2. Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026 (gebouwd voor het inkomen, de woonlasten, de vaste lasten, de boodschappen, de webwinkels, het contante geld, de betalingen tussen klanten, de inleg, de opname bij een dreigend tekort, de rente, het vakantiegeld van werknemers met hun extra inleg, de belastingteruggave, de gemeentelijke belastingen en de loonstijging van het inkomen, ADR 0041, 0042, 0043 en 0044); de andere soorten uit het FO volgen.
+2. Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026 (gebouwd voor het inkomen, de woonlasten, de vaste lasten, de boodschappen, de webwinkels, het contante geld, de betalingen tussen klanten, de inleg, de opname bij een dreigend tekort, de rente, het vakantiegeld van werknemers met hun extra inleg, de belastingteruggave, de gemeentelijke belastingen de loonstijging van het inkomen en de inflatie op de huur, de vaste lasten en de gemeentelijke belastingen, ADR 0041, 0042, 0043 en 0044); de andere soorten uit het FO volgen.
 3. Geen enkele rekening staat op enige dag rood (gebouwd voor de betaalrekening; op de spaarrekening voorkomt de generator het, maar een scenario beweert het nog niet).
 4. Een upgrade wist de demo-data niet en maakt die ook niet dubbel (gebouwd; de code bestond al, het scenario is met twee sabotages rood gezien).
 5. Golden master: seed 42 geeft steeds dezelfde data.
