@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.LocalDate;
 import java.util.Optional;
 
+import nl.banksim.api.PostgresTestDatabase;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import org.flywaydb.core.Flyway;
@@ -15,16 +16,13 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 /** S10.1, tegen PostgreSQL met de migraties van bank-api: de rekeninghouders voor de beheerder. */
 @Testcontainers
 class JdbcRekeninghoudersTests {
 
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName
-            .parse("postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873")
-            .asCompatibleSubstituteFor("postgres"));
+    static final PostgreSQLContainer POSTGRES = PostgresTestDatabase.container();
 
     static final Iban BETAAL_JAN = Iban.simBank(1L);
     static final Iban SPAAR_JAN = Iban.simBank(2L);

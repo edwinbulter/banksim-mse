@@ -21,7 +21,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 class JdbcRentebijschrijvingenTests {
 
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(TestDatabase.IMAGE);
+    static final PostgreSQLContainer POSTGRES = TestDatabase.container();
 
     @Test
     void legtElkeMaandVastMetDeEersteDagVanDieMaand() {

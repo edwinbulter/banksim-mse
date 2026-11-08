@@ -25,7 +25,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 class SeedKlantAanmakerDatabaseTests {
 
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(TestDatabase.IMAGE);
+    static final PostgreSQLContainer POSTGRES = TestDatabase.container();
 
     static JdbcClient jdbc;
     static TransactionTemplate transactie;

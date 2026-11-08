@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import nl.banksim.api.PostgresTestDatabase;
 import nl.banksim.domain.geld.Bedrag;
 import nl.banksim.domain.rekening.Iban;
 import nl.banksim.domain.rente.DagSaldo;
@@ -21,7 +22,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 /**
  * ADR 0028, tegen PostgreSQL met de migraties van bank-api: de dagsaldi waarover de rente gaat, en het markeren van een
@@ -31,9 +31,7 @@ import org.testcontainers.utility.DockerImageName;
 class RenteOpslagTests {
 
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName
-            .parse("postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873")
-            .asCompatibleSubstituteFor("postgres"));
+    static final PostgreSQLContainer POSTGRES = PostgresTestDatabase.container();
 
     static final Iban SPAAR_JAN = Iban.van("NL94SIMB0000000001");
 

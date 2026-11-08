@@ -23,7 +23,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 class JdbcRekeninghoudersTests {
 
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(TestDatabase.IMAGE);
+    static final PostgreSQLContainer POSTGRES = TestDatabase.container();
 
     static JdbcClient jdbc;
 
