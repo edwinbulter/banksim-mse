@@ -38,7 +38,16 @@ Opties:
 - **De score blijft gelijk, maar klopt nu.** Met de standaard waarde was 99% inclusief 27 mutanten die geen test gedood had.
 - **Een echte oneindige lus kost minstens 30 seconden per mutant.** In de huidige code heeft geen enkele mutant er zo een gemaakt (0 TIMED_OUT met 30000 ms).
 - **Niet opgelost: het hangen.** Lokaal bleven op 2026-11-08 2 van de 6 runs van `bank-api` hangen. Volgens de thread dumps wachtte een minion zonder grens op de inlog bij PostgreSQL. Dat gebeurde terwijl de JUnit-plugin de tests zocht; daar geldt de time-out van PIT niet. Dat is een aparte beslissing.
-- **Niet gemeten:** de winst in CI, en het effect op `bank-seed`. Dat ziet de eerste pipeline na deze wijziging.
+- **Gemeten in CI** (run 42490223915, commit bce741a, vergeleken met run 42418496233):
+
+  | | voor | na |
+  | --- | --- | --- |
+  | Job "Mutatietests (PIT)" | 17:14 | 14:12 |
+  | `bank-api`, totaal / mutatiefase | 10:47 / 9:55 | 8:27 / 7:21 |
+  | `bank-seed`, totaal / mutatiefase | 5:01 / 4:01 | 4:23 / 3:17 |
+  | TIMED_OUT | 42 | 1 |
+
+  De ene TIMED_OUT die over is, zit in `Generator.aankopen`. Daar wordt `i < aantal` omgedraaid tot `i >= aantal`. Bij nul geldopnames in een maand stopt die lus dan niet. Dat is een echte oneindige lus. De job heeft nu bijna 6 minuten over tot de grens van 20 minuten. Het meeste van die 14 minuten is nog steeds `bank-api`.
 
 ## Bewaking
 - **Na de eerste push:** de duur van de job en het aantal TIMED_OUTs per module in het artifact `pit-rapport` (`mutations.xml`, status `TIMED_OUT`) vergelijken met run 42418496233 (17:14, 42 TIMED_OUTs). Het resultaat komt in deze ADR, onder Gevolgen.
