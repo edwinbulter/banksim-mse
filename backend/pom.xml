@@ -127,6 +127,8 @@
                             <param>nl.banksim.*Application</param>
                         </excludedClasses>
                         <mutationThreshold>95</mutationThreshold>
+                        <!-- Een verse minion start PostgreSQL en Spring opnieuw; met de standaard 4000 ms telt dat als TIMED_OUT (ADR 0045) -->
+                        <timeoutConstant>30000</timeoutConstant>
                         <threads>4</threads>
                         <timestampedReports>false</timestampedReports>
                         <outputFormats>
