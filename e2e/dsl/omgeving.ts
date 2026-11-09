@@ -563,12 +563,12 @@ export class Omgeving extends Stappen {
     const opnames = mutaties
       .filter((mutatie) => mutatie.type === 'Opname')
       .map(({ datum, bedrag }) => ({ datum, bedrag }))
-      .sort((a, b) => a.datum.localeCompare(b.datum));
-    expect(opnames, `opnames van ${naam}`).toEqual(verwacht);
+      .sort(opDatumEnBedrag);
+    expect(opnames, `opnames van ${naam}`).toEqual([...verwacht].sort(opDatumEnBedrag));
   }
 
-  async verwachtGeenOpnamesBehalveBij(namen: string[]): Promise<void> {
-    for (const { naam, gebruikersnaam } of DEMO_KLANTEN.filter((klant) => !namen.includes(klant.naam))) {
+  async verwachtGeenOpnamesBij(namen: string[]): Promise<void> {
+    for (const { naam, gebruikersnaam } of DEMO_KLANTEN.filter((klant) => namen.includes(klant.naam))) {
       const mutaties = await this.spaarmutatiesVan(gebruikersnaam);
       expect(mutaties.filter((mutatie) => mutatie.type === 'Opname'), `opnames van ${naam}`).toEqual([]);
     }
@@ -613,6 +613,40 @@ export class Omgeving extends Stappen {
       }
       expect(laagste >= 0n, `laagste lopende saldo van ${gebruikersnaam}: ${laagste} cent`).toBe(true);
     }
+  }
+
+  /**
+   * S11.1, TO §9: het saldo aan het eind van elke dag, ook een dag zonder transacties, is minstens een kwart van het maandinkomen
+   * van dat jaar (inkomen van 2021 maal de loonstijging), naar boven afgerond op centen.
+   */
+  async verwachtBufferVanEenKwartMaandinkomen(inkomens: Inkomen[], loonstijging: Loonstijging, van: string, tm: string): Promise<void> {
+    const fout: string[] = [];
+    for (const { naam, bedrag } of inkomens) {
+      const eindsaldi = await this.eindsaldiPerDag(naam, van, tm);
+      const eronder = [...eindsaldi]
+        .filter(([datum, saldo]) => saldo < kwartVan(maal(bedrag, loonstijging[jaarVan(datum)])))
+        .map(([datum, saldo]) => `${datum}: ${euro(saldo)}`);
+      if (eronder.length > 0) fout.push(`${naam}, ${eronder.length} dagen, eerst ${eronder.slice(0, 3).join('; ')}`);
+    }
+    expect(fout, 'klanten met een saldo aan het eind van een dag onder een kwart van hun maandinkomen').toEqual([]);
+  }
+
+  async verwachtSaldoAanHetEindVanMinstens(naam: string, datum: string, minstens: string): Promise<void> {
+    const saldo = (await this.eindsaldiPerDag(naam, datum, datum)).get(datum);
+    expect(saldo !== undefined && saldo >= centen(minstens), `saldo van ${naam} aan het eind van ${datum}: ${saldo === undefined ? 'onbekend' : euro(saldo)}`).toBe(true);
+  }
+
+  /** Vanaf het beginsaldo vooruit rekenen, in centen: het eindsaldo min alle transacties, en daarna dag voor dag. */
+  private async eindsaldiPerDag(naam: string, van: string, tm: string): Promise<Map<string, bigint>> {
+    const { rekeningen, transacties } = await this.betaalrekeningVan(gebruikersnaamVan(naam));
+    const perDag = new Map(transacties.map((dag) => [dag.datum, dag.transacties.reduce((som, { bedrag }) => som + centen(bedrag), 0n)]));
+    let saldo = [...perDag.values()].reduce((som, mutatie) => som - mutatie, centen(betaalrekening(rekeningen, gebruikersnaamVan(naam)).saldo));
+    const eindsaldi = new Map<string, bigint>();
+    for (const datum of dagen(transacties.at(-1)?.datum ?? van, tm)) {
+      saldo += perDag.get(datum) ?? 0n;
+      if (datum >= van) eindsaldi.set(datum, saldo);
+    }
+    return eindsaldi;
   }
 
   /** S11.1: wat de klanten nu zien, om na een upgrade te vergelijken. */
@@ -833,6 +867,27 @@ function laatsteDag(maand: string): string {
   return new Date(Date.UTC(jaar, nummer, 0)).toISOString().slice(0, 10);
 }
 
+/** Een kwart van een bedrag, in centen, naar boven afgerond. */
+function kwartVan(bedrag: string): bigint {
+  return (centen(bedrag) + 3n) / 4n;
+}
+
+/** Centen als bedrag voor een melding: 77527n wordt "775.27". */
+function euro(centenBedrag: bigint): string {
+  const teken = centenBedrag < 0n ? '-' : '';
+  const absoluutBedrag = absoluut(centenBedrag);
+  return `${teken}${absoluutBedrag / 100n}.${String(absoluutBedrag % 100n).padStart(2, '0')}`;
+}
+
+/** De dagen van `van` t/m `tm`, zoals "2021-10-01". */
+function dagen(van: string, tm: string): string[] {
+  const resultaat: string[] = [];
+  for (let dag = new Date(`${van}T00:00:00Z`); dag.toISOString().slice(0, 10) <= tm; dag.setUTCDate(dag.getUTCDate() + 1)) {
+    resultaat.push(dag.toISOString().slice(0, 10));
+  }
+  return resultaat;
+}
+
 /** De maanden van `van` t/m `tm`, zoals "2021-10". */
 function maanden(van: string, tm: string): string[] {
   const resultaat: string[] = [];
@@ -866,4 +921,9 @@ function naam(o: K8sObject): string {
 
 function verwachtGeslaagd(wat: string, resultaat: Resultaat): void {
   expect(resultaat.code, `${wat} faalde:\n${resultaat.uitvoer}`).toBe(0);
+}
+
+/** Opnames op dezelfde dag hebben geen vastgelegde volgorde; daarom vergelijkt de DSL ze gesorteerd op datum en bedrag. */
+function opDatumEnBedrag(a: { datum: string; bedrag: string }, b: { datum: string; bedrag: string }): number {
+  return a.datum.localeCompare(b.datum) || a.bedrag.localeCompare(b.bedrag);
 }

@@ -791,7 +791,7 @@ De rekeninghouder, rekeningen, transacties en login staan in één databasetrans
 **13.5 Waarom staat de datumgrens tot 31 december 2026, ook als die in de toekomst ligt?**
 <details><summary>Antwoord</summary>
 
-Dat vraagt het FO. Een boeking na vandaag staat al in de database, maar de klant ziet hem pas als de datum zo ver is. Daardoor kan nooit rood al nu een betaling weigeren vanwege een latere boeking. Daarom komt er nog een buffer.
+Dat vraagt het FO. Een boeking na vandaag staat al in de database, maar de klant ziet hem pas als de datum zo ver is. Daardoor kan nooit rood al nu een betaling weigeren vanwege een latere boeking. Daarom houdt de generator op elke betaalrekening een buffer aan van een kwart maandinkomen van dat jaar (`Generator.buffer`): een vaste boeking die eronder zou komen, krijgt eerst een opname van de spaarrekening, en een aankoop vervalt. Het scenario "Elke betaalrekening houdt een buffer van een kwart maandinkomen aan" bewaakt dit.
 
 *Bron:* [ADR 0041](adr/0041-de-generator-boekt-de-historie-samen-met-de-demo-klant.md), [ADR 0025](adr/0025-nooit-rood-minimum-lopend-saldo-vanaf-de-uitvoerdatum.md).
 </details>

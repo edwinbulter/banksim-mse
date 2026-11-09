@@ -466,10 +466,14 @@ class GeneratorTests {
         assertThatThrownBy(() -> Generator.boekingen(spaarder("100.01"))).isInstanceOf(IllegalStateException.class);
     }
 
-    /** In 2021 gaat het salaris van de 24e de 25e helemaal naar de spaarrekening, dus er is niets over voor boodschappen. */
+    /**
+     * Het salaris van de 24e gaat de 25e helemaal naar de spaarrekening, dus er is niets over voor boodschappen. Pas op 25 december is er
+     * genoeg spaargeld voor een opname tot boven de buffer.
+     */
     @Test
     void eenBoodschapMagEenLatereInlegNietRoodMaken() {
-        assertThat(boodschappen(spaarder("100.00"))).filteredOn(boodschap -> boodschap.tijdstip().getYear() == 2021).isEmpty();
+        assertThat(boodschappen(spaarder("100.00"))).filteredOn(boodschap -> boodschap.tijdstip().isBefore(LocalDateTime.of(2021, 12, 25, 0, 0)))
+                .isEmpty();
     }
 
     @Test
@@ -505,30 +509,26 @@ class GeneratorTests {
         return new Generator.Opname(LocalDateTime.of(2021, maand, dag, 5, 59), Bedrag.van(bedrag));
     }
 
-    /** FO: bij een dreigend tekort eerst geld van de spaarrekening, een minuut voor de vaste last. */
+    /** FO, TO §9: dreigt de betaalrekening onder de buffer te komen, dan eerst geld van de spaarrekening, een minuut voor de vaste last. */
     @Test
     void lisaEnMohamedNemenInOktober2021GeldOpVanHunSpaarrekening() {
-        assertThat(Generator.opnames(klant("ljansen"))).containsExactly(opname(10, 1, "200.00"));
-        assertThat(Generator.opnames(klant("melamrani"))).containsExactly(opname(10, 1, "200.00"), opname(10, 15, "200.00"));
+        assertThat(Generator.opnames(klant("ljansen"))).containsExactly(opname(10, 1, "600.00"), opname(10, 1, "200.00"));
+        assertThat(Generator.opnames(klant("melamrani")))
+                .containsExactly(opname(10, 1, "900.00"), opname(10, 1, "300.00"), opname(10, 15, "300.00"));
     }
 
     @Test
-    void deAndereKlantenNemenNietsOp() {
-        assertThat(DemoKlanten.ALLE).filteredOn(klant -> !List.of("ljansen", "melamrani").contains(klant.gebruikersnaam()))
-                .hasSize(8).allSatisfy(klant -> assertThat(Generator.opnames(klant)).as(klant.gebruikersnaam()).isEmpty());
+    void pieterDaanEnRuudNemenNietsOp() {
+        assertThat(DemoKlanten.ALLE).filteredOn(klant -> List.of("pvisser", "dsmit", "rmulder").contains(klant.gebruikersnaam()))
+                .hasSize(3).allSatisfy(klant -> assertThat(Generator.opnames(klant)).as(klant.gebruikersnaam()).isEmpty());
     }
 
-    /** Origineel: het tekort naar boven afgerond op honderdtallen, plus 100. */
+    /** Origineel: het tekort tot de buffer van € 500,00 naar boven afgerond op honderdtallen, plus 100. */
     @Test
     void deOpnameIsHetTekortAfgerondOpHonderdtallenPlusHonderd() {
-        assertThat(Generator.opnames(metTekort("100.00", "1000.00", "100.01")).getFirst()).isEqualTo(opname(10, 1, "200.00"));
-        assertThat(Generator.opnames(metTekort("100.00", "1000.00", "200.00")).getFirst()).isEqualTo(opname(10, 1, "200.00"));
-        assertThat(Generator.opnames(metTekort("100.00", "1000.00", "200.01")).getFirst()).isEqualTo(opname(10, 1, "300.00"));
-    }
-
-    @Test
-    void eenVasteLastDiePreciesOpNulUitkomtVraagtGeenOpname() {
-        assertThat(Generator.opnames(metTekort("100.00", "1000.00", "100.00"))).isEmpty();
+        assertThat(Generator.opnames(metBuffer("1100.00"))).containsExactly(opname(10, 1, "200.00"));
+        assertThat(Generator.opnames(metBuffer("1099.99"))).containsExactly(opname(10, 1, "300.00"));
+        assertThat(Generator.opnames(metBuffer("1000.01"))).containsExactly(opname(10, 1, "300.00"));
     }
 
     /** Het inkomen en de last zijn even groot, dus de opname van € 200,00 blijft het hele verloop dekken. */
@@ -555,10 +555,13 @@ class GeneratorTests {
         assertThatThrownBy(() -> Generator.boekingen(krimpend)).isInstanceOf(IllegalStateException.class);
     }
 
-    /** De spaarrekening begint leeg en heeft op 1 december twee inleggen van € 100,00: precies de opname. */
+    /**
+     * De spaarrekening begint leeg en heeft op 1 december twee inleggen van € 100,00: precies de opname. De buffer is € 50,00; op 1 november
+     * komt het saldo daar precies op uit.
+     */
     @Test
     void deInleggenTellenMeeVoorHetSpaargeld() {
-        var spaarder = new DemoKlanten.DemoKlant("spaarder", "Spaarder", Bedrag.van("300.00"), GEEN_SPAARGELD,
+        var spaarder = new DemoKlanten.DemoKlant("spaarder", "Spaarder", Bedrag.van("350.00"), GEEN_SPAARGELD,
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("200.00")), Optional.empty(),
                 List.of(new DemoKlanten.VasteLast(1, "Energie", Bedrag.van("200.00"))), Optional.of(Bedrag.van("100.00")));
 
@@ -576,22 +579,25 @@ class GeneratorTests {
         return Generator.rente(klant(gebruikersnaam));
     }
 
-    /** ADR 0043, FO: 3% per jaar, per dag over het eindsaldo: € 6.500,00, en de inleg van € 400,00 vanaf de 25e. */
+    /** ADR 0043, FO: 3% per jaar, per dag over het eindsaldo: € 6.500,00, min de opnames van € 200,00 op 1 en 20 oktober, plus de inleg van € 400,00 vanaf de 25e. */
     @Test
     void deRenteVanJanInOktober2021() {
         Generator.Rente oktober = rente("jdevries").getFirst();
 
         assertThat(oktober.maand()).isEqualTo(YearMonth.of(2021, 10));
-        assertThat(oktober.bedrag()).isEqualTo(Bedrag.van("16.79"));
+        assertThat(oktober.bedrag()).isEqualTo(Bedrag.van("16.08"));
         assertThat(oktober.tijdstip()).isEqualTo(LocalDateTime.of(2021, 10, 31, 23, 59));
         assertThat(oktober.omschrijving()).isEqualTo("Rente oktober");
     }
 
-    /** Een opname telt vanaf de dag zelf mee: Lisa en Mohamed nemen in oktober 2021 op. */
+    /**
+     * Een opname telt vanaf de dag zelf mee. Lisa: € 1.000,00 na de opnames van 1 oktober, € 1.150,00 vanaf de inleg op de 25e. Mohamed:
+     * € 3.300,00, vanaf de 15e € 3.000,00, vanaf de 25e € 3.250,00.
+     */
     @Test
     void deOpnamesTellenMeeVoorDeRente() {
-        assertThat(rente("ljansen").getFirst().bedrag()).isEqualTo(Bedrag.van("4.16"));
-        assertThat(rente("melamrani").getFirst().bedrag()).isEqualTo(Bedrag.van("10.82"));
+        assertThat(rente("ljansen").getFirst().bedrag()).isEqualTo(Bedrag.van("2.63"));
+        assertThat(rente("melamrani").getFirst().bedrag()).isEqualTo(Bedrag.van("8.13"));
     }
 
     @Test
@@ -609,7 +615,7 @@ class GeneratorTests {
     /** De bedragen uit het scenario, met een los rekenscript nagerekend: rente telt mee in de maanden erna. */
     @Test
     void hetSpaarsaldoInclusiefRente() {
-        for (var verwacht : Map.of("jdevries", "46825.89", "ljansen", "19562.32", "melamrani", "34993.33").entrySet()) {
+        for (var verwacht : Map.of("jdevries", "46358.06", "ljansen", "18860.02", "melamrani", "33706.02").entrySet()) {
             var klant = klant(verwacht.getKey());
             BigDecimal saldo = klant.beginsaldoSpaar().waarde();
             for (Generator.Inleg inleg : Generator.inleggen(klant)) {
@@ -766,10 +772,10 @@ class GeneratorTests {
                 .isEmpty();
     }
 
-    /** Een opname bij de geldautomaat vervalt bij een tekort, en haalt dus nooit geld van de spaarrekening. */
+    /** Een opname bij de geldautomaat vervalt bij een tekort, en haalt dus nooit geld van de spaarrekening. Na de huur staat er precies de buffer van € 775,00. */
     @Test
     void eenGeldopnameLeidtNietTotEenOpnameVanDeSpaarrekening() {
-        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("950.00"), Bedrag.van("5000.00"),
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("1725.00"), Bedrag.van("5000.00"),
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("3100.00")),
                 huur("950.00"), List.of(), Optional.empty());
 
@@ -1003,7 +1009,7 @@ class GeneratorTests {
                 new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("10000.00")), hypotheek("10000.00"), List.of(), Optional.empty(),
                 DemoKlanten.Soort.WERKNEMER, Optional.empty());
 
-        assertThat(Generator.opnames(klant)).containsExactly(opname(10, 1, "10100.00"));
+        assertThat(Generator.opnames(klant)).containsExactly(opname(10, 1, "12600.00"));
         assertThat(extraInleggen(klant)).extracting(inleg -> inleg.tijdstip().getYear()).contains(2022);
     }
 
@@ -1121,5 +1127,65 @@ class GeneratorTests {
         // Het inkomen gaat op aan de termijn, dus er is pas geld over als de termijnen in januari stoppen.
         assertThat(boodschappen(metTermijn("38.00"))).isNotEmpty();
         assertThat(boodschappen(metTermijn("38.00"))).allSatisfy(boodschap -> assertThat(boodschap.datum()).isAfterOrEqualTo(LocalDate.of(2022, 1, 24)));
+    }
+
+    /** TO §9: een kwart van het maandinkomen van dat jaar, naar boven afgerond op centen. */
+    @Test
+    void deBufferIsEenKwartVanHetInkomenVanDatJaar() {
+        assertThat(Generator.buffer(klant("jdevries"), 2021)).isEqualTo(Bedrag.van("775.00"));
+        assertThat(Generator.buffer(klant("jdevries"), 2026)).isEqualTo(Bedrag.van("976.50"));
+        assertThat(Generator.buffer(metTekort("100.00", "1000.00", "100.01"), 2021)).isEqualTo(Bedrag.van("25.01"));
+    }
+
+    /** TO §9: de opname vult aan tot de buffer van € 500,00, afgerond op honderdtallen plus honderd: € 200,00 tekort wordt € 300,00. */
+    @Test
+    void eenVasteBoekingOnderDeBufferVraagtEenOpname() {
+        assertThat(Generator.opnames(metBuffer("1000.00"))).containsExactly(opname(10, 1, "300.00"));
+    }
+
+    @Test
+    void eenVasteBoekingPreciesOpDeBufferVraagtGeenOpname() {
+        assertThat(Generator.opnames(metBuffer("1200.00"))).isEmpty();
+    }
+
+    /** TO §9: na de hypotheek staat er precies de buffer; geen aankoop mag op enige dag onder de buffer van dat jaar komen. */
+    @Test
+    void eenAankoopMagDeBufferNietRaken() {
+        var krap = new DemoKlanten.DemoKlant("krap", "Krap", Bedrag.van("1450.00"), GEEN_SPAARGELD,
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("2000.00")),
+                hypotheek("950.00"), List.of(), Optional.empty());
+
+        BigDecimal lopend = krap.beginsaldo().waarde();
+        Map<LocalDate, BigDecimal> perDag = new TreeMap<>();
+        Generator.boekingen(krap).forEach(boeking -> perDag.merge(boeking.datum(), boeking.bedrag().waarde(), BigDecimal::add));
+        for (Map.Entry<LocalDate, BigDecimal> dag : perDag.entrySet()) {
+            lopend = lopend.add(dag.getValue());
+            assertThat(lopend).as(dag.getKey().toString()).isGreaterThanOrEqualTo(Generator.buffer(krap, dag.getKey().getYear()).waarde());
+        }
+        assertThat(boodschappen(krap)).isNotEmpty();
+    }
+
+    /** Beginsaldo € 1.000,00 en een buffer van € 500,00: een aankoop mag het saldo precies op de buffer laten, niet een cent eronder. */
+    @Test
+    void eenAankoopMagPreciesOpDeBufferUitkomen() {
+        assertThat(Generator.past(metBuffer("1000.00"), List.of(), aankoop(5, "-500.00"))).isTrue();
+        assertThat(Generator.past(metBuffer("1000.00"), List.of(), aankoop(5, "-500.01"))).isFalse();
+    }
+
+    /** Ook op een latere dag: na de aankoop van € 200,00 en de boeking van € 300,00 op de 10e staat er precies € 500,00. */
+    @Test
+    void eenLatereBoekingMagPreciesOpDeBufferUitkomen() {
+        assertThat(Generator.past(metBuffer("1000.00"), List.of(aankoop(10, "-300.00")), aankoop(5, "-200.00"))).isTrue();
+        assertThat(Generator.past(metBuffer("1000.00"), List.of(aankoop(10, "-300.01")), aankoop(5, "-200.00"))).isFalse();
+    }
+
+    private static Boeking aankoop(int dag, String bedrag) {
+        return new Boeking(LocalDateTime.of(2021, 10, dag, 12, 0), Bedrag.van(bedrag), "BuurtSuper", TransactieType.BETAALAUTOMAAT, Optional.empty());
+    }
+
+    /** Inkomen € 2.000,00, dus een buffer van € 500,00; de hypotheek van € 700,00 gaat op de 1e af, met genoeg spaargeld. */
+    private static DemoKlanten.DemoKlant metBuffer(String beginsaldo) {
+        return new DemoKlanten.DemoKlant("buffer", "Buffer", Bedrag.van(beginsaldo), Bedrag.van("5000.00"),
+                new DemoKlanten.VasteBoeking("Werkgever", Bedrag.van("2000.00")), hypotheek("700.00"), List.of(), Optional.empty());
     }
 }

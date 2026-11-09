@@ -21,6 +21,14 @@ const WERKNEMERS = [
   { naam: 'Emma de Boer', werkgever: 'Kompas Advies B.V.', salaris: '3900.00' },
   { naam: 'Noor Hendriks', werkgever: 'Bouwbedrijf Van Dijk B.V.', salaris: '6000.00' },
 ];
+/** Het maandinkomen van 2021 van alle 10 klanten: de werknemers, twee gepensioneerden en een zzp'er. */
+const INKOMENS = [
+  ...WERKNEMERS.map(({ naam, werkgever, salaris }) => ({ naam, van: werkgever, bedrag: salaris })),
+  { naam: 'Pieter Visser', van: 'Pensioenfonds Midden', bedrag: '2450.00' },
+  { naam: 'Daan Smit', van: 'Kompas Advies B.V.', bedrag: '4650.00' },
+  { naam: 'Ruud Mulder', van: 'Pensioenfonds Midden', bedrag: '2600.00' },
+];
+
 test('Na installatie kunnen 10 klanten en een beheerder inloggen', async ({ omgeving }) => {
   await omgeving.als('de beheerder BankSim-MSE installeert', () => omgeving.installeer());
   await omgeving.dan('kan elk van de 10 klanten inloggen en ziet een betaalrekening en een spaarrekening', () =>
@@ -135,40 +143,44 @@ test('Elke klant legt elke maand een vast bedrag in op zijn spaarrekening', { ta
   await omgeving.en('is van de betaalrekening van Jan in december 2026 € 504,00 naar zijn spaarrekening gegaan, zijn inleg van 2021 maal de loonstijging van 2026', () =>
     omgeving.verwachtAfschrijvingNaarSpaarrekening('Jan de Vries', '2026-12', '-504.00'),
   );
-  await omgeving.en('staat er op de spaarrekening van Jan € 46.825,89', () =>
-    omgeving.verwachtSpaarsaldo('Jan de Vries', '46825.89'),
+  await omgeving.en('staat er op de spaarrekening van Jan € 46.358,06', () =>
+    omgeving.verwachtSpaarsaldo('Jan de Vries', '46358.06'),
   );
 });
 
-test('Een klant met een dreigend tekort neemt eerst geld op van zijn spaarrekening', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+test('Een klant die onder zijn buffer dreigt te komen, neemt eerst geld op van zijn spaarrekening', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
-  await omgeving.dan('heeft Lisa op 1 oktober 2021 een opname van € 200,00 op haar spaarrekening', () =>
-    omgeving.verwachtOpnames('Lisa Jansen', [{ datum: '2021-10-01', bedrag: '-200.00' }]),
-  );
-  await omgeving.en('heeft Mohamed op 1 en op 15 oktober 2021 een opname van € 200,00', () =>
-    omgeving.verwachtOpnames('Mohamed El Amrani', [
+  await omgeving.dan('heeft Lisa op 1 oktober 2021 opnames van € 600,00 en € 200,00 op haar spaarrekening', () =>
+    omgeving.verwachtOpnames('Lisa Jansen', [
+      { datum: '2021-10-01', bedrag: '-600.00' },
       { datum: '2021-10-01', bedrag: '-200.00' },
-      { datum: '2021-10-15', bedrag: '-200.00' },
     ]),
   );
-  await omgeving.en('heeft geen van de andere 8 klanten een opname', () =>
-    omgeving.verwachtGeenOpnamesBehalveBij(['Lisa Jansen', 'Mohamed El Amrani']),
+  await omgeving.en('heeft Mohamed op 1 oktober 2021 opnames van € 300,00 en € 900,00, en op 15 oktober € 300,00', () =>
+    omgeving.verwachtOpnames('Mohamed El Amrani', [
+      { datum: '2021-10-01', bedrag: '-300.00' },
+      { datum: '2021-10-01', bedrag: '-900.00' },
+      { datum: '2021-10-15', bedrag: '-300.00' },
+    ]),
   );
-  await omgeving.en('staat er op de spaarrekening van Lisa € 19.562,32', () =>
-    omgeving.verwachtSpaarsaldo('Lisa Jansen', '19562.32'),
+  await omgeving.en('hebben Pieter, Daan en Ruud geen opname', () =>
+    omgeving.verwachtGeenOpnamesBij(['Pieter Visser', 'Daan Smit', 'Ruud Mulder']),
   );
-  await omgeving.en('staat er op de spaarrekening van Mohamed € 34.993,33', () =>
-    omgeving.verwachtSpaarsaldo('Mohamed El Amrani', '34993.33'),
+  await omgeving.en('staat er op de spaarrekening van Lisa € 18.860,02', () =>
+    omgeving.verwachtSpaarsaldo('Lisa Jansen', '18860.02'),
+  );
+  await omgeving.en('staat er op de spaarrekening van Mohamed € 33.706,02', () =>
+    omgeving.verwachtSpaarsaldo('Mohamed El Amrani', '33706.02'),
   );
 });
 
 test('Elke spaarrekening krijgt elke maand rente, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
-  await omgeving.dan('krijgt Jan op 31 oktober 2021 € 16,79 rente', () =>
-    omgeving.verwachtRente('Jan de Vries', '2021-10-31', '16.79'),
+  await omgeving.dan('krijgt Jan op 31 oktober 2021 € 16,08 rente', () =>
+    omgeving.verwachtRente('Jan de Vries', '2021-10-31', '16.08'),
   );
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
@@ -176,8 +188,8 @@ test('Elke spaarrekening krijgt elke maand rente, van oktober 2021 t/m december 
   await omgeving.dan('heeft elk van de 10 spaarrekeningen in elk van de 63 maanden precies één rentebijschrijving, op de laatste dag van de maand', () =>
     omgeving.verwachtRentePerMaand('2021-10', '2026-12'),
   );
-  await omgeving.en('staat er op de spaarrekening van Jan € 46.825,89', () =>
-    omgeving.verwachtSpaarsaldo('Jan de Vries', '46825.89'),
+  await omgeving.en('staat er op de spaarrekening van Jan € 46.358,06', () =>
+    omgeving.verwachtSpaarsaldo('Jan de Vries', '46358.06'),
   );
 });
 
@@ -256,19 +268,13 @@ test('Werknemers leggen elke mei extra in na hun vakantiegeld, van 2022 t/m 2026
 });
 
 test('Het inkomen van elke klant stijgt elk jaar met de lonen, van 2021 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  const inkomens = [
-    ...WERKNEMERS.map(({ naam, werkgever, salaris }) => ({ naam, van: werkgever, bedrag: salaris })),
-    { naam: 'Pieter Visser', van: 'Pensioenfonds Midden', bedrag: '2450.00' },
-    { naam: 'Daan Smit', van: 'Kompas Advies B.V.', bedrag: '4650.00' },
-    { naam: 'Ruud Mulder', van: 'Pensioenfonds Midden', bedrag: '2600.00' },
-  ];
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
   await omgeving.dan(
     'krijgt elk van de 10 klanten in elke maand zijn inkomen van 2021 maal de loonstijging van dat jaar: 1,00 · 1,04 · 1,12 · 1,18 · 1,22 · 1,26',
-    () => omgeving.verwachtInkomenMetLoonstijging(inkomens, LOONSTIJGING, '2021-10', '2026-12'),
+    () => omgeving.verwachtInkomenMetLoonstijging(INKOMENS, LOONSTIJGING, '2021-10', '2026-12'),
   );
   await omgeving.en(
     'krijgt Jan van Techniek Noord B.V. € 3.100,00 in 2021, € 3.224,00 in 2022, € 3.472,00 in 2023, € 3.658,00 in 2024, € 3.782,00 in 2025 en € 3.906,00 in 2026',
@@ -369,5 +375,19 @@ test('Een upgrade laat de demo-data ongemoeid', { tag: '@destructief' }, async (
   await omgeving.dan('antwoordt BankSim-MSE met de nieuwe versie', () => omgeving.verwachtBereikbaar());
   await omgeving.en('ziet elk van de 10 klanten dezelfde rekeningen met hetzelfde saldo, en dezelfde transacties op de betaalrekening', () =>
     omgeving.verwachtDemoDataGelijkAan(voor),
+  );
+});
+
+test('Elke betaalrekening houdt een buffer van een kwart maandinkomen aan', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan(
+    'staat het saldo van de betaalrekening van elk van de 10 klanten aan het eind van elke dag op minstens een kwart van zijn maandinkomen van dat jaar',
+    () => omgeving.verwachtBufferVanEenKwartMaandinkomen(INKOMENS, LOONSTIJGING, '2021-10-01', '2026-12-31'),
+  );
+  await omgeving.en('staat dat van Jan aan het eind van 1 oktober 2021 op minstens € 775,00', () =>
+    omgeving.verwachtSaldoAanHetEindVanMinstens('Jan de Vries', '2021-10-01', '775.00'),
   );
 });

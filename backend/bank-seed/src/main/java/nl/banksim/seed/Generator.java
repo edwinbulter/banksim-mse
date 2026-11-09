@@ -38,6 +38,7 @@ final class Generator {
     private static final YearMonth LAATSTE_MAAND = YearMonth.of(2026, 12);
     private static final Bedrag GEEN_BEDRAG = Bedrag.van("0.00");
     private static final BigDecimal HONDERD = BigDecimal.valueOf(100);
+    private static final BigDecimal VIER = BigDecimal.valueOf(4);
     private static final BigDecimal VAKANTIEGELD_DEEL = new BigDecimal("0.92");
     private static final long SEED_INLEG = 43;
     /** FO: 6–12 keer per maand, € 8–120, aan de betaalautomaat. Origineel: maal de inflatie. */
@@ -188,8 +189,8 @@ final class Generator {
     }
 
     /**
-     * FO, origineel: dreigt een boeking de betaalrekening rood te maken, dan komt er een minuut eerder geld van de spaarrekening.
-     * Is daar te weinig, dan volgt er geen opname en faalt de controle op nooit rood.
+     * FO, origineel: dreigt een boeking de betaalrekening onder de buffer te brengen (TO §9), dan komt er een minuut eerder geld van de
+     * spaarrekening. Is daar te weinig, dan volgt er geen opname; komt de rekening dan rood te staan, dan faalt de controle op nooit rood.
      */
     static List<Opname> opnames(DemoKlanten.DemoKlant klant) {
         List<Opname> opnames = new ArrayList<>();
@@ -197,8 +198,9 @@ final class Generator {
         BigDecimal spaar = klant.beginsaldoSpaar().waarde();
         for (Boeking boeking : metInleggen(klant, vasteInleggen(klant))) {
             BigDecimal saldoNa = betaal.add(boeking.bedrag().waarde());
-            if (saldoNa.signum() < 0) {
-                BigDecimal opname = rondeOpname(saldoNa.negate());
+            BigDecimal tekort = buffer(klant, boeking.datum().getYear()).waarde().subtract(saldoNa);
+            if (tekort.signum() > 0) {
+                BigDecimal opname = rondeOpname(tekort);
                 if (spaar.compareTo(opname) >= 0) {
                     opnames.add(new Opname(boeking.tijdstip().minusMinutes(1), new Bedrag(opname)));
                     saldoNa = saldoNa.add(opname);
@@ -294,6 +296,11 @@ final class Generator {
         return teruggaven;
     }
 
+    /** TO §9: op de betaalrekening blijft een kwart van het maandinkomen van dat jaar staan, naar boven afgerond op centen. */
+    static Bedrag buffer(DemoKlanten.DemoKlant klant, int jaar) {
+        return new Bedrag(inkomen(klant, jaar).waarde().divide(VIER, 2, RoundingMode.CEILING));
+    }
+
     /** Origineel: het inkomen van 2021 maal de loonstijging van het jaar. */
     private static Bedrag inkomen(DemoKlanten.DemoKlant klant, int jaar) {
         return deelVan(klant.inkomen().bedrag(), LOONSTIJGING.get(jaar));
@@ -347,9 +354,12 @@ final class Generator {
         return new Boeking(tijdstip, new Bedrag(bedrag.waarde().negate()), tegenpartij, soort.type(), Optional.empty());
     }
 
-    /** FO, ADR 0025: dezelfde regel als bij een betaling in de bank, dus inclusief de latere boekingen. */
-    private static boolean past(DemoKlanten.DemoKlant klant, List<Boeking> boekingen, Boeking aankoop) {
-        BigDecimal saldo = klant.beginsaldo().waarde();
+    /**
+     * FO, ADR 0025: net als bij een betaling in de bank tellen de latere boekingen mee. De grens is strenger dan nooit rood: na de aankoop
+     * blijft het saldo aan het eind van die dag en van elke latere dag met een boeking op de buffer van dat jaar (TO §9).
+     */
+    static boolean past(DemoKlanten.DemoKlant klant, List<Boeking> boekingen, Boeking aankoop) {
+        BigDecimal saldo = klant.beginsaldo().waarde().add(aankoop.bedrag().waarde());
         Map<LocalDate, BigDecimal> later = new TreeMap<>();
         for (Boeking boeking : boekingen) {
             if (boeking.datum().isAfter(aankoop.datum())) {
@@ -358,8 +368,16 @@ final class Generator {
                 saldo = saldo.add(boeking.bedrag().waarde());
             }
         }
-        var verloop = new SaldoVerloop(new Bedrag(saldo), later.values().stream().map(Bedrag::new).toList());
-        return NooitRoodRegel.staatToe(verloop, new Bedrag(aankoop.bedrag().waarde().negate()));
+        if (saldo.compareTo(buffer(klant, aankoop.datum().getYear()).waarde()) < 0) {
+            return false;
+        }
+        for (Map.Entry<LocalDate, BigDecimal> dag : later.entrySet()) {
+            saldo = saldo.add(dag.getValue());
+            if (saldo.compareTo(buffer(klant, dag.getKey().getYear()).waarde()) < 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** FO, ADR 0025: dezelfde regel als in de bank, over het saldo aan het eind van elke dag vanaf het beginsaldo. */

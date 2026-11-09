@@ -81,7 +81,7 @@ class DemoDataTests {
                 "betaal jdevries Jan de Vries " + Iban.simBank(1L) + " 1800.00",
                 "spaar jdevries 6500.00 true",
                 "boekingen " + Iban.simBank(1L) + " " + Generator.boekingen(DemoKlanten.ALLE.getFirst()).size(),
-                "overboekingen " + Iban.simBank(1L) + " " + Iban.simBank(99L) + " 131",
+                "overboekingen " + Iban.simBank(1L) + " " + Iban.simBank(99L) + " 133",
                 "rentemaanden " + Iban.simBank(99L) + " 63",
                 "login jdevries klant-ww");
         assertThat(gedaan).contains("betaal melamrani Mohamed El Amrani " + Iban.simBank(3L) + " 1500.00",
@@ -89,14 +89,17 @@ class DemoDataTests {
         assertThat(gedaan.getLast()).isEqualTo("beheerder beheerder beheerder-ww");
     }
 
-    /** ADR 0042: alleen Lisa en Mohamed nemen op, van de spaarrekening naar hun eigen betaalrekening. */
+    /** ADR 0042, TO §9: zeven klanten nemen op, van de spaarrekening naar hun eigen betaalrekening; Pieter (5), Daan (7) en Ruud (9) niet. */
     @Test
     void schrijftDeOpnamesVanDeSpaarrekeningNaarDeBetaalrekening() {
         demo("klant-ww", "beheerder-ww").maak();
 
         assertThat(geschreven).filteredOn(overboeking -> overboeking.van().iban().equals(Iban.simBank(99L)))
                 .extracting(overboeking -> overboeking.naar().iban())
-                .containsExactly(Iban.simBank(3L), Iban.simBank(3L), Iban.simBank(4L));
+                .containsExactly(Iban.simBank(1L), Iban.simBank(1L), Iban.simBank(2L), Iban.simBank(2L), Iban.simBank(2L),
+                        Iban.simBank(3L), Iban.simBank(3L), Iban.simBank(3L), Iban.simBank(4L), Iban.simBank(4L),
+                        Iban.simBank(6L), Iban.simBank(6L), Iban.simBank(6L), Iban.simBank(8L), Iban.simBank(8L), Iban.simBank(8L),
+                        Iban.simBank(10L));
     }
 
     /** ADR 0043: de rente komt van de renterekening van BankSim, met type Rente, en gaat naar de spaarrekening. */
