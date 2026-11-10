@@ -391,3 +391,25 @@ test('Elke betaalrekening houdt een buffer van een kwart maandinkomen aan', { ta
     omgeving.verwachtSaldoAanHetEindVanMinstens('Jan de Vries', '2021-10-01', '775.00'),
   );
 });
+
+test('De demo-data is bij elke installatie dezelfde', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan('hebben de 10 klanten samen 17.058 transacties', () => omgeving.verwachtTransactiesVanDeDemoKlanten(17058));
+  await omgeving.en('zijn hun saldi op de betaalrekening en de spaarrekening:', () =>
+    omgeving.verwachtSaldiVanDeDemoKlanten({
+      'Jan de Vries': { betaal: '34812.06', spaar: '46358.06' },
+      'Sanne Bakker': { betaal: '121373.50', spaar: '74770.85' },
+      'Mohamed El Amrani': { betaal: '85055.03', spaar: '33706.02' },
+      'Lisa Jansen': { betaal: '18018.59', spaar: '18860.02' },
+      'Pieter Visser': { betaal: '48085.52', spaar: '60191.79' },
+      'Fatma Yilmaz': { betaal: '148467.93', spaar: '69673.39' },
+      'Daan Smit': { betaal: '131899.28', spaar: '53334.43' },
+      'Emma de Boer': { betaal: '70946.42', spaar: '54403.24' },
+      'Ruud Mulder': { betaal: '22932.56', spaar: '37536.13' },
+      'Noor Hendriks': { betaal: '170500.76', spaar: '106843.72' },
+    }),
+  );
+});

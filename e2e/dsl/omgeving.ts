@@ -649,6 +649,30 @@ export class Omgeving extends Stappen {
     return eindsaldi;
   }
 
+  /** S11.1, golden master: alle transacties van de demo-klanten samen, op de betaalrekening en de spaarrekening. */
+  async verwachtTransactiesVanDeDemoKlanten(aantal: number): Promise<void> {
+    let totaal = 0;
+    for (const { gebruikersnaam } of DEMO_KLANTEN) {
+      const { transacties } = await this.betaalrekeningVan(gebruikersnaam);
+      totaal += transacties.reduce((som, dag) => som + dag.transacties.length, 0);
+      totaal += (await this.spaarmutatiesVan(gebruikersnaam)).length;
+    }
+    expect(totaal, 'transacties van de demo-klanten').toBe(aantal);
+  }
+
+  /** S11.1, golden master: de saldi van elke demo-klant, in domeinnotatie. */
+  async verwachtSaldiVanDeDemoKlanten(verwacht: Record<string, { betaal: string; spaar: string }>): Promise<void> {
+    const saldi: Record<string, { betaal: string | undefined; spaar: string | undefined }> = {};
+    for (const { naam, gebruikersnaam } of DEMO_KLANTEN) {
+      const { rekeningen } = await this.betaalrekeningVan(gebruikersnaam);
+      saldi[naam] = {
+        betaal: rekeningen.find((rekening) => rekening.soort === 'betaal')?.saldo,
+        spaar: rekeningen.find((rekening) => rekening.soort === 'spaar')?.saldo,
+      };
+    }
+    expect(saldi, 'saldi van de demo-klanten').toEqual(verwacht);
+  }
+
   /** S11.1: wat de klanten nu zien, om na een upgrade te vergelijken. */
   async demoData(): Promise<DemoDataStand> {
     const stand: DemoDataStand = {};

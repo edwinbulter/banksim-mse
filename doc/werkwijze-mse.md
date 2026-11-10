@@ -1171,7 +1171,9 @@ Deze slice wordt in kleine stappen gebouwd, elk met een eigen scenario in `e2e/s
    Elke betaalrekening houdt een buffer van een kwart maandinkomen van dat jaar aan (TO §9; gebouwd). Daarom kan een klant op elke simulatiedatum nog betalen, ook al telt nooit rood de latere boekingen mee.
 3. Geen enkele rekening staat op enige dag rood (gebouwd voor de betaalrekening; op de spaarrekening voorkomt de generator het, maar een scenario beweert het nog niet).
 4. Een upgrade wist de demo-data niet en maakt die ook niet dubbel (gebouwd; de code bestond al, het scenario is met twee sabotages rood gezien).
-5. Golden master: seed 42 geeft steeds dezelfde data.
+5. Golden master: de vaste seeds geven steeds dezelfde data (gebouwd: `GoldenMasterTests` met de saldi, het aantal transacties en een SHA-256 over alle boekingen; het scenario controleert de saldi en het aantal op de installatie).
+
+Twee regels uit het FO zijn bewust niet gebouwd, omdat de demo-data ook zonder ze bruikbaar is: de uitvoerdatum op een werkdag (de vaste boekingen staan op een vaste dag van de maand, ook in het weekend), en de seizoenseffecten (meer energie in de winter, vakantie in de zomer, cadeaus in december).
 
 - **Binnenste lus:** `bank-seed` krijgt het commando `demo` (ADR 0040; geen eigen module `bank-datagen`), met daarna een `Generator` met vaste seed, `Profielen`, `Kalender`, `Bedrijven`; hergebruikt `bank-domain` (`Overboeking`, `NooitRoodRegel`, `RenteCalculator`); `DatabaseSchrijver` met `COPY`; Keycloak-gebruikers via de Admin API.
 - **ADR's:** deterministische generator die dezelfde domeinregels gebruikt als de API.
