@@ -230,6 +230,8 @@ export interface BankDriver {
   kiesSuggestie(tekst: string, iban: string): Promise<void>;
   /** Alleen in de REST-driver: de contacten die de bank voorstelt als de klant `tekst` intypt op het betaalscherm (S7.1). */
   contacten(tekst: string): Promise<Contact[]>;
+  /** Alleen in de UI-driver (@ui): de kleur van het bedrag bij deze tegenpartij in de geopende rekening, als "#b42318". */
+  kleurVanBedrag(tegenpartij: string): Promise<string>;
   /** Alleen in de UI-driver (@ui): de naam en het IBAN van de ontvanger zoals ze in het formulier staan. */
   ontvangerInFormulier(): Promise<{ naam: string; iban: string }>;
   /** Vanuit het overzicht de spaarrekening met dit IBAN openen (S8.1). */

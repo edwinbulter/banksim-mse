@@ -362,6 +362,10 @@ export class RestDriver implements BankDriver {
     return (await antwoord.json()) as Contact[];
   }
 
+  async kleurVanBedrag(): Promise<string> {
+    throw new Error('Een kleur bestaat alleen in de browser (@ui)');
+  }
+
   async ontvangerInFormulier(): Promise<{ naam: string; iban: string }> {
     throw new Error('Het betaalformulier bestaat alleen in de browser (@ui)');
   }

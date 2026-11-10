@@ -217,6 +217,10 @@ export class UiDriver implements BankDriver {
     throw new Error('De contacten opvragen zonder suggestie te kiezen bestaat alleen in de REST-driver');
   }
 
+  async kleurVanBedrag(tegenpartij: string): Promise<string> {
+    return this.betaalrekening.kleurVanBedrag(tegenpartij);
+  }
+
   async ontvangerInFormulier(): Promise<{ naam: string; iban: string }> {
     return this.betalen.ontvanger();
   }

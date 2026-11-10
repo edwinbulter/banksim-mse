@@ -50,6 +50,25 @@ test('Binnen een dag staat de laatste transactie bovenaan, ook als ze eerder is 
   );
 });
 
+/** Losse backlogpunt styling: de kleuren van het origineel, --kleur-af en --kleur-bij. Met een lege stylesheet zijn beide zwart. */
+test('Een afschrijving staat in het rood en een bijschrijving in het groen', { tag: '@ui' }, async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening());
+  await bank.en('Jan heeft op 2 oktober 2026 € 812,40 betaald aan Woonstichting', () =>
+    jan.heeftBetaald({ op: '2026-10-02', bedrag: '812.40', aan: 'Woonstichting' }),
+  );
+  await bank.en('Jan heeft op 24 oktober 2026 € 3.100,00 ontvangen van Techniek Noord B.V.', () =>
+    jan.heeftOntvangen({ op: '2026-10-24', bedrag: '3100.00', van: 'Techniek Noord B.V.' }),
+  );
+  await bank.als('Jan zijn betaalrekening opent', () => jan.opentBetaalrekening());
+  await bank.dan('staat het bedrag aan Woonstichting in de kleur #b42318 (rood)', () =>
+    jan.verwachtKleurVanBedrag('Woonstichting', '#b42318'),
+  );
+  await bank.en('staat het bedrag van Techniek Noord B.V. in de kleur #12704a (groen)', () =>
+    jan.verwachtKleurVanBedrag('Techniek Noord B.V.', '#12704a'),
+  );
+});
+
 test('Rekening zonder transacties', async ({ bank }) => {
   const jan = bank.klant('Jan');
   await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.000,00', () =>

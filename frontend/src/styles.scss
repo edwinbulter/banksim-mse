@@ -1,1 +1,58 @@
-/* Huisstijl volgt met de eerste schermen (slice 1). */
+/*
+ * BankSim-MSE – algemene stijl, uit het origineel: rustig en zakelijk; kleur alleen waar hij iets betekent (af/bij).
+ * De rest van het origineel volgt per scherm, met de klassen die dat scherm gebruikt.
+ */
+:root {
+  --kleur-tekst: #1f2328;
+  --kleur-achtergrond: #ffffff;
+  --kleur-primair: #0b5cad;
+  --kleur-af: #b42318;
+  --kleur-bij: #12704a;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--kleur-tekst);
+  background: var(--kleur-achtergrond);
+}
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0.5rem 0 1rem;
+}
+
+h2 {
+  font-size: 1.125rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+a {
+  color: var(--kleur-primair);
+}
+
+.bedrag {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bedrag--af {
+  color: var(--kleur-af);
+}
+
+.bedrag--bij {
+  color: var(--kleur-bij);
+}

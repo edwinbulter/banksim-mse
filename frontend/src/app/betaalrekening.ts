@@ -29,7 +29,12 @@ import { typeVoorWeergave } from './transactie/transactietype';
                     [attr.aria-expanded]="uitgeklapt() === transactie.bron"
                     (click)="klap(transactie.bron)"
                   >
-                    <span>{{ transactie.tegenpartij }}</span>&ngsp;<span>{{ transactie.bedrag }}</span>
+                    <span>{{ transactie.tegenpartij }}</span>&ngsp;<span
+                      class="bedrag"
+                      [class.bedrag--af]="transactie.af"
+                      [class.bedrag--bij]="!transactie.af"
+                      >{{ transactie.bedrag }}</span
+                    >
                   </button>
                   @if (uitgeklapt() === transactie.bron) {
                     <dl [attr.aria-label]="'Details van ' + transactie.tegenpartij">
@@ -96,6 +101,7 @@ export class Betaalrekening {
         bron,
         tegenpartij: bron.tegenpartij,
         bedrag: bedragMetTeken(bron.bedrag),
+        af: bron.bedrag.startsWith('-'),
         details: {
           type: typeVoorWeergave(bron.type),
           tijdstip: tijdstipVoorWeergave(bron.tijdstip),
@@ -116,5 +122,7 @@ interface Regel {
   bron: Transactie;
   tegenpartij: string;
   bedrag: string;
+  /** Een afschrijving; het scherm toont het bedrag dan in --kleur-af, anders in --kleur-bij. */
+  af: boolean;
   details: { type: string; tijdstip: string; uitgevoerdOp: string };
 }

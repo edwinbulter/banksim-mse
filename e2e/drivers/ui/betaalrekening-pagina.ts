@@ -71,6 +71,13 @@ export class BetaalrekeningPagina {
     return perDatum;
   }
 
+  /** De berekende kleur van het bedrag, het laatste deel van de transactieregel, als "#rrggbb". */
+  async kleurVanBedrag(tegenpartij: string): Promise<string> {
+    const regel = this.page.getByRole('list', { name: 'Transacties' }).getByRole('button', { name: tegenpartij });
+    const kleur = await regel.locator('span').last().evaluate((bedrag) => getComputedStyle(bedrag).color);
+    return hexVan(kleur);
+  }
+
   /** Pas na transacties() betrouwbaar: dan is de lijst geladen en staat de knop er, of niet. */
   async heeftMeer(): Promise<boolean> {
     return this.toonMeerKnop().isVisible();
@@ -158,6 +165,13 @@ function escape(tekst: string): string {
 }
 
 /** "Werkgever B.V. +3.215,00" → { tegenpartij: "Werkgever B.V.", bedrag: "3215.00" }; − is het echte minteken. */
+/** "rgb(180, 35, 24)" → "#b42318"; zo noemt het FO en het origineel de kleur. */
+function hexVan(kleur: string): string {
+  const delen = /^rgba?\((\d+), (\d+), (\d+)/.exec(kleur);
+  if (!delen) throw new Error(`Geen kleur: "${kleur}"`);
+  return '#' + delen.slice(1, 4).map((deel) => Number(deel).toString(16).padStart(2, '0')).join('');
+}
+
 export function transactieUitRegel(regel: string): Transactie {
   const delen = /^(.*\S)\s+([+−])([\d.]+,\d{2})$/.exec(regel.replace(/\s+/g, ' ').trim());
   if (!delen) throw new Error(`Geen transactieregel: "${regel}"`);

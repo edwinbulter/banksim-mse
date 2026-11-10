@@ -55,6 +55,15 @@ describe('Betaalrekening', () => {
     ]);
   });
 
+  it('geeft een afschrijving de klasse bedrag--af en een bijschrijving bedrag--bij, voor de kleur uit styles.scss', () => {
+    const pagina = toon([
+      { datum: '2026-10-24', tegenpartij: 'Techniek Noord B.V.', bedrag: '3100.00' },
+      { datum: '2026-10-02', tegenpartij: 'Woonstichting', bedrag: '-812.40' },
+    ]);
+    const bedragen = [...pagina.querySelectorAll('ul[aria-label="Transacties"] button span:last-child')];
+    expect(bedragen.map((bedrag) => bedrag.className)).toEqual(['bedrag bedrag--bij', 'bedrag bedrag--af']);
+  });
+
   it('meldt zonder transacties dat er nog geen af- of bijschrijvingen zijn, zonder lege lijst', () => {
     const pagina = toon([]);
     expect(pagina.querySelector('h2')?.textContent).toBe('Betaalrekening');

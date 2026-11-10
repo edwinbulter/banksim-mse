@@ -351,6 +351,11 @@ export class Klant {
     await (await this.sessie()).openBetalen();
   }
 
+  /** De kleur van het bedrag bij deze tegenpartij op de geopende rekening, als "#b42318" (@ui). */
+  async verwachtKleurVanBedrag(tegenpartij: string, kleur: string): Promise<void> {
+    expect(await (await this.sessie()).kleurVanBedrag(tegenpartij), `kleur van het bedrag bij ${tegenpartij}`).toBe(kleur);
+  }
+
   async verwachtMaximaleLengtes(verwacht: MaximaleLengtes): Promise<void> {
     expect(await (await this.sessie()).maximaleLengtes(), `velden van het betaalscherm bij ${this.alias}`).toEqual(verwacht);
   }
