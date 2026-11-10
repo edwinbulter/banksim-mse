@@ -615,6 +615,36 @@ export class Omgeving extends Stappen {
     }
   }
 
+  /** S11.1: het laagste saldo aan het eind van een dag, op de spaarrekening van elke demo-klant, is minstens € 0,00. */
+  async verwachtSpaarrekeningNooitRood(): Promise<void> {
+    for (const { naam } of DEMO_KLANTEN) {
+      const { saldo } = await this.laagsteSpaarsaldo(naam);
+      expect(saldo >= 0n, `laagste saldo van de spaarrekening van ${naam}: ${euro(saldo)}`).toBe(true);
+    }
+  }
+
+  async verwachtLaagsteSpaarsaldo(naam: string, bedrag: string, datum: string): Promise<void> {
+    const { saldo, op } = await this.laagsteSpaarsaldo(naam);
+    expect({ bedrag: euro(saldo), datum: op }, `laagste saldo van de spaarrekening van ${naam}`).toEqual({ bedrag, datum });
+  }
+
+  /** Vanaf het beginsaldo vooruit, in centen: het saldo nu min alle mutaties, en daarna dag voor dag. Bij gelijke saldi telt de eerste dag. */
+  private async laagsteSpaarsaldo(naam: string): Promise<{ saldo: bigint; op: string }> {
+    const gebruikersnaam = gebruikersnaamVan(naam);
+    const { rekeningen } = await this.betaalrekeningVan(gebruikersnaam);
+    const spaar = rekeningen.find((rekening) => rekening.soort === 'spaar');
+    if (!spaar) throw new Error(`${naam} heeft geen spaarrekening`);
+    const perDag = new Map<string, bigint>();
+    for (const { datum, bedrag } of await this.spaarmutatiesVan(gebruikersnaam)) perDag.set(datum, (perDag.get(datum) ?? 0n) + centen(bedrag));
+    let saldo = [...perDag.values()].reduce((som, mutatie) => som - mutatie, centen(spaar.saldo));
+    let laagste = { saldo, op: 'begin' };
+    for (const datum of [...perDag.keys()].sort()) {
+      saldo += perDag.get(datum) ?? 0n;
+      if (saldo < laagste.saldo) laagste = { saldo, op: datum };
+    }
+    return laagste;
+  }
+
   /**
    * S11.1, TO §9: het saldo aan het eind van elke dag, ook een dag zonder transacties, is minstens een kwart van het maandinkomen
    * van dat jaar (inkomen van 2021 maal de loonstijging), naar boven afgerond op centen.

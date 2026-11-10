@@ -57,6 +57,19 @@ test('Geen betaalrekening van een demo-klant staat op enige dag rood', { tag: '@
   );
 });
 
+test('Geen spaarrekening van een demo-klant staat op enige dag rood', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
+    omgeving.zetSimulatiedatum('2026-12-31'),
+  );
+  await omgeving.dan('is het laagste saldo van de spaarrekening van elk van de 10 klanten minstens € 0,00', () =>
+    omgeving.verwachtSpaarrekeningNooitRood(),
+  );
+  await omgeving.en('is dat van Lisa € 1.000,00, op 1 oktober 2021', () =>
+    omgeving.verwachtLaagsteSpaarsaldo('Lisa Jansen', '1000.00', '2021-10-01'),
+  );
+});
+
 test('Elke klant doet elke maand boodschappen, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
   await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
