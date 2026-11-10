@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
-import type { BankDriver, RekeningInOverzicht, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
+import type { BankDriver, Contact, RekeningInOverzicht, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
 import { DEMO_BEHEERDER, DEMO_KLANTEN, GELDAUTOMATEN, SUPERMARKTEN, VASTE_LASTEN, WEBWINKELS } from './huishoudens';
 import { Stappen, type Stap } from './stappen';
@@ -63,6 +63,8 @@ export class Omgeving extends Stappen {
   /** De tag die deze omgeving het laatst installeerde; zonder tag geldt die van de bestaande installatie. */
   private geinstalleerd?: string;
   private beheerder?: BankDriver;
+  /** De contacten die de bank bij de laatste zoekopdracht van zoektContact voorstelde. */
+  private voorgesteld: Contact[] = [];
 
   constructor(
     private readonly shell: ShellDriver,
@@ -717,6 +719,39 @@ export class Omgeving extends Stappen {
   }
 
   /** Inloggen als de demo-klant, en de hele transactielijst van zijn betaalrekening laden. */
+  /** S7.1: wat de bank voorstelt als deze demo-klant `tekst` intypt op het betaalscherm. */
+  async zoektContact(naam: string, tekst: string): Promise<void> {
+    this.voorgesteld = await (await this.demoKlant(gebruikersnaamVan(naam))).contacten(tekst);
+  }
+
+  async verwachtVoorgesteldMetBetaalrekening(naam: string): Promise<void> {
+    expect(this.voorgesteld, 'de voorgestelde contacten').toContainEqual({ naam, iban: await this.ibanVanBetaalrekening(gebruikersnaamVan(naam)) });
+  }
+
+  /** Elke andere demo-klant, gezocht op zijn volledige naam, met het IBAN van zijn betaalrekening. */
+  async verwachtAndereDemoKlantenAlsContact(naam: string): Promise<void> {
+    const zoeker = await this.demoKlant(gebruikersnaamVan(naam));
+    const anderen = DEMO_KLANTEN.filter((klant) => klant.naam !== naam);
+    expect(anderen.length, 'andere demo-klanten').toBe(9);
+    for (const ander of anderen) {
+      expect(await zoeker.contacten(ander.naam), `${naam} zoekt ${ander.naam}`).toContainEqual({
+        naam: ander.naam,
+        iban: await this.ibanVanBetaalrekening(ander.gebruikersnaam),
+      });
+    }
+  }
+
+  private async demoKlant(gebruikersnaam: string): Promise<BankDriver> {
+    const driver = await this.maakRestDriver();
+    await driver.logIn(gebruikersnaam, await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'KLANT_WACHTWOORD'));
+    return driver;
+  }
+
+  private async ibanVanBetaalrekening(gebruikersnaam: string): Promise<string> {
+    const driver = await this.demoKlant(gebruikersnaam);
+    return betaalrekening(await driver.rekeningenInOverzicht(), gebruikersnaam).iban;
+  }
+
   private async betaalrekeningVan(gebruikersnaam: string): Promise<BetaalrekeningVanKlant> {
     const driver = await this.maakRestDriver();
     await driver.logIn(gebruikersnaam, await this.shell.secretWaarde(NAMESPACE, DEMO_SECRET, 'KLANT_WACHTWOORD'));

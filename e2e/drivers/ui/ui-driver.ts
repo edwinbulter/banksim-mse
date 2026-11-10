@@ -3,6 +3,7 @@ import type {
   RekeninghouderInBeheer,
   BankDriver,
   Betaalopdracht,
+  Contact,
   MaximaleLengtes,
   Overschrijfopdracht,
   Spaarmutatie,
@@ -210,6 +211,10 @@ export class UiDriver implements BankDriver {
 
   async kiesSuggestie(tekst: string, iban: string): Promise<void> {
     await this.betalen.kiesSuggestie(tekst, iban);
+  }
+
+  async contacten(): Promise<Contact[]> {
+    throw new Error('De contacten opvragen zonder suggestie te kiezen bestaat alleen in de REST-driver');
   }
 
   async ontvangerInFormulier(): Promise<{ naam: string; iban: string }> {

@@ -75,6 +75,12 @@ export interface Zoekformulier {
   richting: Richting | 'alle';
 }
 
+/** Een contact uit de contactenlijst van de bank (S7.1): de naam en het IBAN. */
+export interface Contact {
+  naam: string;
+  iban: string;
+}
+
 /** Een betaling zoals de klant hem invult (S7.1): het bedrag in domeinnotatie ("25.00"), de naam en het IBAN van de ontvanger. */
 export interface Betaalopdracht {
   bedrag: string;
@@ -222,6 +228,8 @@ export interface BankDriver {
   maximaleLengtes(): Promise<MaximaleLengtes>;
   /** Alleen in de UI-driver (@ui): op het betaalscherm `tekst` typen en de suggestie met dit IBAN kiezen. */
   kiesSuggestie(tekst: string, iban: string): Promise<void>;
+  /** Alleen in de REST-driver: de contacten die de bank voorstelt als de klant `tekst` intypt op het betaalscherm (S7.1). */
+  contacten(tekst: string): Promise<Contact[]>;
   /** Alleen in de UI-driver (@ui): de naam en het IBAN van de ontvanger zoals ze in het formulier staan. */
   ontvangerInFormulier(): Promise<{ naam: string; iban: string }>;
   /** Vanuit het overzicht de spaarrekening met dit IBAN openen (S8.1). */

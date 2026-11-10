@@ -60,7 +60,7 @@ class DemoDataDatabaseTests {
         var rekeninghouders = new JdbcRekeninghouders(jdbc);
         Supplier<Iban> nieuweIban = () -> Iban.simBank(laatsteIban.incrementAndGet());
         return new DemoData(keycloak, rekeninghouders, rekeninghouders, new JdbcSpaarrekeningen(jdbc, nieuweIban),
-                new JdbcTransacties(jdbc, transactie), new JdbcOverboekingen(jdbc, transactie), new JdbcRentebijschrijvingen(jdbc), nieuweIban,
+                new JdbcTransacties(jdbc, transactie), new JdbcOverboekingen(jdbc, transactie), new JdbcRentebijschrijvingen(jdbc), new JdbcContacten(jdbc), nieuweIban,
                 transactie, "klant-ww", "beheerder-ww");
     }
 
@@ -101,6 +101,7 @@ class DemoDataDatabaseTests {
         assertThat(jdbc.sql("SELECT count(*) FROM transactie").query(Long.class).single()).isZero();
         assertThat(jdbc.sql("SELECT count(*) FROM overboeking").query(Long.class).single()).isZero();
         assertThat(jdbc.sql("SELECT count(*) FROM rentebijschrijving").query(Long.class).single()).isZero();
+        assertThat(jdbc.sql("SELECT count(*) FROM contact").query(Long.class).single()).isZero();
 
         faaltVoor = null;
         logins.clear();
@@ -112,6 +113,7 @@ class DemoDataDatabaseTests {
             assertThat(transacties(klant.gebruikersnaam())).as(klant.gebruikersnaam()).isEqualTo(aantalBoekingen(klant.gebruikersnaam()));
         }
         assertThat(logins).contains("jdevries", "ljansen", "nhendriks", "beheerder");
+        assertThat(jdbc.sql("SELECT count(*) FROM contact").query(Long.class).single()).isEqualTo(10);
 
         long aantal = jdbc.sql("SELECT count(*) FROM rekening").query(Long.class).single();
         long geboekt = jdbc.sql("SELECT count(*) FROM transactie").query(Long.class).single();
@@ -120,6 +122,7 @@ class DemoDataDatabaseTests {
 
         assertThat(jdbc.sql("SELECT count(*) FROM rekening").query(Long.class).single()).isEqualTo(aantal);
         assertThat(jdbc.sql("SELECT count(*) FROM transactie").query(Long.class).single()).isEqualTo(geboekt);
+        assertThat(jdbc.sql("SELECT count(*) FROM contact").query(Long.class).single()).isEqualTo(10);
         assertThat(logins).containsExactly("beheerder");
     }
 }

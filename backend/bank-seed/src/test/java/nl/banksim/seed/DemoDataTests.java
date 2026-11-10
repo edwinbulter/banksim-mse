@@ -63,11 +63,14 @@ class DemoDataTests {
         }
     };
 
+    private final List<String> contacten = new ArrayList<>();
+    private final Contacten contactenlijst = (iban, naam) -> contacten.add(naam + " " + iban);
+
     private final Rentebijschrijvingen rentebijschrijvingen = (spaarrekening, maanden) ->
             gedaan.add("rentemaanden " + spaarrekening + " " + maanden.size());
 
     private DemoData demo(String klantWachtwoord, String beheerderWachtwoord) {
-        return new DemoData(logins, bestaand::contains, rekeninghouders, spaarrekeningen, transacties, overboekingen, rentebijschrijvingen,
+        return new DemoData(logins, bestaand::contains, rekeninghouders, spaarrekeningen, transacties, overboekingen, rentebijschrijvingen, contactenlijst,
                 () -> Iban.simBank(laatsteIban.incrementAndGet()), TransactionOperations.withoutTransaction(),
                 klantWachtwoord, beheerderWachtwoord);
     }
@@ -115,6 +118,16 @@ class DemoDataTests {
                     assertThat(overboeking.type()).isEqualTo(TransactieType.RENTE);
                     assertThat(overboeking.omschrijving()).startsWith("Rente ");
                 });
+    }
+
+    /** S7.1: alleen naar een contact kan een klant betalen; de betaalrekening van elke klant komt erin, de spaarrekening niet. */
+    @Test
+    void zetDeBetaalrekeningVanElkeKlantInDeContactenlijst() {
+        demo("klant-ww", "beheerder-ww").maak();
+
+        assertThat(contacten).hasSize(10).startsWith("Jan de Vries " + Iban.simBank(1L))
+                .contains("Lisa Jansen " + Iban.simBank(4L), "Noor Hendriks " + Iban.simBank(10L))
+                .noneMatch(contact -> contact.endsWith(Iban.simBank(99L).toString()));
     }
 
     @Test

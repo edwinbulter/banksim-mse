@@ -426,3 +426,14 @@ test('De demo-data is bij elke installatie dezelfde', { tag: '@simulatiedatum' }
     }),
   );
 });
+
+test('Een demo-klant vindt de andere demo-klanten in de contactenlijst', async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd met de demo-klanten', () => omgeving.installeer());
+  await omgeving.als('Jan op het betaalscherm "Lisa" intypt', () => omgeving.zoektContact('Jan de Vries', 'Lisa'));
+  await omgeving.dan('stelt de bank Lisa Jansen voor, met het IBAN van haar betaalrekening', () =>
+    omgeving.verwachtVoorgesteldMetBetaalrekening('Lisa Jansen'),
+  );
+  await omgeving.en('vindt Jan zo elk van de 9 andere demo-klanten op zijn naam', () =>
+    omgeving.verwachtAndereDemoKlantenAlsContact('Jan de Vries'),
+  );
+});

@@ -4,6 +4,7 @@ import type {
   RekeninghouderInBeheer,
   BankDriver,
   Betaalopdracht,
+  Contact,
   MaximaleLengtes,
   Overschrijfopdracht,
   Spaarmutatie,
@@ -352,6 +353,13 @@ export class RestDriver implements BankDriver {
 
   async kiesSuggestie(): Promise<void> {
     throw new Error('Een suggestie kiezen bestaat alleen in de browser (@ui)');
+  }
+
+  /** Dezelfde vraag als de suggesties op het betaalscherm: hoogstens 10 contacten, op naam. */
+  async contacten(tekst: string): Promise<Contact[]> {
+    const antwoord = await this.request.get('/api/contacten', { params: { q: tekst } });
+    expect(antwoord.status(), `GET /api/contacten?q=${tekst}`).toBe(200);
+    return (await antwoord.json()) as Contact[];
   }
 
   async ontvangerInFormulier(): Promise<{ naam: string; iban: string }> {

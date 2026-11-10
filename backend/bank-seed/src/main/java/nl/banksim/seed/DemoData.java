@@ -15,8 +15,9 @@ import org.springframework.transaction.support.TransactionOperations;
 
 /**
  * ADR 0040, S11.1: de 10 klanten en de beheerder van de demo; een tweede keer verandert er niets. De klanten ontstaan samen in één
- * databasetransactie (ADR 0044): per klant de rekeninghouder, zijn twee rekeningen, zijn transacties (ADR 0041), zijn inleggen (ADR 0042) en de login,
- * en daarna hun betalingen aan elkaar. Mislukt er iets, dan volgt alles bij de volgende installatie opnieuw.
+ * databasetransactie (ADR 0044): per klant de rekeninghouder, zijn twee rekeningen, zijn betaalrekening als contact (S7.1), zijn
+ * transacties (ADR 0041), zijn inleggen (ADR 0042) en de login, en daarna hun betalingen aan elkaar. Mislukt er iets, dan volgt alles
+ * bij de volgende installatie opnieuw.
  */
 class DemoData {
 
@@ -30,13 +31,14 @@ class DemoData {
     private final Transacties transacties;
     private final Overboekingen overboekingen;
     private final Rentebijschrijvingen rentebijschrijvingen;
+    private final Contacten contacten;
     private final Supplier<Iban> nieuweIban;
     private final TransactionOperations transactie;
     private final String klantWachtwoord;
     private final String beheerderWachtwoord;
 
     DemoData(DemoLogins logins, BestaandeKlanten bestaand, Rekeninghouders rekeninghouders, Spaarrekeningen spaarrekeningen,
-            Transacties transacties, Overboekingen overboekingen, Rentebijschrijvingen rentebijschrijvingen, Supplier<Iban> nieuweIban, TransactionOperations transactie, String klantWachtwoord, String beheerderWachtwoord) {
+            Transacties transacties, Overboekingen overboekingen, Rentebijschrijvingen rentebijschrijvingen, Contacten contacten, Supplier<Iban> nieuweIban, TransactionOperations transactie, String klantWachtwoord, String beheerderWachtwoord) {
         this.logins = logins;
         this.bestaand = bestaand;
         this.rekeninghouders = rekeninghouders;
@@ -44,6 +46,7 @@ class DemoData {
         this.transacties = transacties;
         this.overboekingen = overboekingen;
         this.rentebijschrijvingen = rentebijschrijvingen;
+        this.contacten = contacten;
         this.nieuweIban = nieuweIban;
         this.transactie = transactie;
         this.klantWachtwoord = klantWachtwoord;
@@ -74,6 +77,7 @@ class DemoData {
         Iban betaalrekening = nieuweIban.get();
         rekeninghouders.voegToeMetBetaalrekening(klant.gebruikersnaam(), klant.naam(), betaalrekening, klant.beginsaldo());
         Iban spaarrekening = spaarrekeningen.open(klant.gebruikersnaam(), klant.beginsaldoSpaar(), Optional.of(Generator.GEOPEND_OP));
+        contacten.voegToe(betaalrekening, klant.naam());
         transacties.boekAlle(betaalrekening, Generator.boekingen(klant));
         Partij betaal = new Partij(betaalrekening, klant.naam());
         Partij spaar = new Partij(spaarrekening, klant.naam());
