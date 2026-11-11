@@ -40,9 +40,10 @@ make e2e            # acceptatietests tegen https://bank-mse.localtest.me
 make e2e-infra      # installatiescenario's (opnieuw installeren, context, origineel)
 make acceptance     # install + e2e + e2e-infra, zoals de acceptance stage in CI
 make uninstall      # namespace banksim-mse verwijderen
+make handleiding    # de schermafdrukken van de handleiding opnieuw maken
 ```
 
-Na de installatie staan er 10 demo-klanten en een beheerder klaar (ADR 0040), bijvoorbeeld `jdevries` en `beheerder`. De wachtwoorden zoek je op in het Secret `bank-demo`:
+Na de installatie staan er 10 demo-klanten en een beheerder klaar (ADR 0040), bijvoorbeeld `jdevries` en `beheerder`. Hoe je de bank gebruikt, staat in de [handleiding](doc/banksim-mse-handleiding.md). De wachtwoorden zoek je op in het Secret `bank-demo`:
 
 ```bash
 kubectl --context kind-single-node -n banksim-mse get secret bank-demo -o jsonpath='{.data.KLANT_WACHTWOORD}' | base64 -d
@@ -61,6 +62,7 @@ Start een iteratie met bijvoorbeeld `/atdd begin aan slice 1` of `/atdd volgend 
 
 | Document | Inhoud |
 | --- | --- |
+| [Handleiding](doc/banksim-mse-handleiding.md) | Voor wie BankSim-MSE gebruikt: installeren, inloggen als demo-klant, rekeningen bekijken, betalen en sparen, en als beheerder de simulatiedatum verzetten, met schermafdrukken |
 | [Werkwijze volgens Modern Software Engineering](doc/werkwijze-mse.md) | De volledige werkwijze, met voor elke slice:<br>- scenario's<br>- double loop<br>- vierlaags acceptatietestmodel<br>- ADR-proces en -backlog<br>- uitgewerkte iteraties<br>- infrastructuur als code<br>- traceerbaarheid naar het origineel<br>- Definition of Done |
 | [Een story door de stack](doc/story-door-de-stack.md) | Waar de stack uit bestaat (onderdelen, Kubernetes-resources, databases, Keycloak), en hoe de story "Betalen naar een contact" er van scenario tot database doorheen loopt |
 | [Code-ownership](doc/code-ownership.md) | Welke kennis je nodig hebt om de code te supporten, per onderwerp, met een zelftoets met ingeklapte antwoorden en bronnen |

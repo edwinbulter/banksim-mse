@@ -6,6 +6,7 @@
   "scripts": {
     "test": "playwright test --project=rest --project=chromium --project=firefox --project=webkit --project='simulatiedatum-*'",
     "test:infra": "playwright test --project=infra",
+    "handleiding": "playwright test --config=playwright.handleiding.config.ts",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
     "typecheck": "tsc --noEmit",

@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["playwright.config.ts", "specs/**/*.ts", "dsl/**/*.ts", "drivers/**/*.ts"]
+  "include": ["playwright.config.ts", "playwright.handleiding.config.ts", "specs/**/*.ts", "dsl/**/*.ts", "drivers/**/*.ts", "handleiding/**/*.ts"]
 }
