@@ -58,11 +58,14 @@ export default defineConfig<Opties>({
     {
       name: 'infra',
       testDir: './specs/infra',
-      fullyParallel: false,
+      // Zodat --shard per scenario verdeelt en niet per bestand (ADR 0047). Met één worker draaien ze nog steeds
+      // na elkaar; de serial-groep in installatie.spec.ts blijft bij elkaar, in de volgorde van het bestand.
+      fullyParallel: true,
       // Geen herkansing: een falende installatie is een signaal, en een herkansing van een serial-groep
       // verwijdert en installeert opnieuw.
       retries: 0,
-      // Eén installatie: de specs mogen elkaar niet tegelijk installeren of verwijderen.
+      // Eén installatie per cluster: de specs mogen elkaar niet tegelijk installeren of verwijderen. In CI heeft
+      // elke shard een eigen cluster.
       workers: 1,
       // Een installatie wacht op Helm en de rooktests.
       timeout: 10 * 60_000,
