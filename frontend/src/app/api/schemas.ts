@@ -7,6 +7,7 @@ import type { components } from './bank-api';
 type Schemas = components['schemas'];
 
 export type Rekening = Schemas['Rekening'];
+export type RekeningMetHouder = Schemas['RekeningMetHouder'];
 export type Pagina = Schemas['Pagina'];
 export type Transactie = Schemas['Transactie'];
 export type Partij = Schemas['Partij'];

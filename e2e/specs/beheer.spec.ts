@@ -58,6 +58,17 @@ test('De beheerder bekijkt de betaalrekening van een klant alleen-lezen', async 
   await bank.maar('kan de beheerder niet betalen', () => beheerder.verwachtAlleenLezen());
 });
 
+/** FO "Kopgedeelte", ook alleen-lezen: de beheerder ziet van wie de rekening is. */
+test('De beheerder ziet boven een rekening van een klant de naam, het rekeningnummer en het saldo', async ({ bank }) => {
+  const beheerder = bank.beheerder();
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.842,17', () => jan.heeftBetaalrekening({ saldo: '1842.17' }));
+  await bank.als('de beheerder de betaalrekening van Jan opent', () => beheerder.opentBetaalrekeningVan(jan));
+  await bank.dan('ziet de beheerder bovenaan de naam Jan, het rekeningnummer van zijn betaalrekening en Saldo € 1.842,17', () =>
+    beheerder.verwachtRekeningkopVan(jan, { saldo: '1842.17' }),
+  );
+});
+
 /** S10.1, ADR 0038: ook de spaarrekening alleen-lezen; de mutaties zoals Jan ze ziet, zonder Inleggen en Opnemen. */
 test('De beheerder bekijkt de spaarrekening van een klant alleen-lezen', async ({ bank }) => {
   const beheerder = bank.beheerder();

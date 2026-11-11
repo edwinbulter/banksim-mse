@@ -54,6 +54,24 @@ paths:
         "401":
           $ref: "#/components/responses/NietIngelogd"
 
+  /api/rekeningen/{iban}:
+    get:
+      operationId: rekening
+      summary: Een eigen rekening met de naam van de rekeninghouder en het saldo van vandaag, voor de kop van het scherm (FO "Kopgedeelte").
+      parameters:
+        - $ref: "#/components/parameters/Iban"
+      responses:
+        "200":
+          description: De rekening
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RekeningMetHouder"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "404":
+          $ref: "#/components/responses/NietGevonden"
+
   /api/rekeningen/{iban}/transacties:
     get:
       operationId: transacties
@@ -249,6 +267,26 @@ paths:
         "404":
           $ref: "#/components/responses/NietGevonden"
 
+  /api/beheer/rekeningen/{iban}:
+    get:
+      operationId: rekeningInBeheer
+      summary: Als beheerder, alleen-lezen, elke rekening van een klant; verder als /api/rekeningen/{iban} (ADR 0038).
+      parameters:
+        - $ref: "#/components/parameters/Iban"
+      responses:
+        "200":
+          description: De rekening
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RekeningMetHouder"
+        "401":
+          $ref: "#/components/responses/NietIngelogd"
+        "403":
+          $ref: "#/components/responses/GeenRecht"
+        "404":
+          $ref: "#/components/responses/NietGevonden"
+
   /api/beheer/rekeningen/{iban}/lopende-rente:
     get:
       operationId: lopendeRenteInBeheer
@@ -427,6 +465,22 @@ components:
           $ref: "#/components/schemas/Iban"
         saldo:
           $ref: "#/components/schemas/Bedrag"
+
+    RekeningMetHouder:
+      type: object
+      additionalProperties: false
+      required: [soort, iban, saldo, rekeninghouder]
+      properties:
+        soort:
+          type: string
+          enum: [betaal, spaar]
+        iban:
+          $ref: "#/components/schemas/Iban"
+        saldo:
+          $ref: "#/components/schemas/Bedrag"
+        rekeninghouder:
+          description: De naam van de rekeninghouder, zoals "Jan de Vries"
+          type: string
 
     Pagina:
       type: object

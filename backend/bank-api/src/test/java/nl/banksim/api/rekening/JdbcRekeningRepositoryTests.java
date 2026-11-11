@@ -106,4 +106,43 @@ class JdbcRekeningRepositoryTests {
     void geeftNietsVoorEenOnbekendeGebruiker() {
         assertThat(repository.vanGebruiker("onbekend", NA_ALLES)).isEmpty();
     }
+
+    /** FO "Kopgedeelte": een eigen rekening met de naam van de rekeninghouder, en het saldo met de transacties. */
+    @Test
+    void eenEigenRekeningHeeftDeNaamVanDeRekeninghouderEnHetSaldo() {
+        assertThat(repository.vanGebruiker("kees", Iban.van("NL08SIMB2010265342"), NA_ALLES)).contains(
+                new RekeningMetHouder(Soort.BETAAL, Iban.van("NL08SIMB2010265342"), Bedrag.van("3402.60"), "Kees"));
+    }
+
+    /** ADR 0013: ook in de kop telt een transactie na "vandaag" niet mee. */
+    @Test
+    void hetSaldoVanEenEigenRekeningTeltAlleenDeTransactiesTotEnMetVandaag() {
+        assertThat(repository.vanGebruiker("kees", Iban.van("NL08SIMB2010265342"), LocalDate.of(2026, 10, 1)))
+                .map(RekeningMetHouder::saldo)
+                .contains(Bedrag.van("187.60"));
+    }
+
+    /** ADR 0023: een rekening van een ander bestaat voor de klant niet. */
+    @Test
+    void eenRekeningVanEenAnderIsLeeg() {
+        assertThat(repository.vanGebruiker("jan", Iban.van("NL08SIMB2010265342"), NA_ALLES)).isEmpty();
+    }
+
+    /** ADR 0038: de beheerder ziet elke rekening van een klant, met de naam en het saldo op vandaag. */
+    @Test
+    void deBeheerderZietElkeRekeningVanEenKlant() {
+        assertThat(repository.inBeheer(Iban.van("NL08SIMB2010265342"), LocalDate.of(2026, 10, 1))).contains(
+                new RekeningMetHouder(Soort.BETAAL, Iban.van("NL08SIMB2010265342"), Bedrag.van("187.60"), "Kees"));
+    }
+
+    /** De interne rekening van de bank (V11) is geen rekening van een klant, ook niet voor de beheerder. */
+    @Test
+    void deInterneRekeningIsInBeheerLeeg() {
+        assertThat(repository.inBeheer(Iban.van("NL24SIMB0000000000"), NA_ALLES)).isEmpty();
+    }
+
+    @Test
+    void eenOnbekendeRekeningIsInBeheerLeeg() {
+        assertThat(repository.inBeheer(Iban.simBank(9L), NA_ALLES)).isEmpty();
+    }
 }

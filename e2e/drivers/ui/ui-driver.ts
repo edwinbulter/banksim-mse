@@ -7,6 +7,7 @@ import type {
   MaximaleLengtes,
   Overschrijfopdracht,
   Spaarmutatie,
+  Rekeningkop,
   RekeningInOverzicht,
   TransactieDetails,
   TransactiesOpDatum,
@@ -145,6 +146,10 @@ export class UiDriver implements BankDriver {
 
   async transacties(): Promise<TransactiesOpDatum[]> {
     return this.betaalrekening.transacties();
+  }
+
+  async rekeningkop(): Promise<Rekeningkop> {
+    return this.betaalrekening.rekeningkop();
   }
 
   async heeftMeer(): Promise<boolean> {

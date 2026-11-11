@@ -291,6 +291,15 @@ export class Klant {
     await (await this.sessie()).herlaad();
   }
 
+  /** FO "Kopgedeelte": boven de transacties de eigen naam, het IBAN van de betaalrekening en het saldo. */
+  async verwachtRekeningkop({ saldo }: { saldo: string }): Promise<void> {
+    expect(await (await this.sessie()).rekeningkop(), `kop van de rekening van ${this.alias}`).toEqual({
+      naam: this.naam(),
+      iban: this.iban(),
+      saldo,
+    });
+  }
+
   async verwachtTransactielijst(verwacht: TransactiesOpDatum[]): Promise<void> {
     expect(await (await this.sessie()).transacties(), `transacties van ${this.alias}`).toEqual(verwacht);
   }

@@ -8,6 +8,7 @@ import type {
   LopendeRente,
   Pagina,
   Rekening,
+  RekeningMetHouder,
   RekeninghouderInBeheer,
   SimulatiedatumInBeheer,
   Transactie,
@@ -93,6 +94,13 @@ describe('App', () => {
     await ververs();
   }
 
+  /** De regels van de kop boven de rekening (FO "Kopgedeelte"), zonder overtollige witruimte. */
+  function kop(pagina: HTMLElement): (string | undefined)[] {
+    return [...(pagina.querySelector('section[aria-label="Rekening"]')?.querySelectorAll('p') ?? [])].map((regel) =>
+      regel.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+  }
+
   function knop(pagina: HTMLElement, tekst: string): HTMLButtonElement | undefined {
     return [...pagina.querySelectorAll('button')].find((b) => b.textContent?.trim() === tekst);
   }
@@ -123,6 +131,13 @@ describe('App', () => {
   }
 
   const JAN: Rekening[] = [{ soort: 'betaal', iban: 'NL94SIMB0000000001', saldo: '3402.60' }];
+  /** GET /api/rekeningen/{iban}: de rekening met de naam van de rekeninghouder (FO "Kopgedeelte"). */
+  const JAN_MET_HOUDER: RekeningMetHouder = {
+    soort: 'betaal',
+    iban: 'NL94SIMB0000000001',
+    saldo: '1842.17',
+    rekeninghouder: 'Jan de Vries',
+  };
   const TWEE_DAGEN: Pagina = {
     transacties: [
       api('2026-10-02', 'Werkgever B.V.', '3215.00'),
@@ -195,6 +210,15 @@ describe('App', () => {
 
     expect(pagina.querySelector('h2')?.textContent).toBe('Betaalrekening');
     expect(datumkoppen(pagina)).toEqual(['Vrijdag 2 oktober 2026', 'Donderdag 1 oktober 2026']);
+  });
+
+  /** FO "Kopgedeelte": bovenaan de naam van de rekeninghouder, het IBAN en het saldo, uit GET /api/rekeningen/{iban}. */
+  it('toont boven de transacties de naam van de rekeninghouder, het IBAN en het saldo', async () => {
+    const pagina = await start('/rekeningen/NL94SIMB0000000001');
+    http.expectOne('/api/rekeningen/NL94SIMB0000000001').flush(JAN_MET_HOUDER);
+    await ververs();
+
+    expect(kop(pagina)).toEqual(['Jan de Vries', 'NL94SIMB0000000001', 'Saldo € 1.842,17']);
   });
 
   it('gaat met de link "Overzicht" terug naar het overzicht en laadt de rekeningen opnieuw (S2a.1)', async () => {
@@ -924,6 +948,15 @@ describe('App', () => {
     expect(pagina.querySelector('ul[aria-label="Transacties"]')).not.toBeNull();
     expect(link(pagina, 'Betalen')).toBeUndefined();
     expect(link(pagina, 'Beheer')?.getAttribute('href')).toBe('/beheer');
+  });
+
+  /** FO "Kopgedeelte", ADR 0038: ook alleen-lezen staan de naam, het IBAN en het saldo bovenaan, via /api/beheer. */
+  it('toont de beheerder boven de rekening van een klant de naam, het IBAN en het saldo', async () => {
+    const pagina = await naarBeheer(true, '/beheer/rekeningen/NL94SIMB0000000001');
+    http.expectOne('/api/beheer/rekeningen/NL94SIMB0000000001').flush(JAN_MET_HOUDER);
+    await ververs();
+
+    expect(kop(pagina)).toEqual(['Jan de Vries', 'NL94SIMB0000000001', 'Saldo € 1.842,17']);
   });
 
   /** S10.1, ADR 0038: ook de spaarrekening opent vanuit de tabel, alleen-lezen. */

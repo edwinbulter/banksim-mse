@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/rekeningen/{iban}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Een eigen rekening met de naam van de rekeninghouder en het saldo van vandaag, voor de kop van het scherm (FO "Kopgedeelte"). */
+        get: operations["rekening"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/rekeningen/{iban}/transacties": {
         parameters: {
             query?: never;
@@ -157,6 +174,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/beheer/rekeningen/{iban}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Als beheerder, alleen-lezen, elke rekening van een klant; verder als /api/rekeningen/{iban} (ADR 0038). */
+        get: operations["rekeningInBeheer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/beheer/rekeningen/{iban}/lopende-rente": {
         parameters: {
             query?: never;
@@ -237,6 +271,14 @@ export interface components {
             soort: "betaal" | "spaar";
             iban: components["schemas"]["Iban"];
             saldo: components["schemas"]["Bedrag"];
+        };
+        RekeningMetHouder: {
+            /** @enum {string} */
+            soort: "betaal" | "spaar";
+            iban: components["schemas"]["Iban"];
+            saldo: components["schemas"]["Bedrag"];
+            /** @description De naam van de rekeninghouder, zoals "Jan de Vries" */
+            rekeninghouder: string;
         };
         Pagina: {
             transacties: components["schemas"]["Transactie"][];
@@ -440,6 +482,31 @@ export interface operations {
             401: components["responses"]["NietIngelogd"];
         };
     };
+    rekening: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Een ongeldige IBAN is een rekening die niet bestaat, dus 404 (ADR 0023) */
+                iban: components["parameters"]["Iban"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description De rekening */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RekeningMetHouder"];
+                };
+            };
+            401: components["responses"]["NietIngelogd"];
+            404: components["responses"]["NietGevonden"];
+        };
+    };
     transacties: {
         parameters: {
             query?: {
@@ -618,6 +685,32 @@ export interface operations {
                 };
             };
             400: components["responses"]["Probleem"];
+            401: components["responses"]["NietIngelogd"];
+            403: components["responses"]["GeenRecht"];
+            404: components["responses"]["NietGevonden"];
+        };
+    };
+    rekeningInBeheer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Een ongeldige IBAN is een rekening die niet bestaat, dus 404 (ADR 0023) */
+                iban: components["parameters"]["Iban"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description De rekening */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RekeningMetHouder"];
+                };
+            };
             401: components["responses"]["NietIngelogd"];
             403: components["responses"]["GeenRecht"];
             404: components["responses"]["NietGevonden"];

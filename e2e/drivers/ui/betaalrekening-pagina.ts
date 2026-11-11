@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { Partij, Transactie, TransactieDetails, TransactieType, TransactiesOpDatum, Uitkomst } from '../bank-driver';
+import type { Partij, Rekeningkop, Transactie, TransactieDetails, TransactieType, TransactiesOpDatum, Uitkomst } from '../bank-driver';
 
 const MAANDEN = [
   'januari', 'februari', 'maart', 'april', 'mei', 'juni',
@@ -45,6 +45,20 @@ export class BetaalrekeningPagina {
     const rekening = this.page.getByRole('list', { name: 'Transacties' }).or(this.page.getByText(LEEG));
     await expect(melding.or(rekening)).toBeVisible();
     return melding.isVisible();
+  }
+
+  /**
+   * De kop (FO "Kopgedeelte"): drie regels, de naam, het IBAN en "Saldo € 1.842,17". Het saldo terug naar
+   * domeinnotatie, zonder rekenen met floats.
+   */
+  async rekeningkop(): Promise<Rekeningkop> {
+    const kop = this.page.getByRole('region', { name: 'Rekening', exact: true });
+    await expect(kop.getByText(/^Saldo/)).toBeVisible();
+    const [naam, iban, saldoregel] = (await kop.locator('p').allTextContents()).map((tekst) => tekst.trim());
+    const bedrag = /(−|-)?\s?€\s?([\d.]+,\d{2})/.exec(saldoregel ?? '');
+    if (!bedrag) throw new Error(`Geen saldo in de kop: "${saldoregel}"`);
+    const saldo = `${bedrag[1] ? '-' : ''}${bedrag[2].replace(/\./g, '').replace(',', '.')}`;
+    return { naam: naam ?? '', iban: iban ?? '', saldo };
   }
 
   /** Wacht tot de transacties er staan; daarna is de knop "Betalen" er wel of niet. */

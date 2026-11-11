@@ -1,7 +1,8 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { Pagina } from './api/schemas';
+import type { Pagina, RekeningMetHouder } from './api/schemas';
+import { bedragVoorWeergave } from './geld/bedrag';
 import { Betaalrekening } from './betaalrekening';
 import { ZoekFormulier, type Zoekopdracht } from './zoek-formulier';
 
@@ -13,6 +14,7 @@ import { ZoekFormulier, type Zoekopdracht } from './zoek-formulier';
  * weer alles. Een geweigerde zoekopdracht (400) toont de melding van de API in het formulier.
  * Een rekening die niet bestaat of van een ander is (404, S6.1), is voor de klant hetzelfde: "Rekening is niet gevonden.".
  * "Betalen" opent het betaalscherm van deze rekening (S7.1).
+ * Bovenaan staan de naam van de rekeninghouder, het IBAN en het saldo (FO "Kopgedeelte"), uit GET /api/rekeningen/{iban}.
  * Route `/beheer/rekeningen/:iban` (S10.1, ADR 0038): hetzelfde scherm voor de beheerder, alleen-lezen. Het leest via
  * /api/beheer, zonder "Betalen", en de link gaat terug naar het beheerscherm.
  */
@@ -30,6 +32,13 @@ import { ZoekFormulier, type Zoekopdracht } from './zoek-formulier';
     @if (nietGevonden()) {
       <p class="melding melding--fout" role="alert">Rekening is niet gevonden.</p>
     } @else {
+      @if (kop(); as kop) {
+        <section class="rekening-kop" aria-label="Rekening">
+          <p class="rekening-kop__naam">{{ kop.rekeninghouder }}</p>
+          <p class="rekening-kop__iban">{{ kop.iban }}</p>
+          <p class="rekening-kop__saldo">Saldo <span class="bedrag">{{ kop.saldo }}</span></p>
+        </section>
+      }
       <div class="knoppen knoppen--links">
         @if (!beheer()) {
           <a class="knop" routerLink="betalen">Betalen</a>
@@ -55,6 +64,9 @@ export class BetaalrekeningScherm {
   /** Uit de data van de route: de beheerder leest alleen (ADR 0038). */
   readonly beheer = input(false);
 
+  /** FO "Kopgedeelte": de naam van de rekeninghouder, het IBAN en het saldo; leeg tot het antwoord er is. */
+  protected readonly kop = signal<{ rekeninghouder: string; iban: string; saldo: string } | undefined>(undefined);
+
   /** De tot nu toe geladen transacties. */
   protected readonly geladen = signal<Pagina | undefined>(undefined);
 
@@ -69,6 +81,16 @@ export class BetaalrekeningScherm {
       this.iban();
       this.geladen.set(undefined);
       this.laad(undefined);
+      this.laadKop();
+    });
+  }
+
+  /** Een fout laat de kop leeg: een 404 meldt het laden van de transacties al ("Rekening is niet gevonden."). */
+  private laadKop(): void {
+    this.kop.set(undefined);
+    this.http.get<RekeningMetHouder>(`${this.api()}/rekeningen/${this.iban()}`).subscribe({
+      next: ({ rekeninghouder, iban, saldo }) => this.kop.set({ rekeninghouder, iban, saldo: bedragVoorWeergave(saldo) }),
+      error: () => this.kop.set(undefined),
     });
   }
 
@@ -83,7 +105,7 @@ export class BetaalrekeningScherm {
   }
 
   private laad(na: string | undefined): void {
-    const pad = `${this.beheer() ? '/api/beheer' : '/api'}/rekeningen/${this.iban()}/transacties`;
+    const pad = `${this.api()}/rekeningen/${this.iban()}/transacties`;
     const params = { ...this.filter, ...(na === undefined ? {} : { na }) };
     this.http.get<Pagina>(pad, { params }).subscribe({
       next: (pagina) => {
@@ -99,5 +121,9 @@ export class BetaalrekeningScherm {
         if (fout.status === 404) this.nietGevonden.set(true);
       },
     });
+  }
+
+  private api(): string {
+    return this.beheer() ? '/api/beheer' : '/api';
   }
 }

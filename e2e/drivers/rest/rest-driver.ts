@@ -9,6 +9,7 @@ import type {
   Overschrijfopdracht,
   Spaarmutatie,
   Partij,
+  Rekeningkop,
   RekeningInOverzicht,
   TransactieDetails,
   TransactieType,
@@ -27,6 +28,8 @@ export class RestDriver implements BankDriver {
   private geopend?: string;
   /** Het pad waarlangs de rekening geopend is: van de klant, of alleen-lezen in beheer (ADR 0038). */
   private transactiepad = (iban: string) => `/api/rekeningen/${iban}/transacties`;
+  /** Het pad van de geopende rekening zelf, voor de kop (FO "Kopgedeelte"). */
+  private rekeningpad = (iban: string) => `/api/rekeningen/${iban}`;
   private geladen: Pagina['transacties'] = [];
   /** S10.2: de melding van de bank bij de laatste geweigerde simulatiedatum. */
   private simulatiedatumweigering?: string;
@@ -121,6 +124,7 @@ export class RestDriver implements BankDriver {
   async openRekening(iban: string): Promise<void> {
     this.geopend = iban;
     this.transactiepad = (rekening) => `/api/rekeningen/${rekening}/transacties`;
+    this.rekeningpad = (rekening) => `/api/rekeningen/${rekening}`;
     this.geladen = [];
     this.filter = new URLSearchParams();
     await this.laadPagina(this.transactiepad(iban));
@@ -129,6 +133,7 @@ export class RestDriver implements BankDriver {
   async openRekeningInBeheer(iban: string): Promise<void> {
     this.geopend = iban;
     this.transactiepad = (rekening) => `/api/beheer/rekeningen/${rekening}/transacties`;
+    this.rekeningpad = (rekening) => `/api/beheer/rekeningen/${rekening}`;
     this.geladen = [];
     this.filter = new URLSearchParams();
     await this.laadPagina(this.transactiepad(iban));
@@ -184,6 +189,7 @@ export class RestDriver implements BankDriver {
   async openRekeningViaAdres(iban: string): Promise<void> {
     this.geopend = iban;
     this.transactiepad = (rekening) => `/api/rekeningen/${rekening}/transacties`;
+    this.rekeningpad = (rekening) => `/api/rekeningen/${rekening}`;
     this.geladen = [];
     this.filter = new URLSearchParams();
     const pad = this.transactiepad(iban);
@@ -204,6 +210,15 @@ export class RestDriver implements BankDriver {
       perDatum.at(-1)!.transacties.push({ tegenpartij, bedrag });
     }
     return perDatum;
+  }
+
+  async rekeningkop(): Promise<Rekeningkop> {
+    if (!this.geopend) throw new Error('Geen rekening geopend');
+    const pad = this.rekeningpad(this.geopend);
+    const antwoord = await this.request.get(pad);
+    expect(antwoord.status(), `GET ${pad}: ${(await antwoord.text()).slice(0, 300)}`).toBe(200);
+    const { rekeninghouder, iban, saldo } = (await antwoord.json()) as { rekeninghouder: string; iban: string; saldo: string };
+    return { naam: rekeninghouder, iban, saldo };
   }
 
   async heeftMeer(): Promise<boolean> {

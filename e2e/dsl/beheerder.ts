@@ -93,6 +93,15 @@ export class Beheerder {
     await (await this.opHetScherm()).openRekeningInBeheer(klant.iban());
   }
 
+  /** FO "Kopgedeelte", ook alleen-lezen: de naam van de klant, het IBAN van zijn betaalrekening en het saldo. */
+  async verwachtRekeningkopVan(klant: Klant, { saldo }: { saldo: string }): Promise<void> {
+    expect(await (await this.opHetScherm()).rekeningkop(), `kop van de rekening van ${klant.naam()} in beheer`).toEqual({
+      naam: klant.naam(),
+      iban: klant.iban(),
+      saldo,
+    });
+  }
+
   async verwachtTransactielijst(verwacht: TransactiesOpDatum[]): Promise<void> {
     expect(await (await this.opHetScherm()).transacties(), 'transacties in beheer').toEqual(verwacht);
   }

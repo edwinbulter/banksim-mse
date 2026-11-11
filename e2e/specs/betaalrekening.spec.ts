@@ -21,6 +21,16 @@ test('Transacties per datum, nieuw naar oud, met teken', async ({ bank }) => {
   );
 });
 
+/** FO "Betaalrekening scherm", Kopgedeelte: bovenaan de rekeninghouder, het IBAN en het saldo. */
+test('Boven de transacties staan de naam van de rekeninghouder, het rekeningnummer en het saldo', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening met saldo € 1.842,17', () => jan.heeftBetaalrekening({ saldo: '1842.17' }));
+  await bank.als('Jan de betaalrekening opent', () => jan.opentBetaalrekening());
+  await bank.dan('ziet Jan bovenaan zijn naam, het rekeningnummer van zijn betaalrekening en Saldo € 1.842,17', () =>
+    jan.verwachtRekeningkop({ saldo: '1842.17' }),
+  );
+});
+
 /**
  * Losse backlogpunt: binnen één dag op tijdstip, niet op de volgorde van boeken. De bank boekt de transactie van 15:00
  * met opzet eerst; anders zou sorteren op de volgorde van boeken hetzelfde geven.

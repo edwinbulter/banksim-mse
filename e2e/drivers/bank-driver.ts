@@ -8,6 +8,13 @@ export interface RekeningInOverzicht {
   saldo: string;
 }
 
+/** De kop van een geopende rekening (FO "Kopgedeelte"): de naam van de rekeninghouder, het IBAN en het saldo in domeinnotatie. */
+export interface Rekeningkop {
+  naam: string;
+  iban: string;
+  saldo: string;
+}
+
 /** Een transactie zoals de klant hem ziet; het bedrag met teken in domeinnotatie ("-812.40"). */
 export interface Transactie {
   tegenpartij: string;
@@ -184,6 +191,8 @@ export interface BankDriver {
   rekeningNietGevonden(): Promise<boolean>;
   /** De transacties van de geopende rekening die tot nu toe geladen zijn, per datum, in de volgorde van het systeem. */
   transacties(): Promise<TransactiesOpDatum[]>;
+  /** De kop van de geopende rekening, van de klant of in beheer: naam, IBAN en saldo. */
+  rekeningkop(): Promise<Rekeningkop>;
   /** Of er nog oudere transacties te laden zijn ("Toon meer"). */
   heeftMeer(): Promise<boolean>;
   /** De volgende portie oudere transacties laden. */

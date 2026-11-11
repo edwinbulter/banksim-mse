@@ -262,6 +262,26 @@ a {
   padding-bottom: 0.5rem;
 }
 
+/* MSE: de naam is geen kop; de eerste h2 van het scherm blijft "Betaalrekening". Met de maat van de h1 in het origineel. */
+.rekening-kop .rekening-kop__naam {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.rekening-kop p {
+  margin: 0.125rem 0;
+}
+
+.rekening-kop__iban {
+  color: var(--kleur-zacht);
+}
+
+.rekening-kop__saldo {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
 .rekening-kop__rente {
   display: flex;
   gap: 0.5rem;
