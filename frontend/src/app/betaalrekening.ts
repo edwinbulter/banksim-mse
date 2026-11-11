@@ -13,23 +13,24 @@ import { typeVoorWeergave } from './transactie/transactietype';
 @Component({
   selector: 'app-betaalrekening',
   template: `
-    <h2>Betaalrekening</h2>
+    <h2 class="titel">Betaalrekening</h2>
     @if (dagen().length === 0) {
-      <p>{{ gezocht() ? 'Geen transacties gevonden.' : 'Nog geen af- of bijschrijvingen.' }}</p>
+      <p class="leeg">{{ gezocht() ? 'Geen transacties gevonden.' : 'Nog geen af- of bijschrijvingen.' }}</p>
     } @else {
-      <ul aria-label="Transacties">
+      <ul class="dagen" aria-label="Transacties">
         @for (dag of dagen(); track dag.datum) {
           <li>
-            <h3>{{ dag.kop }}</h3>
-            <ul>
+            <h3 class="datumregel">{{ dag.kop }}</h3>
+            <ul class="transacties">
               @for (transactie of dag.transacties; track transactie.bron) {
-                <li>
+                <li class="transactie" [class.transactie--open]="uitgeklapt() === transactie.bron">
                   <button
                     type="button"
+                    class="transactie__regel"
                     [attr.aria-expanded]="uitgeklapt() === transactie.bron"
                     (click)="klap(transactie.bron)"
                   >
-                    <span>{{ transactie.tegenpartij }}</span>&ngsp;<span
+                    <span class="transactie__naam">{{ transactie.tegenpartij }}</span>&ngsp;<span
                       class="bedrag"
                       [class.bedrag--af]="transactie.af"
                       [class.bedrag--bij]="!transactie.af"
@@ -37,7 +38,7 @@ import { typeVoorWeergave } from './transactie/transactietype';
                     >
                   </button>
                   @if (uitgeklapt() === transactie.bron) {
-                    <dl [attr.aria-label]="'Details van ' + transactie.tegenpartij">
+                    <dl class="details" [attr.aria-label]="'Details van ' + transactie.tegenpartij">
                       <dt>Transactietype</dt>
                       <dd>{{ transactie.details.type }}</dd>
                       <dt>Van</dt>
@@ -75,7 +76,9 @@ import { typeVoorWeergave } from './transactie/transactietype';
         }
       </ul>
       @if (meer()) {
-        <button type="button" (click)="toonMeer.emit()">Toon meer</button>
+        <div class="toon-meer">
+          <button type="button" class="knop knop--secundair" (click)="toonMeer.emit()">Toon meer</button>
+        </div>
       }
     }
   `,

@@ -15,32 +15,42 @@ import { bedragMetTeken, bedragVoorWeergave } from './geld/bedrag';
   selector: 'app-spaarrekening-scherm',
   imports: [RouterLink],
   template: `
-    @if (beheer()) {
-      <a routerLink="/beheer">Beheer</a>
-    } @else {
-      <a routerLink="/">Overzicht</a>
-    }
-    <h2>Spaarrekening</h2>
+    <p class="terug">
+      @if (beheer()) {
+        <a routerLink="/beheer">Beheer</a>
+      } @else {
+        <a routerLink="/">Overzicht</a>
+      }
+    </p>
+    <header class="rekening-kop">
+      <h2 class="titel">Spaarrekening</h2>
+      @if (lopendeRente(); as rente) {
+        <dl class="rekening-kop__rente">
+          <dt>Lopende rente</dt>
+          <dd class="bedrag">{{ rente }}</dd>
+        </dl>
+      }
+    </header>
     @if (!beheer()) {
-      <a [routerLink]="['/spaarrekeningen', iban(), 'opnemen']">Opnemen</a>
-      <a [routerLink]="['/spaarrekeningen', iban(), 'inleggen']">Inleggen</a>
+      <div class="knoppen knoppen--links">
+        <a class="knop" [routerLink]="['/spaarrekeningen', iban(), 'opnemen']">Opnemen</a>
+        <a class="knop" [routerLink]="['/spaarrekeningen', iban(), 'inleggen']">Inleggen</a>
+      </div>
     }
-    @if (lopendeRente(); as rente) {
-      <dl>
-        <dt>Lopende rente</dt>
-        <dd>{{ rente }}</dd>
-      </dl>
-    }
-    <ul aria-label="Mutaties">
+    <ul class="dagen" aria-label="Mutaties">
       @for (dag of dagen(); track dag.datum) {
         @if (dag.nieuwJaar) {
-          <li>{{ dag.nieuwJaar }}</li>
+          <li class="jaarregel">{{ dag.nieuwJaar }}</li>
         }
         <li>
-          <h3>{{ dag.kop }}</h3>
-          <ul>
+          <h3 class="datumregel">{{ dag.kop }}</h3>
+          <ul class="transacties">
             @for (mutatie of dag.mutaties; track $index) {
-              <li>{{ mutatie.omschrijving }} {{ mutatie.bedrag }}</li>
+              <li class="transactie mutatie">
+                <span class="transactie__naam">{{ mutatie.omschrijving }}</span>&ngsp;<span class="bedrag">{{
+                  mutatie.bedrag
+                }}</span>
+              </li>
             }
           </ul>
         </li>

@@ -9,21 +9,21 @@ import { bedragVoorWeergave } from './geld/bedrag';
 @Component({
   selector: 'app-overzicht',
   template: `
-    <h2>Welkom</h2>
-    <ul aria-label="Betaalrekeningen">
+    <h2 class="titel">Welkom</h2>
+    <ul class="rekeningen" aria-label="Betaalrekeningen">
       @for (rekening of betaalrekeningen(); track rekening.iban) {
-        <li>
-          <button type="button" (click)="open.emit(rekening.iban)">{{ rekening.iban }}</button>&ngsp;<span>{{ rekening.saldo }}</span>
+        <li class="rekening-kaart">
+          <button type="button" class="rekening-kaart__iban" (click)="open.emit(rekening.iban)">{{ rekening.iban }}</button
+          >&ngsp;<span class="rekening-kaart__saldo bedrag">{{ rekening.saldo }}</span>
         </li>
       }
     </ul>
     @if (spaarrekeningen().length > 0) {
-      <ul aria-label="Spaarrekeningen">
+      <ul class="rekeningen" aria-label="Spaarrekeningen">
         @for (rekening of spaarrekeningen(); track rekening.iban) {
-          <li>
-            <button type="button" (click)="openSpaar.emit(rekening.iban)">{{ rekening.iban }}</button>&ngsp;<span>{{
-              rekening.saldo
-            }}</span>
+          <li class="rekening-kaart">
+            <button type="button" class="rekening-kaart__iban" (click)="openSpaar.emit(rekening.iban)">{{ rekening.iban }}</button
+            >&ngsp;<span class="rekening-kaart__saldo bedrag">{{ rekening.saldo }}</span>
           </li>
         }
       </ul>

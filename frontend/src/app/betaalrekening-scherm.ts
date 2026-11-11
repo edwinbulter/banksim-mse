@@ -20,18 +20,22 @@ import { ZoekFormulier, type Zoekopdracht } from './zoek-formulier';
   selector: 'app-betaalrekening-scherm',
   imports: [Betaalrekening, RouterLink, ZoekFormulier],
   template: `
-    @if (beheer()) {
-      <a routerLink="/beheer">Beheer</a>
-    } @else {
-      <a routerLink="/">Overzicht</a>
-    }
-    @if (nietGevonden()) {
-      <p role="alert">Rekening is niet gevonden.</p>
-    } @else {
-      @if (!beheer()) {
-        <a routerLink="betalen">Betalen</a>
+    <p class="terug">
+      @if (beheer()) {
+        <a routerLink="/beheer">Beheer</a>
+      } @else {
+        <a routerLink="/">Overzicht</a>
       }
-      <app-zoek-formulier [melding]="melding()" (zoek)="zoek($event)" (wis)="zoek({})" />
+    </p>
+    @if (nietGevonden()) {
+      <p class="melding melding--fout" role="alert">Rekening is niet gevonden.</p>
+    } @else {
+      <div class="knoppen knoppen--links">
+        @if (!beheer()) {
+          <a class="knop" routerLink="betalen">Betalen</a>
+        }
+        <app-zoek-formulier [melding]="melding()" (zoek)="zoek($event)" (wis)="zoek({})" />
+      </div>
       @if (geladen(); as geladen) {
         <app-betaalrekening
           [transacties]="geladen.transacties"

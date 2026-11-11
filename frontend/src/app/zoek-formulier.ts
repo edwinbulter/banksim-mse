@@ -20,42 +20,54 @@ type Richting = 'inkomend' | 'uitgaand';
 @Component({
   selector: 'app-zoek-formulier',
   template: `
-    <button type="button" (click)="open.set(!open())">{{ open() ? 'Verberg zoeken' : 'Zoeken in transacties' }}</button>
+    <button type="button" class="knop knop--secundair" (click)="open.set(!open())">
+      {{ open() ? 'Verberg zoeken' : 'Zoeken in transacties' }}
+    </button>
     @if (open()) {
-      <form aria-label="Zoeken in transacties" (submit)="$event.preventDefault(); zoeken()">
-        <label for="zoek-tekst">Naam, bedrag, IBAN of omschrijving</label>
-        <input id="zoek-tekst" [value]="tekst()" (input)="tekst.set(waarde($event))" />
-        <label for="zoek-van">Bedrag van (€)</label>
-        <input id="zoek-van" inputmode="decimal" [value]="van()" (input)="van.set(waarde($event))" />
-        <label for="zoek-tm">Bedrag t/m (€)</label>
-        <input id="zoek-tm" inputmode="decimal" [value]="tm()" (input)="tm.set(waarde($event))" />
-        <label for="zoek-type">Transactietype</label>
-        <select id="zoek-type" (change)="type.set(waarde($event))">
-          <option value="" [selected]="type() === ''">Alle transactietypes</option>
-          @for (t of typen; track t.code) {
-            <option [value]="t.code" [selected]="type() === t.code">{{ t.label }}</option>
-          }
-        </select>
-        <fieldset>
+      <form class="zoeken" aria-label="Zoeken in transacties" (submit)="$event.preventDefault(); zoeken()">
+        <div class="veld veld--breed">
+          <label for="zoek-tekst">Naam, bedrag, IBAN of omschrijving</label>
+          <input id="zoek-tekst" [value]="tekst()" (input)="tekst.set(waarde($event))" />
+        </div>
+        <div class="veld">
+          <label for="zoek-van">Bedrag van (€)</label>
+          <input id="zoek-van" inputmode="decimal" [value]="van()" (input)="van.set(waarde($event))" />
+        </div>
+        <div class="veld">
+          <label for="zoek-tm">Bedrag t/m (€)</label>
+          <input id="zoek-tm" inputmode="decimal" [value]="tm()" (input)="tm.set(waarde($event))" />
+        </div>
+        <div class="veld">
+          <label for="zoek-type">Transactietype</label>
+          <select id="zoek-type" (change)="type.set(waarde($event))">
+            <option value="" [selected]="type() === ''">Alle transactietypes</option>
+            @for (t of typen; track t.code) {
+              <option [value]="t.code" [selected]="type() === t.code">{{ t.label }}</option>
+            }
+          </select>
+        </div>
+        <fieldset class="veld veld--breed">
           <legend>Filteren op</legend>
-          <label
+          <label class="radio"
             ><input type="radio" name="richting" [checked]="richting() === undefined" (change)="richting.set(undefined)" />
             Alle transacties</label
           >
-          <label
+          <label class="radio"
             ><input type="radio" name="richting" [checked]="richting() === 'uitgaand'" (change)="richting.set('uitgaand')" />
             Uitgaande transacties</label
           >
-          <label
+          <label class="radio"
             ><input type="radio" name="richting" [checked]="richting() === 'inkomend'" (change)="richting.set('inkomend')" />
             Inkomende transacties</label
           >
         </fieldset>
         @if (melding(); as melding) {
-          <p role="alert">{{ melding }}</p>
+          <p class="melding melding--fout" role="alert">{{ melding }}</p>
         }
-        <button type="submit">Zoeken</button>
-        <button type="button" (click)="wissen()">Wissen</button>
+        <div class="knoppen">
+          <button type="button" class="knop knop--secundair" (click)="wissen()">Wissen</button>
+          <button type="submit" class="knop">Zoeken</button>
+        </div>
       </form>
     }
   `,

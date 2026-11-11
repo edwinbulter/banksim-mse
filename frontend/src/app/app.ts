@@ -17,19 +17,23 @@ import { Sessie } from './sessie';
   selector: 'app-root',
   imports: [RouterOutlet],
   template: `
+    <header class="topbar">
+      <h1 class="brand">BankSim</h1>
+      @if (!sessie.nietIngelogd()) {
+        <button type="button" class="knop knop--secundair topbar__uitloggen" (click)="logUit()">Uitloggen</button>
+      }
+    </header>
     <main>
-      <h1>BankSim</h1>
       @if (sessie.nietIngelogd()) {
-        <a href="/oauth2/authorization/keycloak">Inloggen</a>
+        <p><a class="knop" href="/oauth2/authorization/keycloak">Inloggen</a></p>
       } @else {
-        <button type="button" (click)="logUit()">Uitloggen</button>
         @if (melding(); as melding) {
-          <p role="alert">{{ melding }}</p>
+          <p class="melding melding--fout" role="alert">{{ melding }}</p>
         }
         <router-outlet />
       }
     </main>
-    <footer>
+    <footer class="voet">
       @if (versie(); as versie) {
         Versie {{ versie }}
       }

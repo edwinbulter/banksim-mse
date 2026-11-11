@@ -14,17 +14,25 @@ import type { Overschrijving, Rekening } from './api/schemas';
   selector: 'app-overschrijven-scherm',
   imports: [RouterLink],
   template: `
-    <a [routerLink]="['/spaarrekeningen', iban()]">Spaarrekening</a>
-    <h2>Overschrijven</h2>
-    <form aria-label="Overschrijven" (submit)="$event.preventDefault(); schrijfOver()">
-      <section aria-label="Van">Van: {{ van().naam }} {{ van().iban }}</section>
-      <section aria-label="Naar">Naar: {{ naar().naam }} {{ naar().iban }}</section>
-      <label for="overschrijven-bedrag">Bedrag (€)</label>
-      <input id="overschrijven-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
-      <button type="submit" [disabled]="!klaar()">Overschrijven</button>
+    <p class="terug"><a [routerLink]="['/spaarrekeningen', iban()]">Spaarrekening</a></p>
+    <h2 class="titel">Overschrijven</h2>
+    <form class="formulier" aria-label="Overschrijven" (submit)="$event.preventDefault(); schrijfOver()">
+      <section class="van" aria-label="Van">
+        <span class="van__kop">Van:</span>&ngsp;<span>{{ van().naam }} {{ van().iban }}</span>
+      </section>
+      <section class="van" aria-label="Naar">
+        <span class="van__kop">Naar:</span>&ngsp;<span>{{ naar().naam }} {{ naar().iban }}</span>
+      </section>
+      <div class="veld">
+        <label for="overschrijven-bedrag">Bedrag (€)</label>
+        <input id="overschrijven-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
+      </div>
+      <div class="knoppen">
+        <button type="submit" class="knop" [disabled]="!klaar()">Overschrijven</button>
+      </div>
     </form>
     @if (melding(); as melding) {
-      <p role="alert">{{ melding }}</p>
+      <p class="melding melding--fout" role="alert">{{ melding }}</p>
     }
   `,
 })

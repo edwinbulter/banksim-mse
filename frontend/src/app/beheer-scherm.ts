@@ -14,54 +14,68 @@ import { bedragVoorWeergave } from './geld/bedrag';
   selector: 'app-beheer-scherm',
   imports: [RouterLink],
   template: `
-    <h2>Beheer</h2>
-    <form aria-label="Simulatiedatum zetten" novalidate (submit)="$event.preventDefault(); zetSimulatiedatum()">
-      <label for="beheer-simulatiedatum">Simulatiedatum</label>
-      <input
-        id="beheer-simulatiedatum"
-        type="date"
-        [value]="simulatiedatum()"
-        [min]="historie()?.eerste ?? ''"
-        [max]="historie()?.laatste ?? ''"
-        (input)="simulatiedatum.set(waarde($event))"
-      />
-      <button type="submit">Toepassen</button>
-      <button type="button" (click)="terugNaarVandaag()">Terug naar vandaag</button>
+    <h2 class="titel">Beheer</h2>
+    <div class="kaart">
+      <form class="rij" aria-label="Simulatiedatum zetten" novalidate (submit)="$event.preventDefault(); zetSimulatiedatum()">
+        <div class="veld">
+          <label for="beheer-simulatiedatum">Simulatiedatum</label>
+          <input
+            id="beheer-simulatiedatum"
+            type="date"
+            [value]="simulatiedatum()"
+            [min]="historie()?.eerste ?? ''"
+            [max]="historie()?.laatste ?? ''"
+            (input)="simulatiedatum.set(waarde($event))"
+          />
+        </div>
+        <button type="submit" class="knop">Toepassen</button>
+        <button type="button" class="knop knop--secundair" (click)="terugNaarVandaag()">Terug naar vandaag</button>
+      </form>
       @if (beschikbaar(); as beschikbaar) {
-        <p>Beschikbaar: {{ beschikbaar }}</p>
+        <p class="hint">Beschikbaar: {{ beschikbaar }}</p>
       }
-    </form>
+    </div>
     @if (status(); as status) {
-      <p role="status">{{ status }}</p>
+      <p class="melding melding--succes" role="status">{{ status }}</p>
     }
-    <form aria-label="Rekeninghouders zoeken" (submit)="$event.preventDefault(); zoek()">
-      <label for="beheer-zoek">Naam of rekeningnummer</label>
-      <input id="beheer-zoek" [value]="tekst()" (input)="tekst.set(waarde($event))" />
-      <button type="submit">Zoeken</button>
-    </form>
+    <div class="kaart">
+      <form class="rij" aria-label="Rekeninghouders zoeken" (submit)="$event.preventDefault(); zoek()">
+        <div class="veld">
+          <label for="beheer-zoek">Naam of rekeningnummer</label>
+          <input id="beheer-zoek" [value]="tekst()" (input)="tekst.set(waarde($event))" />
+        </div>
+        <button type="submit" class="knop">Zoeken</button>
+      </form>
+    </div>
     @if (melding(); as melding) {
-      <p role="alert">{{ melding }}</p>
+      <p class="melding melding--fout" role="alert">{{ melding }}</p>
     }
     @if (gevonden(); as gevonden) {
       @if (gevonden.length === 0) {
-        <p>Geen rekeninghouders gevonden.</p>
+        <p class="leeg">Geen rekeninghouders gevonden.</p>
       } @else {
-        <table aria-label="Rekeninghouders">
+        <table class="tabel" aria-label="Rekeninghouders">
           <thead>
-            <tr><th>Naam</th><th>Betaalrekening</th><th>Saldo</th><th>Spaarrekening</th><th>Spaarsaldo</th></tr>
+            <tr>
+              <th>Naam</th>
+              <th>Betaalrekening</th>
+              <th class="getal">Saldo</th>
+              <th>Spaarrekening</th>
+              <th class="getal">Spaarsaldo</th>
+            </tr>
           </thead>
           <tbody>
             @for (r of gevonden; track r.betaalrekening + (r.spaarrekening ?? '')) {
               <tr>
                 <td>{{ r.naam }}</td>
                 <td><a [routerLink]="['/beheer/rekeningen', r.betaalrekening]">{{ r.betaalrekening }}</a></td>
-                <td>{{ weergave(r.saldo) }}</td>
+                <td class="getal bedrag">{{ weergave(r.saldo) }}</td>
                 <td>
                   @if (r.spaarrekening; as spaar) {
                     <a [routerLink]="['/beheer/spaarrekeningen', spaar]">{{ spaar }}</a>
                   }
                 </td>
-                <td>{{ r.spaarsaldo === null ? '' : weergave(r.spaarsaldo) }}</td>
+                <td class="getal bedrag">{{ r.spaarsaldo === null ? '' : weergave(r.spaarsaldo) }}</td>
               </tr>
             }
           </tbody>

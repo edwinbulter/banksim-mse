@@ -1,13 +1,22 @@
 /*
- * BankSim-MSE – algemene stijl, uit het origineel: rustig en zakelijk; kleur alleen waar hij iets betekent (af/bij).
- * De rest van het origineel volgt per scherm, met de klassen die dat scherm gebruikt.
+ * BankSim-MSE – algemene stijl, uit het origineel: rustig en zakelijk; kleur alleen waar hij iets betekent (af/bij,
+ * fouten). De regels en klassen zijn die van het origineel (styles.scss en app.scss), op een paar na die BankSim-MSE
+ * nodig heeft omdat de templates anders zijn opgebouwd; die staan met "MSE:" erbij.
  */
 :root {
   --kleur-tekst: #1f2328;
+  --kleur-zacht: #59636e;
+  --kleur-lijn: #d0d7de;
+  --kleur-vlak: #f6f8fa;
   --kleur-achtergrond: #ffffff;
   --kleur-primair: #0b5cad;
+  --kleur-primair-donker: #084c8f;
   --kleur-af: #b42318;
   --kleur-bij: #12704a;
+  --kleur-fout-vlak: #fdecea;
+  --kleur-succes-vlak: #e7f5ee;
+  --kleur-info-vlak: #eaf2fb;
+  --radius: 8px;
   color-scheme: light;
 }
 
@@ -40,6 +49,12 @@ h2 {
   margin: 1.5rem 0 0.5rem;
 }
 
+/* MSE: de titel van een scherm is een h2 (de tests zoeken hem zo), met de maat van de h1 uit het origineel. */
+.titel {
+  font-size: 1.5rem;
+  margin: 0.5rem 0 1rem;
+}
+
 a {
   color: var(--kleur-primair);
 }
@@ -55,4 +70,454 @@ a {
 
 .bedrag--bij {
   color: var(--kleur-bij);
+}
+
+.terug {
+  margin: 0 0 0.5rem;
+}
+
+/* MSE: het "‹" van het origineel staat niet in de linktekst; de alternatieve tekst "" houdt het uit de toegankelijke naam. */
+.terug a::before {
+  content: '‹ ' / '';
+}
+
+/* Bovenbalk (app.scss van het origineel) */
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--kleur-lijn);
+  background: var(--kleur-vlak);
+}
+
+.brand {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--kleur-tekst);
+}
+
+/* MSE: zonder datum en welkom in de balk staat "Uitloggen" zelf rechts. */
+.topbar__uitloggen {
+  margin-left: auto;
+}
+
+/* MSE: de voettekst met de versie. */
+.voet {
+  max-width: 760px;
+  margin: 2rem auto 0;
+  padding: 1rem;
+  border-top: 1px solid var(--kleur-lijn);
+  color: var(--kleur-zacht);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+/* Knoppen */
+.knop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--kleur-primair);
+  border-radius: var(--radius);
+  background: var(--kleur-primair);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.knop:hover {
+  background: var(--kleur-primair-donker);
+}
+
+.knop:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.knop--secundair {
+  background: #fff;
+  color: var(--kleur-primair);
+}
+
+.knop--secundair:hover {
+  background: var(--kleur-info-vlak);
+}
+
+.knoppen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin: 1rem 0;
+}
+
+.knoppen--links {
+  justify-content: flex-start;
+}
+
+/* MSE: het zoekformulier staat met zijn knop in de rij van "Betalen"; het formulier zelf begint op een nieuwe regel. */
+.knoppen app-zoek-formulier {
+  display: contents;
+}
+
+.knoppen .zoeken {
+  flex-basis: 100%;
+  margin-top: 0.5rem;
+}
+
+/* Meldingen */
+.melding {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0 1rem;
+  border-radius: var(--radius);
+}
+
+.melding--fout {
+  background: var(--kleur-fout-vlak);
+  color: var(--kleur-af);
+}
+
+.melding--succes {
+  background: var(--kleur-succes-vlak);
+  color: var(--kleur-bij);
+}
+
+.melding--info {
+  background: var(--kleur-info-vlak);
+}
+
+/* Overzicht */
+
+/* MSE: de lijsten hebben geen kop in de template (een kop "Spaarrekeningen" zou de tests van het spaarrekeningscherm
+   verwarren); hun aria-label staat er als kop boven. */
+.rekeningen {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+
+.rekeningen::before {
+  content: attr(aria-label);
+  display: block;
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.rekening-kaart {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.125rem 1rem;
+  align-items: center;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--kleur-lijn);
+  border-radius: var(--radius);
+}
+
+.rekening-kaart:hover {
+  border-color: var(--kleur-primair);
+}
+
+/* MSE: het IBAN is de knop; hij beslaat de hele kaart, zodat een klik op de kaart de rekening opent. */
+.rekening-kaart__iban {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rekening-kaart__iban::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.rekening-kaart__saldo {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Rekeningkop */
+.rekening-kop {
+  border-bottom: 1px solid var(--kleur-lijn);
+  padding-bottom: 0.5rem;
+}
+
+.rekening-kop__rente {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.125rem 0;
+  color: var(--kleur-zacht);
+}
+
+.rekening-kop__rente dd {
+  margin: 0;
+}
+
+/* Transactielijst */
+
+/* MSE: de lijst met dagen; elke dag heeft een kop en een eigen lijst transacties. */
+.dagen {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.jaarregel {
+  margin: 1.5rem 0 0.25rem;
+  padding: 0.25rem 0;
+  border-bottom: 2px solid var(--kleur-tekst);
+  font-weight: 700;
+  text-align: center;
+}
+
+.datumregel {
+  margin: 1rem 0 0;
+  padding: 0.375rem 0.5rem;
+  background: var(--kleur-vlak);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.transacties {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.transactie {
+  border-bottom: 1px solid var(--kleur-lijn);
+}
+
+.transactie__regel {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 0.5rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.transactie__regel:hover,
+.transactie--open .transactie__regel {
+  background: var(--kleur-vlak);
+}
+
+/* MSE: een mutatie van de spaarrekening klapt niet uit; dezelfde regel, zonder knop. */
+.mutatie {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 0.5rem;
+}
+
+.transactie__naam {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0.5rem 0.5rem 1rem;
+  font-size: 0.9375rem;
+}
+
+.details dt {
+  color: var(--kleur-zacht);
+}
+
+.details dd {
+  margin: 0;
+}
+
+.toon-meer {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.leeg {
+  color: var(--kleur-zacht);
+  text-align: center;
+}
+
+/* Formulieren */
+.formulier,
+.zoeken {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.zoeken {
+  grid-template-columns: repeat(2, 1fr);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--kleur-lijn);
+  border-radius: var(--radius);
+}
+
+.zoeken .veld--breed,
+.zoeken .knoppen,
+.zoeken .melding {
+  grid-column: 1 / -1;
+}
+
+.veld {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.veld > span,
+.veld > label,
+.veld legend {
+  font-weight: 600;
+}
+
+.veld input,
+.veld select {
+  min-height: 2.5rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--kleur-lijn);
+  border-radius: var(--radius);
+  font: inherit;
+}
+
+.veld input:focus,
+.veld select:focus {
+  outline: 2px solid var(--kleur-primair);
+  outline-offset: 1px;
+}
+
+.hint {
+  color: var(--kleur-zacht);
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+  font-weight: normal;
+}
+
+.veld > .radio {
+  font-weight: normal;
+}
+
+.veld .radio input {
+  min-height: auto;
+  margin: 0;
+}
+
+.van {
+  margin-bottom: 0.5rem;
+}
+
+/* MSE: "Van:" en "Naar:" staan in de tekst van het blok; als kop op een eigen regel. */
+.van__kop {
+  display: block;
+  margin: 0.5rem 0 0.25rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.suggesties {
+  list-style: none;
+  margin: -0.5rem 0 0;
+  padding: 0;
+  border: 1px solid var(--kleur-lijn);
+  border-radius: var(--radius);
+}
+
+.suggesties button {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--kleur-lijn);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggesties button span {
+  color: var(--kleur-zacht);
+}
+
+.suggesties button:hover {
+  background: var(--kleur-vlak);
+}
+
+/* Beheer */
+.kaart {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--kleur-lijn);
+  border-radius: var(--radius);
+}
+
+.kaart .hint {
+  margin: 0.5rem 0 0;
+}
+
+.rij {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.tabel {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.tabel th,
+.tabel td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--kleur-lijn);
+  text-align: left;
+}
+
+.tabel .getal {
+  text-align: right;
+}
+
+@media (max-width: 560px) {
+  .zoeken {
+    grid-template-columns: 1fr;
+  }
 }

@@ -16,12 +16,12 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
   selector: 'app-betalen-scherm',
   imports: [RouterLink],
   template: `
-    <a [routerLink]="['/rekeningen', iban()]">Betaalrekening</a>
+    <p class="terug"><a [routerLink]="['/rekeningen', iban()]">Betaalrekening</a></p>
     @if (controle()) {
-      <h2>Controleer je betaling</h2>
-      <dl>
+      <h2 class="titel">Controleer je betaling</h2>
+      <dl class="details">
         <dt>Bedrag</dt>
-        <dd>{{ weergave(bedrag()) }}</dd>
+        <dd class="bedrag">{{ weergave(bedrag()) }}</dd>
         <dt>Naam ontvanger</dt>
         <dd>{{ naam() }}</dd>
         <dt>Rekeningnummer (IBAN)</dt>
@@ -36,34 +36,50 @@ import { bedragUitInvoer, bedragVoorWeergave } from './geld/bedrag';
         }
       </dl>
       @if (melding(); as melding) {
-        <p role="alert">{{ melding }}</p>
+        <p class="melding melding--fout" role="alert">{{ melding }}</p>
       }
-      <button type="button" (click)="bevestig()">Bevestigen</button>
+      <div class="knoppen">
+        <button type="button" class="knop" (click)="bevestig()">Bevestigen</button>
+      </div>
     } @else {
-      <h2>Betalen</h2>
-      <form aria-label="Betalen" (submit)="$event.preventDefault(); naarControle()">
-        <label for="betalen-bedrag">Bedrag (€)</label>
-        <input id="betalen-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
-        <label for="betalen-naam">Naam ontvanger</label>
-        <input id="betalen-naam" maxlength="70" [value]="naam()" (input)="naam.set(waarde($event)); zoekContacten(naam())" />
-        <label for="betalen-iban">Rekeningnummer (IBAN)</label>
-        <input id="betalen-iban" maxlength="34" [value]="ontvanger()" (input)="ontvanger.set(waarde($event)); zoekContacten(ontvanger())" />
+      <h2 class="titel">Betalen</h2>
+      <form class="formulier" aria-label="Betalen" (submit)="$event.preventDefault(); naarControle()">
+        <div class="veld">
+          <label for="betalen-bedrag">Bedrag (€)</label>
+          <input id="betalen-bedrag" inputmode="decimal" [value]="bedrag()" (input)="bedrag.set(waarde($event))" />
+        </div>
+        <div class="veld">
+          <label for="betalen-naam">Naam ontvanger</label>
+          <input id="betalen-naam" maxlength="70" [value]="naam()" (input)="naam.set(waarde($event)); zoekContacten(naam())" />
+        </div>
+        <div class="veld">
+          <label for="betalen-iban">Rekeningnummer (IBAN)</label>
+          <input id="betalen-iban" maxlength="34" [value]="ontvanger()" (input)="ontvanger.set(waarde($event)); zoekContacten(ontvanger())" />
+        </div>
         @if (suggesties().length > 0) {
-          <ul aria-label="Suggesties">
+          <ul class="suggesties" aria-label="Suggesties">
             @for (contact of suggesties(); track contact.iban) {
               <li>
-                <button type="button" (click)="kies(contact)">{{ contact.naam }} {{ contact.iban }}</button>
+                <button type="button" (click)="kies(contact)">{{ contact.naam }} <span>{{ contact.iban }}</span></button>
               </li>
             }
           </ul>
         }
-        <label for="betalen-omschrijving">Omschrijving</label>
-        <input id="betalen-omschrijving" maxlength="140" [value]="omschrijving()" (input)="omschrijving.set(waarde($event))" />
-        <label for="betalen-kenmerk">Betalingskenmerk</label>
-        <input id="betalen-kenmerk" maxlength="25" [value]="betalingskenmerk()" (input)="betalingskenmerk.set(waarde($event))" />
-        <label for="betalen-extra">Extra omschrijving</label>
-        <input id="betalen-extra" maxlength="35" [value]="extraOmschrijving()" (input)="extraOmschrijving.set(waarde($event))" />
-        <button type="submit">Volgende</button>
+        <div class="veld">
+          <label for="betalen-omschrijving">Omschrijving</label>
+          <input id="betalen-omschrijving" maxlength="140" [value]="omschrijving()" (input)="omschrijving.set(waarde($event))" />
+        </div>
+        <div class="veld">
+          <label for="betalen-kenmerk">Betalingskenmerk</label>
+          <input id="betalen-kenmerk" maxlength="25" [value]="betalingskenmerk()" (input)="betalingskenmerk.set(waarde($event))" />
+        </div>
+        <div class="veld">
+          <label for="betalen-extra">Extra omschrijving</label>
+          <input id="betalen-extra" maxlength="35" [value]="extraOmschrijving()" (input)="extraOmschrijving.set(waarde($event))" />
+        </div>
+        <div class="knoppen">
+          <button type="submit" class="knop">Volgende</button>
+        </div>
       </form>
     }
   `,
