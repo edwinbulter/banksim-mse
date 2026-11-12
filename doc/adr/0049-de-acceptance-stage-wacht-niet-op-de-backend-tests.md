@@ -26,6 +26,19 @@ We kiezen optie 3. In `.github/workflows/ci.yml` hebben `acceptance` en `install
 
 ## Gevolgen
 - **De pipeline duurt naar verwachting ongeveer 1:10 korter,** zolang `backend` langer duurt dan `images`.
+- **Gemeten in CI** (run 43242264556, commit 014a646, vergeleken met run 43221071639):
+
+  | | Run 43221071639 | Run 43242264556 |
+  | --- | --- | --- |
+  | `images` klaar na | 1:40 | 1:22 |
+  | `backend` klaar na | 2:50 | 3:27 |
+  | `acceptance` en de shards gestart na | 2:53 | 1:25 tot 1:31 |
+  | Installatiescenario's 3/3 (de langzaamste job) | 7:27 | 8:32 |
+  | **Pipeline** | **10:25** | **9:58** |
+
+  De acceptance stage en de shards startten 3 tot 9 seconden nadat `images` klaar was; het doel was 15 seconden. Ze startten 1:28 eerder dan in de vorige run. De pipeline is maar 27 seconden korter, omdat shard 3 in deze run 1:05 langer duurde, met dezelfde scenario's. Gecorrigeerd voor die trage runner is de winst ongeveer 1:30, ruim boven het doel van 45 seconden. `backend` duurde 3:27, langer dan in alle eerdere runs; daar wacht de acceptance stage nu niet meer op.
+
+  De run was rood door één UI-scenario in `zoeken.spec.ts` ("Zoekformulier openen en wissen", chromium). Volgens de momentopname van de pagina toonde de applicatie de goede zes transacties; de driver las de lijst terwijl die nog werd opgebouwd. Dat staat los van deze beslissing.
 - **Bij een rode unittest draait de acceptance stage toch.** De pipeline is dan rood, maar de acceptance stage heeft runnertijd gekost. Voor de ontwikkelaar kost het geen tijd. Dat is dezelfde afweging als bij PIT (ADR 0032).
 - **Twee rode jobs voor één oorzaak.** Een fout die een unittest vindt, kan ook een acceptatietest laten falen. Begin dan bij `backend`: die geeft de preciezere melding.
 - **Het model van Farley wordt losser.** Daarin test de acceptance stage alleen wat de commit stage heeft goedgekeurd. De images zijn nog steeds de artefacten van de commit stage, één keer gebouwd. Alleen het oordeel van `mvnw verify` komt nu tegelijk met de acceptance stage binnen, in plaats van ervoor.
