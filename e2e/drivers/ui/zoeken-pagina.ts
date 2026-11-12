@@ -1,4 +1,4 @@
-import { expect, type Page, type Response } from '@playwright/test';
+import { expect, type Locator, type Page, type Route } from '@playwright/test';
 import type { Zoekformulier, Zoekopdracht } from '../bank-driver';
 import { LEEG, transactieregels } from './betaalrekening-pagina';
 
@@ -39,14 +39,11 @@ export class ZoekenPagina {
     await formulier.getByLabel('Transactietype').selectOption(opdracht.type ?? '');
     await formulier.getByRole('radio', { name: RICHTINGEN[opdracht.richting ?? 'alle'] }).check();
     const velden = Object.keys(opdracht).filter((veld) => opdracht[veld as keyof Zoekopdracht]?.trim()).sort();
-    const antwoord = this.page.waitForResponse((r) => {
-      const url = new URL(r.url());
-      return url.pathname.endsWith('/transacties') && [...url.searchParams.keys()].sort().join() === velden.join();
-    });
-    await formulier.getByRole('button', { name: 'Zoeken', exact: true }).click();
+    const knop = formulier.getByRole('button', { name: 'Zoeken', exact: true });
+    const antwoord = await this.klikEnTel(knop, (url) => [...url.searchParams.keys()].sort().join() === velden.join());
     // Bij een weigering (400) staat de melding er pas als Angular het antwoord verwerkt heeft; weigering() wacht niet.
-    if ((await antwoord).status() === 400) await expect(formulier.getByRole('alert')).toBeVisible();
-    else await this.wachtOpLijst(await antwoord);
+    if (antwoord.status === 400) await expect(formulier.getByRole('alert')).toBeVisible();
+    else await this.wachtOpLijst(antwoord);
   }
 
   /** De melding onder het formulier, als probleemtype; undefined zonder melding. */
@@ -58,9 +55,7 @@ export class ZoekenPagina {
   }
 
   async wis(): Promise<void> {
-    const antwoord = this.page.waitForResponse((r) => r.url().includes('/transacties'));
-    await this.formulier().getByRole('button', { name: 'Wissen' }).click();
-    await this.wachtOpLijst(await antwoord);
+    await this.wachtOpLijst(await this.klikEnTel(this.formulier().getByRole('button', { name: 'Wissen' }), () => true));
   }
 
   async inhoud(): Promise<Zoekformulier> {
@@ -79,15 +74,39 @@ export class ZoekenPagina {
   }
 
   /**
+   * Klikt de knop en geeft de status en het aantal transacties van het antwoord van /transacties waar `hoort` bij
+   * past. Het antwoord gaat ongewijzigd door naar de browser; de driver leest het onderweg, in Node. Via
+   * response.json() kon dat niet: Chromium had de inhoud soms niet meer (run 43268689127, lokaal 8 van de 360).
+   */
+  private async klikEnTel(knop: Locator, hoort: (url: URL) => boolean): Promise<{ status: number; aantal: number }> {
+    const isTransacties = (url: URL) => url.pathname.endsWith('/transacties');
+    let gezien: (antwoord: { status: number; aantal: number }) => void = () => {};
+    const binnen = new Promise<{ status: number; aantal: number }>((klaar) => (gezien = klaar));
+    const onderweg = async (route: Route) => {
+      if (!hoort(new URL(route.request().url()))) return route.fallback();
+      const antwoord = await route.fetch();
+      const aantal = antwoord.status() === 200 ? ((await antwoord.json()) as { transacties: unknown[] }).transacties.length : 0;
+      await route.fulfill({ response: antwoord });
+      gezien({ status: antwoord.status(), aantal });
+    };
+    await this.page.route(isTransacties, onderweg);
+    try {
+      await knop.click();
+      return await binnen;
+    } finally {
+      await this.page.unroute(isTransacties, onderweg);
+    }
+  }
+
+  /**
    * Het antwoord is binnen, maar Angular toont het pas daarna. Zonder te wachten leest transacties() de vorige lijst,
    * of een mengsel van de vorige en de nieuwe (run 43242264556). Daarom: wachten tot de lijst evenveel transactieregels
    * heeft als het antwoord, of tot de tekst voor een lege lijst er staat.
    */
-  private async wachtOpLijst(antwoord: Response): Promise<void> {
-    if (antwoord.status() !== 200) return;
-    const { transacties } = (await antwoord.json()) as { transacties: unknown[] };
-    if (transacties.length === 0) await expect(this.page.getByText(LEEG)).toBeVisible();
-    else await expect(transactieregels(this.page), 'transactieregels na het antwoord').toHaveCount(transacties.length);
+  private async wachtOpLijst({ status, aantal }: { status: number; aantal: number }): Promise<void> {
+    if (status !== 200) return;
+    if (aantal === 0) await expect(this.page.getByText(LEEG)).toBeVisible();
+    else await expect(transactieregels(this.page), 'transactieregels na het antwoord').toHaveCount(aantal);
   }
 
   private formulier() {
