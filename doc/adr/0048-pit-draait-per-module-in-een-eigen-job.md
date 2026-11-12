@@ -50,6 +50,19 @@ Opties:
 
   Samen zijn de twee delen precies de 220 mutanten van een volledige run van bank-api: zonder overlap, met dezelfde status per mutant (218 gedood en dezelfde 2 levend, in `Cursor.lees` en `Transactie.isAfschrijving`). `pit-rest` duurt 34% langer, hoewel het minder mutanten heeft. In de eerste lokale run gaf één mutant `RUN_ERROR`, omdat een minion niet startte. In een tweede run was die mutant gewoon gedood.
 
+- **Gemeten in CI** (run 43221071639, commit 96a7f5d):
+
+  | Job | Duur | Mutanten |
+  | --- | --- | --- |
+  | bank-api (transactie en rente) | 4:04, waarvan bank-api 3:19 | 118, 116 gedood |
+  | bank-api (de rest) | 6:44, waarvan bank-api 5:59 | 102, alle gedood |
+  | bank-seed | 5:26 | 209, alle gedood (1 TIMED_OUT, de bekende in `Generator.aankopen`, ADR 0045) |
+  | bank-domain en bank-bff | 1:21 | 41, alle gedood |
+  | Langzaamste job van de acceptance stage (installatiescenario's 3/3) | 7:27, klaar na 10:24 | – |
+  | **Pipeline** | **10:25**, tegen 11:41 en 16:05 in de twee runs ervoor | – |
+
+  De langzaamste PIT-job was na 6:44 klaar, 3:36 eerder dan de acceptance stage. Daarmee is het doel uit Bewaking gehaald. In CI duurt `pit-rest` 80% langer dan `pit-transactie-rente`; lokaal was dat 34%. PIT bepaalt de duur van de pipeline nu niet, dus een andere verdeling levert op dit moment niets op.
+
 ## Bewaking
 - **actionlint** in de commit stage (`scripts/iac-check.sh`) controleert de matrix in `ci.yml`.
 - **De eerste push:** per PIT-job de duur, naast die van de langzaamste job van de acceptance stage. Het resultaat komt in deze ADR, onder Gevolgen. Is de langzaamste PIT-job niet eerder klaar dan de langzaamste job van de acceptance stage, dan gaat deze beslissing terug naar de gebruiker.
