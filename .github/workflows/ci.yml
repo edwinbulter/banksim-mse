@@ -145,7 +145,8 @@ jobs:
 
   acceptance:
     name: Acceptance stage – acceptatietests (kind, namespace banksim-mse)
-    needs: [backend, frontend, infrastructuur, images]
+    # ADR 0049: niet op backend (mvnw verify); die is later klaar dan de images en blijft verplicht voor de pipeline.
+    needs: [frontend, infrastructuur, images]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -202,7 +203,8 @@ jobs:
     # verwijderen zelf (doc/werkwijze-mse.md, 9.2). Verdeeld over drie shards, elk met een eigen runner en
     # cluster (ADR 0047).
     name: Acceptance stage – installatiescenario's ${{ matrix.shard }}/3 (kind, namespace banksim-mse)
-    needs: [backend, frontend, infrastructuur, images]
+    # ADR 0049: niet op backend, net als de acceptatietests.
+    needs: [frontend, infrastructuur, images]
     runs-on: ubuntu-24.04
     strategy:
       # Elke shard maakt zijn run af, zodat een fout in de ene shard de uitkomst van de andere niet verbergt.
