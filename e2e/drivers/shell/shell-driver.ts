@@ -81,6 +81,12 @@ export class ShellDriver {
     return resultaat.code === 0 ? (JSON.parse(resultaat.stdout) as Record<string, unknown>) : undefined;
   }
 
+  /** De status van een Helm-release, zoals "deployed" of "failed", of undefined als de release niet bestaat. */
+  async helmStatus(namespace: string, release: string): Promise<string | undefined> {
+    const resultaat = await voerUit('helm', ['--kube-context', this.context, '-n', namespace, 'status', release, '-o', 'json']);
+    return resultaat.code === 0 ? (JSON.parse(resultaat.stdout) as { info: { status: string } }).info.status : undefined;
+  }
+
   async helmRevisie(namespace: string, release: string): Promise<number> {
     const resultaat = await voerUit('helm', ['--kube-context', this.context, '-n', namespace, 'history', release, '-o', 'json']);
     if (resultaat.code !== 0) throw new Error(`helm history faalde:\n${resultaat.uitvoer}`);

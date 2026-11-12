@@ -5,7 +5,7 @@ export type Stap = (titel: string, stap: () => Promise<unknown>) => Promise<unkn
  * de code in een stap roept alleen DSL-methodes aan, nooit de drivers.
  */
 export abstract class Stappen {
-  protected constructor(private readonly stap: Stap) {}
+  protected constructor(protected readonly stap: Stap) {}
 
   async gegeven(tekst: string, stap: () => Promise<unknown>): Promise<void> {
     await this.stap(`Gegeven ${tekst}`, stap);

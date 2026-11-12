@@ -86,6 +86,32 @@ export class Omgeving extends Stappen {
     this.geinstalleerd = this.imageTag;
   }
 
+  /**
+   * Voor een Gegeven: installeert alleen als BankSim-MSE nog niet met de gevraagde versie draait. Draait hij al, dan
+   * slaat dit install.sh over (ongeveer 12 s per scenario). De release moet dan "deployed" zijn, wat ook betekent
+   * dat de hook-Job bank-demo geslaagd is, en de tag in Helm en in /api/versie moet de gevraagde zijn. Zonder
+   * gevraagde tag (lokaal, --skip-build) geldt de tag van de bestaande installatie.
+   */
+  async installeerAlsDatNodigIs(): Promise<void> {
+    const versie = await this.draaiendeVersie();
+    if (versie !== undefined) {
+      await this.stap(`BankSim-MSE draait al met versie ${versie}`, async () => {});
+      return;
+    }
+    await this.stap('install.sh', () => this.installeer());
+  }
+
+  /** De versie die al draait, of undefined als er (opnieuw) geïnstalleerd moet worden. */
+  private async draaiendeVersie(): Promise<string | undefined> {
+    if ((await this.shell.helmStatus(NAMESPACE, RELEASE)) !== 'deployed') return undefined;
+    const tag = (await this.shell.helmWaarden(NAMESPACE, RELEASE))?.imageTag;
+    if (typeof tag !== 'string' || (this.imageTag !== undefined && tag !== this.imageTag)) return undefined;
+    const versie = await this.app.versie();
+    if (versie !== tag) return undefined;
+    this.geinstalleerd = tag;
+    return versie;
+  }
+
   /** Dezelfde images onder een nieuwe tag: Helm ziet een nieuwe versie en vervangt de pods van de applicatie. */
   async installeerNieuweVersie(): Promise<void> {
     const huidig = await this.geinstalleerdeTag();

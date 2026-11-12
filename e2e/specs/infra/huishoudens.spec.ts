@@ -38,7 +38,7 @@ test('Na installatie kunnen 10 klanten en een beheerder inloggen', async ({ omge
 });
 
 test('Elke klant heeft elke maand transacties, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -48,7 +48,7 @@ test('Elke klant heeft elke maand transacties, van oktober 2021 t/m december 202
 });
 
 test('Geen betaalrekening van een demo-klant staat op enige dag rood', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -58,7 +58,7 @@ test('Geen betaalrekening van een demo-klant staat op enige dag rood', { tag: '@
 });
 
 test('Geen spaarrekening van een demo-klant staat op enige dag rood', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -71,7 +71,7 @@ test('Geen spaarrekening van een demo-klant staat op enige dag rood', { tag: '@s
 });
 
 test('Elke klant doet elke maand boodschappen, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -82,7 +82,7 @@ test('Elke klant doet elke maand boodschappen, van oktober 2021 t/m december 202
 });
 
 test('Elke klant koopt elke maand bij webwinkels, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -96,7 +96,7 @@ test('Elke klant koopt elke maand bij webwinkels, van oktober 2021 t/m december 
 });
 
 test('Klanten nemen contant geld op bij de geldautomaat, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -108,7 +108,7 @@ test('Klanten nemen contant geld op bij de geldautomaat, van oktober 2021 t/m de
 });
 
 test('Klanten betalen elkaar, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -125,7 +125,7 @@ test('Klanten betalen elkaar, van oktober 2021 t/m december 2026', { tag: '@simu
 });
 
 test('Elke klant betaalt elke maand zijn vaste lasten', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -146,7 +146,7 @@ test('Elke klant betaalt elke maand zijn vaste lasten', { tag: '@simulatiedatum'
 });
 
 test('Elke klant legt elke maand een vast bedrag in op zijn spaarrekening', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -162,7 +162,7 @@ test('Elke klant legt elke maand een vast bedrag in op zijn spaarrekening', { ta
 });
 
 test('Een klant die onder zijn buffer dreigt te komen, neemt eerst geld op van zijn spaarrekening', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -191,7 +191,7 @@ test('Een klant die onder zijn buffer dreigt te komen, neemt eerst geld op van z
 });
 
 test('Elke spaarrekening krijgt elke maand rente, van oktober 2021 t/m december 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.dan('krijgt Jan op 31 oktober 2021 € 16,08 rente', () =>
     omgeving.verwachtRente('Jan de Vries', '2021-10-31', '16.08'),
   );
@@ -207,7 +207,7 @@ test('Elke spaarrekening krijgt elke maand rente, van oktober 2021 t/m december 
 });
 
 test('Werknemers krijgen elke mei vakantiegeld, van 2022 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -224,7 +224,7 @@ test('Werknemers krijgen elke mei vakantiegeld, van 2022 t/m 2026', { tag: '@sim
 });
 
 test('Klanten krijgen elk jaar belastingteruggave, van 2022 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -239,7 +239,7 @@ test('Klanten krijgen elk jaar belastingteruggave, van 2022 t/m 2026', { tag: '@
 
 test('Elke klant betaalt gemeentelijke belastingen in 10 termijnen per jaar', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
   const alleenwonenden = ['Jan de Vries', 'Lisa Jansen', 'Daan Smit', 'Ruud Mulder'];
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -261,7 +261,7 @@ test('Elke klant betaalt gemeentelijke belastingen in 10 termijnen per jaar', { 
 });
 
 test('Werknemers leggen elke mei extra in na hun vakantiegeld, van 2022 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -281,7 +281,7 @@ test('Werknemers leggen elke mei extra in na hun vakantiegeld, van 2022 t/m 2026
 });
 
 test('Het inkomen van elke klant stijgt elk jaar met de lonen, van 2021 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -304,7 +304,7 @@ test('De huur en de vaste lasten stijgen elk jaar met de inflatie, van 2021 t/m 
     { naam: 'Emma de Boer', aan: 'Woningcorporatie Samen' },
     { naam: 'Ruud Mulder', aan: 'Woonstichting Thuis' },
   ];
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -326,7 +326,7 @@ test('De huur en de vaste lasten stijgen elk jaar met de inflatie, van 2021 t/m 
 });
 
 test('De energie volgt elk jaar de energieprijzen, van 2021 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -342,7 +342,7 @@ test('De energie volgt elk jaar de energieprijzen, van 2021 t/m 2026', { tag: '@
 });
 
 test('De boodschappen en de webwinkelaankopen stijgen elk jaar met de inflatie, van 2021 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -363,7 +363,7 @@ test('De boodschappen en de webwinkelaankopen stijgen elk jaar met de inflatie, 
 });
 
 test('De vaste inleg stijgt elk jaar met de lonen, van 2021 t/m 2026', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -380,7 +380,7 @@ test('De vaste inleg stijgt elk jaar met de lonen, van 2021 t/m 2026', { tag: '@
 
 /** @destructief: de upgrade vervangt de draaiende installatie door een andere versie; alleen in het CI-cluster. */
 test('Een upgrade laat de demo-data ongemoeid', { tag: '@destructief' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   const voor = await omgeving.demoData();
   await omgeving.als('de beheerder een nieuwe versie van BankSim-MSE installeert', () =>
     omgeving.installeerNieuweVersie(),
@@ -392,7 +392,7 @@ test('Een upgrade laat de demo-data ongemoeid', { tag: '@destructief' }, async (
 });
 
 test('Elke betaalrekening houdt een buffer van een kwart maandinkomen aan', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -406,7 +406,7 @@ test('Elke betaalrekening houdt een buffer van een kwart maandinkomen aan', { ta
 });
 
 test('De demo-data is bij elke installatie dezelfde', { tag: '@simulatiedatum' }, async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('de beheerder de simulatiedatum op 31 december 2026 zet', () =>
     omgeving.zetSimulatiedatum('2026-12-31'),
   );
@@ -428,7 +428,7 @@ test('De demo-data is bij elke installatie dezelfde', { tag: '@simulatiedatum' }
 });
 
 test('Een demo-klant vindt de andere demo-klanten in de contactenlijst', async ({ omgeving }) => {
-  await omgeving.gegeven('BankSim-MSE is geïnstalleerd met de demo-klanten', () => omgeving.installeer());
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd met de demo-klanten', () => omgeving.installeerAlsDatNodigIs());
   await omgeving.als('Jan op het betaalscherm "Lisa" intypt', () => omgeving.zoektContact('Jan de Vries', 'Lisa'));
   await omgeving.dan('stelt de bank Lisa Jansen voor, met het IBAN van haar betaalrekening', () =>
     omgeving.verwachtVoorgesteldMetBetaalrekening('Lisa Jansen'),
