@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import type { Partij, Rekeningkop, Transactie, TransactieDetails, TransactieType, TransactiesOpDatum, Uitkomst } from '../bank-driver';
 
 const MAANDEN = [
@@ -18,7 +18,12 @@ const TYPEN: Record<string, TransactieType> = {
 };
 
 /** Zonder transacties, of zonder zoekresultaat (S5.1): allebei een lege lijst. */
-const LEEG = /^(Nog geen af- of bijschrijvingen\.|Geen transacties gevonden\.)$/;
+export const LEEG = /^(Nog geen af- of bijschrijvingen\.|Geen transacties gevonden\.)$/;
+
+/** De transactieregels onder de datumkoppen, zonder de koppen zelf. */
+export function transactieregels(page: Page): Locator {
+  return page.getByRole('list', { name: 'Transacties' }).locator(':scope > li li');
+}
 
 /**
  * De betaalrekening: per datum een kop ("Vrijdag 2 oktober 2026") met de transacties van die dag.
@@ -99,7 +104,7 @@ export class BetaalrekeningPagina {
 
   /** Klikt "Toon meer" en wacht tot er transactieregels bij zijn gekomen. */
   async toonMeer(): Promise<void> {
-    const regels = this.page.getByRole('list', { name: 'Transacties' }).locator(':scope > li li');
+    const regels = transactieregels(this.page);
     const voor = await regels.count();
     await this.toonMeerKnop().click();
     await expect.poll(() => regels.count(), 'transactieregels na "Toon meer"').toBeGreaterThan(voor);

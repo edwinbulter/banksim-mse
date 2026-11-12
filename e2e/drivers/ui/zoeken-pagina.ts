@@ -1,5 +1,6 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Response } from '@playwright/test';
 import type { Zoekformulier, Zoekopdracht } from '../bank-driver';
+import { LEEG, transactieregels } from './betaalrekening-pagina';
 
 /** De meldingen van het zoekformulier, terug naar het probleemtype van de API (S5.1). */
 const WEIGERINGEN: Record<string, string> = {
@@ -45,6 +46,7 @@ export class ZoekenPagina {
     await formulier.getByRole('button', { name: 'Zoeken', exact: true }).click();
     // Bij een weigering (400) staat de melding er pas als Angular het antwoord verwerkt heeft; weigering() wacht niet.
     if ((await antwoord).status() === 400) await expect(formulier.getByRole('alert')).toBeVisible();
+    else await this.wachtOpLijst(await antwoord);
   }
 
   /** De melding onder het formulier, als probleemtype; undefined zonder melding. */
@@ -58,7 +60,7 @@ export class ZoekenPagina {
   async wis(): Promise<void> {
     const antwoord = this.page.waitForResponse((r) => r.url().includes('/transacties'));
     await this.formulier().getByRole('button', { name: 'Wissen' }).click();
-    await antwoord;
+    await this.wachtOpLijst(await antwoord);
   }
 
   async inhoud(): Promise<Zoekformulier> {
@@ -74,6 +76,18 @@ export class ZoekenPagina {
       type: await formulier.getByLabel('Transactietype').inputValue(),
       richting: gekozen,
     };
+  }
+
+  /**
+   * Het antwoord is binnen, maar Angular toont het pas daarna. Zonder te wachten leest transacties() de vorige lijst,
+   * of een mengsel van de vorige en de nieuwe (run 43242264556). Daarom: wachten tot de lijst evenveel transactieregels
+   * heeft als het antwoord, of tot de tekst voor een lege lijst er staat.
+   */
+  private async wachtOpLijst(antwoord: Response): Promise<void> {
+    if (antwoord.status() !== 200) return;
+    const { transacties } = (await antwoord.json()) as { transacties: unknown[] };
+    if (transacties.length === 0) await expect(this.page.getByText(LEEG)).toBeVisible();
+    else await expect(transactieregels(this.page), 'transactieregels na het antwoord').toHaveCount(transacties.length);
   }
 
   private formulier() {
