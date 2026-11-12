@@ -35,6 +35,16 @@ Opties:
 
 ## Gevolgen
 - **De pipeline duurt naar verwachting ongeveer 13:20** in plaats van 21:16. PIT is dan de langzaamste job. Een volgende versnelling begint daar (PIT per module in een eigen job).
+- **Gemeten in CI** (run 43201996524, commit f04ff77, vergeleken met run 43029153054). De run is met de hand gestart via `workflow_dispatch`, omdat de run van de push (43095260090) tijdens een storing van GitHub Actions in de wachtrij bleef hangen.
+
+  | | voor | na |
+  | --- | --- | --- |
+  | Pipeline | 21:16 | 11:41 |
+  | Installatiescenario's, job / scenario's | 18:36 / 14:44 (32) | shard 1: 6:25 / 3:06 (11)<br>shard 2: 6:45 / 3:42 (11)<br>shard 3: 8:25 / 5:18 (10) |
+  | Mutatietests (PIT) | 13:17 | 11:00 |
+  | Acceptatietests | 6:40 | 7:42 |
+
+  Alle 32 scenario's zijn geslaagd, ook die met `@destructief`. Anders dan verwacht is shard 3 de langzaamste job, en niet PIT: PIT was in deze run ruim 2 minuten sneller dan in run 43029153054. Shard 3 duurt 2:00 langer dan shard 1, precies op de grens uit Bewaking. De oorzaak is bekend: `installatie.spec.ts` zit als serial-groep van ongeveer 4 minuten in shard 3.
 - **Drie keer de opzet van een cluster.** Elke shard maakt zijn eigen kind-cluster en installeert, ongeveer 3:35 per shard. Dat kost runnerminuten, geen tijd op de klok.
 - **Elke shard heeft een eigen rapport.** Bij een fout zoek je het rapport van de shard waarin het falende scenario zat; de naam van de job zegt welke.
 - **Een nieuw scenario kan de verdeling verschuiven.** Playwright verdeelt op aantal. Een nieuw scenario aan het eind van `huishoudens.spec.ts` schuift een ander scenario naar de volgende shard. Komt `installatie.spec.ts` met een andere zware groep in één shard, dan wordt die shard langer.
