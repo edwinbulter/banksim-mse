@@ -108,4 +108,45 @@
             </plugin>
         </plugins>
     </build>
+
+    <!--
+      ADR 0048: in CI draait PIT op bank-api in twee jobs tegelijk. Het tweede deel neemt alles behalve de packages
+      van het eerste, zodat een nieuw package vanzelf ergens gemuteerd wordt. make mutatie gebruikt geen profiel.
+    -->
+    <profiles>
+        <profile>
+            <id>pit-transactie-rente</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <configuration>
+                            <targetClasses combine.self="override">
+                                <param>nl.banksim.api.transactie.*</param>
+                                <param>nl.banksim.api.rente.*</param>
+                            </targetClasses>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>pit-rest</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <configuration>
+                            <excludedClasses combine.children="append">
+                                <param>nl.banksim.api.transactie.*</param>
+                                <param>nl.banksim.api.rente.*</param>
+                            </excludedClasses>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

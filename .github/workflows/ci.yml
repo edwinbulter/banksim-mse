@@ -38,10 +38,30 @@ jobs:
 
   mutatietests:
     # ADR 0018: PIT herhaalt de sabotage bij elke commit; faalt onder 95% per module. ADR 0032: de acceptance stage
-    # wacht er niet op, maar een rode PIT-job maakt de pipeline wel rood.
-    name: Mutatietests (PIT)
+    # wacht er niet op, maar een rode PIT-job maakt de pipeline wel rood. ADR 0048: per module een eigen job, die
+    # tegelijk draaien; bank-api in twee delen (de profielen in backend/bank-api/pom.xml).
+    name: Mutatietests (PIT) – ${{ matrix.deel }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      # Elke job maakt zijn run af, zodat een rode module de uitkomst van de andere niet verbergt.
+      fail-fast: false
+      matrix:
+        include:
+          - deel: bank-api (transactie en rente)
+            rapport: bank-api-transactie-rente
+            modules: bank-api
+            profiel: pit-transactie-rente
+          - deel: bank-api (de rest)
+            rapport: bank-api-rest
+            modules: bank-api
+            profiel: pit-rest
+          - deel: bank-seed
+            rapport: bank-seed
+            modules: bank-seed
+          - deel: bank-domain en bank-bff
+            rapport: bank-domain-bff
+            modules: bank-domain,bank-bff
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -49,12 +69,16 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
-      - run: backend/mvnw -B -ntp -f backend/pom.xml test-compile org.pitest:pitest-maven:mutationCoverage
+      # -am bouwt bank-domain mee, en PIT muteert die dan ook; dat kost alleen runnertijd (ADR 0048).
+      - env:
+          MODULES: ${{ matrix.modules }}
+          PROFIEL: ${{ matrix.profiel }}
+        run: backend/mvnw -B -ntp -f backend/pom.xml -pl "$MODULES" -am ${PROFIEL:+-P "$PROFIEL"} test-compile org.pitest:pitest-maven:mutationCoverage
       - name: PIT-rapport
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pit-rapport
+          name: pit-rapport-${{ matrix.rapport }}
           path: backend/*/target/pit-reports/
           if-no-files-found: ignore
 
