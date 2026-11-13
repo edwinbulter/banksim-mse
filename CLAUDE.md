@@ -49,6 +49,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | Geen kringen tussen de features van `bank-api` en van `bank-domain`; records `*Json` worden alleen door controllers gebruikt (cohesie en koppeling) | `ModulegrenzenTests` | ja, sabotage per regel (fase 2.1) |
 | Het grootboek kent de rente-code niet; die luistert naar `OverboekingGeboekt` (ADR 0030) | `GrootboekKentRenteNietTests` | ja, sabotage (S9.1, rentecorrectie) |
 | Elk endpoint heeft `@PreAuthorize`; zonder token 401, als klant 403 op beheer (ADR 0022) | `ToegangPerEndpointTests`, `AlleEndpointsTests` | ja, e0cddec |
+| Keycloak eist voor `bank-bff` PKCE met S256 en accepteert alleen de eigen redirect-URI (ADR 0008) | `e2e/specs/infra/keycloak.spec.ts` (project `infra`) | ja, sabotage in de realm: zonder PKCE-eis, met `plain` en met `"*"` in `redirectUris` |
 | Gelijktijdige overboekingen: geen deadlock, totaal behouden, nooit onder nul (ADR 0026) | `grootboek/GelijktijdigeOverboekingenTests` | ja, sabotage in 54eac60 |
 | Een opname of inleg en de maandafsluiting op dezelfde spaarrekening: geen deadlock, en de rente telt de boeking mee, in beide volgordes (ADR 0039) | `rente/GelijktijdigeRenteTests` | ja, sabotage: de foreign key van `rentebijschrijving` weg, alle drie de tests rood |
 | Een betaling met dezelfde Idempotency-Key boekt één keer; de sleutel geldt per gebruiker (ADR 0027) | `BetalingControllerTests`, `JdbcIdempotentieTests` | ja, sabotage in 8140ffd |

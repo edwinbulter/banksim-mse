@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { BankDriver, Contact, RekeningInOverzicht, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
+import type { KeycloakDriver } from '../drivers/rest/keycloak-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
 import { DEMO_BEHEERDER, DEMO_KLANTEN, GELDAUTOMATEN, SUPERMARKTEN, VASTE_LASTEN, WEBWINKELS } from './huishoudens';
+import { Keycloak } from './keycloak';
 import { Stappen, type Stap } from './stappen';
 
 const NAMESPACE = 'banksim-mse';
@@ -75,6 +77,8 @@ export class Omgeving extends Stappen {
     /** Elke demo-gebruiker krijgt een eigen sessie: via de API, en via de browser voor wat alleen op het scherm bestaat. */
     private readonly maakRestDriver: () => Promise<BankDriver>,
     private readonly maakUiDriver: () => Promise<BankDriver>,
+    /** Het inlogadres van Keycloak, rechtstreeks zoals een browser het opvraagt. */
+    private readonly keycloakDriver: KeycloakDriver,
   ) {
     super(stap);
   }
@@ -838,6 +842,11 @@ export class Omgeving extends Stappen {
 
   origineel(): Origineel {
     return new Origineel(this.shell);
+  }
+
+  /** Het begin van een login bij Keycloak voor client bank-bff (CFR OWASP Top 10). */
+  keycloak(): Keycloak {
+    return new Keycloak(this.keycloakDriver);
   }
 
   private async geinstalleerdeTag(): Promise<string> {

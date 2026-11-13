@@ -1,11 +1,15 @@
 import { test as basis, type APIRequestContext, type BrowserContext } from '@playwright/test';
 import { Bank } from './bank';
 import { Omgeving } from './omgeving';
+import { KeycloakDriver } from '../drivers/rest/keycloak-driver';
 import { RestDriver } from '../drivers/rest/rest-driver';
 import { BankSeed } from '../drivers/shell/bank-seed';
 import { SeedSessie } from '../drivers/shell/seed-sessie';
 import { ShellDriver } from '../drivers/shell/shell-driver';
 import { UiDriver } from '../drivers/ui/ui-driver';
+
+/** Keycloak (ADR 0007); de hosts staan ook in deploy/banksim-mse/values.yaml. */
+const authUrl = 'https://auth-mse.localtest.me';
 
 /** Per Playwright-project in te stellen: via de API (rest) of via de browser (ui). */
 export interface Opties {
@@ -71,7 +75,8 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving }, { 
       eigenSessies.push(sessie);
       return new UiDriver(await sessie.newPage());
     };
-    const omgeving = new Omgeving(shell, new RestDriver(request), imageTag, (titel, stap) => basis.step(titel, stap), maakRestDriver, maakUiDriver);
+    const omgeving = new Omgeving(shell, new RestDriver(request), imageTag, (titel, stap) => basis.step(titel, stap), maakRestDriver, maakUiDriver,
+      new KeycloakDriver(request, authUrl));
     await use(omgeving);
     // De simulatiedatum geldt voor de hele bank: wissen, ook als het scenario faalde (ADR 0014).
     if (testInfo.tags.includes('@simulatiedatum')) {
