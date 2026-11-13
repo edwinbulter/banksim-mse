@@ -87,7 +87,7 @@ Elke regel is een scenario. Elk scenario is een stuk werk dat een pair kan oppak
 5. database;
 6. component.
 
-Dat is de iteratie uit de [werkwijze, hoofdstuk 8](werkwijze-mse.md#8-één-iteratie-in-de-praktijk). Het pair is pas klaar als het scenario groen is in de pipeline. Daarna kiest het het volgende scenario.
+Dat is de iteratie uit de [werkwijze, hoofdstuk 8](werkwijze-mse.md#8-eén-iteratie-in-de-praktijk). Het pair is pas klaar als het scenario groen is in de pipeline. Daarna kiest het het volgende scenario.
 
 **Parallel werken.** Bij twee of drie pairs kan dat zo:
 

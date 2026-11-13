@@ -2,6 +2,43 @@
 
 Oct 17, 2026 · @Edwin
 
+**Inhoud**
+
+- [1. Waarom een andere aanpak](#1-waarom-een-andere-aanpak)
+- [2. Uitgangspunten uit Modern Software Engineering](#2-uitgangspunten-uit-modern-software-engineering)
+- [3. Stap 0 – Walking skeleton en deployment pipeline](#3-stap-0--walking-skeleton-en-deployment-pipeline)
+- [4. De double loop](#4-de-double-loop)
+- [5. Acceptatietests: het vierlaagse model](#5-acceptatietests-het-vierlaagse-model)
+- [6. Architecture Decision Records](#6-architecture-decision-records)
+- [7. Stap voor stap: de slices](#7-stap-voor-stap-de-slices)
+  - [Slice 1 – Overzicht met saldo](#slice-1--overzicht-met-saldo)
+  - [Slice 2 – Transactielijst van de betaalrekening](#slice-2--transactielijst-van-de-betaalrekening)
+  - [Slice 2a – Navigatie](#slice-2a--navigatie)
+  - [Slice 3 – Simulatiedatum](#slice-3--simulatiedatum)
+  - [Slice 4 – Uitklapdetails](#slice-4--uitklapdetails)
+  - [Slice 5 – Zoeken in transacties](#slice-5--zoeken-in-transacties)
+  - [Slice 6 – Inloggen en rollen](#slice-6--inloggen-en-rollen)
+  - [Slice 7 – Betalen](#slice-7--betalen)
+  - [Slice 8 – Spaarrekening en rente](#slice-8--spaarrekening-en-rente)
+  - [Slice 9 – Overschrijven (inleggen en opnemen)](#slice-9--overschrijven-inleggen-en-opnemen)
+  - [Slice 10 – Admin](#slice-10--admin)
+  - [Slice 11 – Realistische data](#slice-11--realistische-data)
+  - [Cross-functional requirements als slices](#cross-functional-requirements-als-slices)
+  - [Losse backlogpunten](#losse-backlogpunten)
+    - [Opgeloste losse backlogpunten](#opgeloste-losse-backlogpunten)
+- [8. Eén iteratie in de praktijk](#8-eén-iteratie-in-de-praktijk)
+- [9. Infrastructuur als code in de double loop](#9-infrastructuur-als-code-in-de-double-loop)
+  - [9.1 Wat eronder valt en hoe je het test](#91-wat-eronder-valt-en-hoe-je-het-test)
+  - [9.2 Acceptatietests voor de installatie](#92-acceptatietests-voor-de-installatie)
+  - [9.3 Eén iteratie: "bank-api accepteert alleen bank-bff"](#93-eén-iteratie-bank-api-accepteert-alleen-bank-bff)
+  - [9.4 Hoe de infrastructuur meegroeit met de slices](#94-hoe-de-infrastructuur-meegroeit-met-de-slices)
+  - [9.5 Regels voor infrastructuurcode](#95-regels-voor-infrastructuurcode)
+- [10. Werken met AI in deze lus](#10-werken-met-ai-in-deze-lus)
+  - [10.1 Controle door de mens](#101-controle-door-de-mens)
+  - [10.2 Leren door de mens](#102-leren-door-de-mens)
+- [11. Traceerbaarheid naar het origineel](#11-traceerbaarheid-naar-het-origineel)
+- [12. Definition of Done per slice](#12-definition-of-done-per-slice)
+
 Dit document beschrijft hoe je [BankSim](https://github.com/edwinbulter/banksim) opnieuw bouwt volgens de werkwijze uit *Modern Software Engineering* van Dave Farley: in kleine, deploybare stappen, gestuurd door uitvoerbare voorbeelden (BDD), met double-loop outside-in TDD en met architectuurbeslissingen die pas worden vastgelegd (ADR) op het moment dat een stap erom vraagt.
 
 Het eindpunt is dezelfde applicatie als in de originele repo: dezelfde schermen, dezelfde regels en dezelfde techstack. Het verschil zit in de weg ernaartoe.
