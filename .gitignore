@@ -31,3 +31,6 @@ deploy/.secrets/
 
 # jqwik onthoudt lokaal falende voorbeelden
 .jqwik-database
+
+# Lokale onderzoeksdocumenten; nooit committen
+doc/lokaal/

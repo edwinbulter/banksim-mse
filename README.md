@@ -67,6 +67,7 @@ Start een iteratie met bijvoorbeeld `/atdd begin aan slice 1` of `/atdd volgend 
 | [Een story door de stack](doc/story-door-de-stack.md) | Waar de stack uit bestaat (onderdelen, Kubernetes-resources, databases, Keycloak), en hoe de story "Betalen naar een contact" er van scenario tot database doorheen loopt |
 | [Code-ownership](doc/code-ownership.md) | Welke kennis je nodig hebt om de code te supporten, per onderwerp, met een zelftoets met ingeklapte antwoorden en bronnen |
 | [Kwaliteitscontroles](doc/kwaliteitscontroles.md) | Welke soorten tests en controles het project heeft (van compiler tot acceptatietest en mutatietest), wat elke soort controleert, hoe, en waar ze in de pipeline draait |
+| [Farley Score van de tests](doc/farley-score.md) | Wat de Farley Score-plugin meet, het rapport over de tests van dit project (7,46 van 10), en of dat een goed resultaat is |
 | [deploy/README.md](deploy/README.md) | Hoe de Helm-chart en de scripts BankSim-MSE in het kind-cluster installeren: aanroepen, input en output, de stappen van `install.sh`, verwijderen en controleren |
 | [ATDD in een team](doc/teamwerk-mse.md) | Hoe een team de werkwijze toepast volgens Farley: van epic naar scenario, werk verdelen per scenario in plaats van per laag, en de samenwerkingsmomenten |
 | [Controle door de mens](doc/werkwijze-mse.md#101-controle-door-de-mens) | Wat je als mens nog wél en níet meer controleert bij code die AI via ATDD maakt: scenario, ADR, rapport en diff van de specs, verkennend testen per slice. De sabotages herhaalt PIT bij elke commit (ADR 0018) |
