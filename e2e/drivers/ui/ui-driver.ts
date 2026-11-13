@@ -4,6 +4,7 @@ import type {
   BankDriver,
   Betaalopdracht,
   Contact,
+  GezetCookie,
   MaximaleLengtes,
   Overschrijfopdracht,
   Spaarmutatie,
@@ -60,6 +61,16 @@ export class UiDriver implements BankDriver {
     await this.start.open();
     await this.start.kiesInloggen();
     await this.inlog.logIn(gebruikersnaam, wachtwoord);
+  }
+
+  async logInMetCookies(): Promise<GezetCookie[]> {
+    throw new Error('De headers Set-Cookie ziet alleen de REST-driver; de browser verbergt HttpOnly-cookies');
+  }
+
+  /** Zoals een script op de pagina het ziet: "XSRF-TOKEN=…; andere=…", hier alleen de namen. */
+  async cookiesVoorJavaScript(): Promise<string[]> {
+    const tekst = await this.page.evaluate(() => document.cookie);
+    return tekst ? tekst.split('; ').map((cookie) => cookie.slice(0, cookie.indexOf('='))) : [];
   }
 
   /** Wacht tot het overzicht of het beheerscherm er staat. */

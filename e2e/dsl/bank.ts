@@ -22,6 +22,8 @@ export class Bank extends Stappen {
     private readonly maakKlantDriver: () => Promise<BankDriver>,
     /** Hetzelfde voor de beheerder op het beheerscherm (S10.1); de simulatiedatum zet hij tot S10.2 via de API. */
     private readonly maakBeheerschermDriver: () => Promise<BankDriver>,
+    /** Een browser met een eigen sessie, ook in een REST-project: wat alleen een browser doet (cookies voor JavaScript). */
+    private readonly maakBrowserDriver: () => Promise<BankDriver>,
   ) {
     super(stap);
   }
@@ -45,7 +47,7 @@ export class Bank extends Stappen {
   klant(alias: string): Klant {
     let klant = this.klanten.get(alias);
     if (!klant) {
-      klant = new Klant(alias, () => this.kiesKlantDriver(), this.seed);
+      klant = new Klant(alias, () => this.kiesKlantDriver(), this.seed, this.maakBrowserDriver);
       this.klanten.set(alias, klant);
     }
     return klant;

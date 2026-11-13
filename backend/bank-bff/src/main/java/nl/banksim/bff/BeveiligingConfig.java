@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.client.web.DefaultOAuth2Authorization
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 @Configuration
@@ -44,11 +45,18 @@ class BeveiligingConfig {
                 .logout(logout -> logout.logoutSuccessHandler(
                         new UitlogUrlAntwoord(registraties, properties.publicUrl() + "/")))
                 // ADR 0016: het token in het leesbare cookie XSRF-TOKEN; Angular stuurt het terug als X-XSRF-TOKEN.
-                .csrf(csrf -> csrf.spa())
+                // ADR 0050: met SameSite=Lax.
+                .csrf(csrf -> csrf.spa().csrfTokenRepository(csrfCookie()))
                 // De Angular-app krijgt een 401 en toont dan de link "Inloggen".
                 .exceptionHandling(fouten -> fouten.defaultAuthenticationEntryPointFor(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
                         PathPatternRequestMatcher.pathPattern("/api/**")))
                 .build();
+    }
+
+    private static CookieCsrfTokenRepository csrfCookie() {
+        var repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookieCustomizer(cookie -> cookie.sameSite("Lax"));
+        return repository;
     }
 }

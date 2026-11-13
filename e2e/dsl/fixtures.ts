@@ -50,7 +50,7 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving }, { 
     };
     const inHetProtocol = driver === 'ui' ? eigenUiDriver : eigenRestDriver;
     const bank = new Bank(bankDriver, seed, (titel, stap) => basis.step(titel, stap), eigenRestDriver, inHetProtocol,
-      inHetProtocol);
+      inHetProtocol, eigenUiDriver);
     await use(bank);
     // De simulatiedatum geldt voor de hele bank: wissen, ook als het scenario faalde (ADR 0014).
     if (testInfo.tags.includes('@simulatiedatum')) {

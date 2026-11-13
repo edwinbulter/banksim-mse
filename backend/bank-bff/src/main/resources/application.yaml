@@ -13,6 +13,11 @@ server:
   port: 8080
   # X-Forwarded-* van ingress-nginx: de BFF ziet https://bank-mse.localtest.me, ook in redirects en het sessiecookie.
   forward-headers-strategy: native
+  servlet:
+    session:
+      cookie:
+        # ADR 0050: een POST vanaf een andere site krijgt de sessie niet mee; de terugkeer van Keycloak wel.
+        same-site: lax
   shutdown: graceful
 
 # De sessie en de tokens staan in het geheugen; daarom één replica (ADR 0008).

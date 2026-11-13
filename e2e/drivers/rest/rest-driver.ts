@@ -5,6 +5,7 @@ import type {
   BankDriver,
   Betaalopdracht,
   Contact,
+  GezetCookie,
   MaximaleLengtes,
   Overschrijfopdracht,
   Spaarmutatie,
@@ -67,6 +68,40 @@ export class RestDriver implements BankDriver {
     });
     // Na een geslaagde login eindigt de redirect-keten op de startpagina van bank-web.
     expect(antwoord.url(), 'na inloggen terug op BankSim').toMatch(/^https:\/\/bank-mse\.localtest\.me\/?$/);
+  }
+
+  /**
+   * Hetzelfde pad als logIn, maar elke doorverwijzing volgt de driver zelf. Zo ziet hij de headers Set-Cookie van elk
+   * antwoord van de bank, ook dat van de terugkeer na het inloggen, waar de sessie een nieuw id krijgt.
+   */
+  async logInMetCookies(gebruikersnaam: string, wachtwoord: string): Promise<GezetCookie[]> {
+    const cookies: GezetCookie[] = [];
+    const volg = async (eerste: APIResponse): Promise<APIResponse> => {
+      let antwoord = eerste;
+      for (let stap = 0; stap < 10; stap++) {
+        if (new URL(antwoord.url()).hostname === 'bank-mse.localtest.me') cookies.push(...gezetteCookies(antwoord));
+        const naar = antwoord.headers()['location'];
+        if (antwoord.status() < 300 || antwoord.status() >= 400 || !naar) return antwoord;
+        antwoord = await this.request.get(new URL(naar, antwoord.url()).toString(), { maxRedirects: 0 });
+      }
+      throw new Error('Meer dan 10 doorverwijzingen tijdens het inloggen');
+    };
+    const loginPagina = await volg(await this.request.get('/oauth2/authorization/keycloak', { maxRedirects: 0 }));
+    expect(loginPagina.status(), 'inlogpagina van Keycloak').toBe(200);
+    const action = /<form[^>]*id="kc-form-login"[^>]*action="([^"]+)"/.exec(await loginPagina.text())?.[1];
+    expect(action, 'formulier kc-form-login op de inlogpagina').toBeTruthy();
+    const antwoord = await volg(
+      await this.request.post(action!.replaceAll('&amp;', '&'), {
+        form: { username: gebruikersnaam, password: wachtwoord },
+        maxRedirects: 0,
+      }),
+    );
+    expect(antwoord.url(), 'na inloggen terug op BankSim').toMatch(/^https:\/\/bank-mse\.localtest\.me\/?$/);
+    return cookies;
+  }
+
+  async cookiesVoorJavaScript(): Promise<string[]> {
+    throw new Error('document.cookie bestaat alleen in de browser');
   }
 
   async scherm(): Promise<'overzicht' | 'beheer'> {
@@ -530,4 +565,21 @@ interface TransactieJson {
   /** Null als er geen is (S7.1). */
   omschrijving: string | null;
   betalingskenmerk: string | null;
+}
+
+/** De cookies uit alle headers Set-Cookie van een antwoord; headers() zou meerdere tot één tekst samenvoegen. */
+function gezetteCookies(antwoord: APIResponse): GezetCookie[] {
+  return antwoord
+    .headersArray()
+    .filter(({ name }) => name.toLowerCase() === 'set-cookie')
+    .map(({ value }) => {
+      const [paar = '', ...attributen] = value.split(';').map((deel) => deel.trim());
+      const attribuut = (naam: string) => attributen.find((deel) => deel.split('=')[0]!.toLowerCase() === naam);
+      return {
+        naam: paar.slice(0, paar.indexOf('=')),
+        secure: attribuut('secure') !== undefined,
+        httpOnly: attribuut('httponly') !== undefined,
+        sameSite: attribuut('samesite')?.split('=')[1],
+      };
+    });
 }

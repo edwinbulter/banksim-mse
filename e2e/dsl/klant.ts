@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import type {
   BankDriver,
+  GezetCookie,
   MaximaleLengtes,
   Spaarmutatie,
   Soort,
@@ -49,12 +50,17 @@ export class Klant {
   private uitkomst?: Uitkomst;
 
   private eigenDriver?: BankDriver;
+  /** De browser van logtInInDeBrowser, naast de sessie van het scenario. */
+  private browser?: BankDriver;
+  /** Wat de bank zette tijdens logtInEnBewaartCookies. */
+  private cookiesBijInloggen: GezetCookie[] = [];
 
   constructor(
     private readonly alias: string,
     /** De sessie van deze klant: de eerste klant die hem nodig heeft, krijgt die van het scenario, de rest een eigen. */
     private readonly kiesDriver: () => Promise<BankDriver>,
     private readonly seed: BankSeed,
+    private readonly maakBrowserDriver: () => Promise<BankDriver>,
   ) {}
 
   private async sessie(): Promise<BankDriver> {
@@ -210,6 +216,40 @@ export class Klant {
     const { gebruikersnaam, wachtwoord } = this.vereisGegevens();
     await (await this.sessie()).logIn(gebruikersnaam, wachtwoord);
     this.ingelogd = true;
+  }
+
+  /** CFR OWASP Top 10: inloggen, en bewaren welke cookies de bank onderweg zette (ADR 0050). */
+  async logtInEnBewaartCookies(): Promise<void> {
+    const { gebruikersnaam, wachtwoord } = this.vereisGegevens();
+    this.cookiesBijInloggen = await (await this.sessie()).logInMetCookies(gebruikersnaam, wachtwoord);
+    this.ingelogd = true;
+  }
+
+  /** Elk cookie met deze naam dat de bank tijdens het inloggen zette, heeft precies deze vlaggen; er is er minstens één. */
+  async verwachtCookiesBijInloggen(naam: string, vlaggen: Omit<GezetCookie, 'naam'>): Promise<void> {
+    const gezet = this.cookiesBijInloggen.filter((cookie) => cookie.naam === naam);
+    expect(gezet.length, `cookies ${naam} tijdens het inloggen van ${this.alias}`).toBeGreaterThan(0);
+    for (const cookie of gezet) expect(cookie, `cookie ${naam}`).toEqual({ naam, ...vlaggen });
+  }
+
+  /** In een eigen browser, ook als het scenario via de API loopt. */
+  async logtInInDeBrowser(): Promise<void> {
+    const { gebruikersnaam, wachtwoord } = this.vereisGegevens();
+    this.browser = await this.maakBrowserDriver();
+    await this.browser.logIn(gebruikersnaam, wachtwoord);
+  }
+
+  async verwachtCookieVoorJavaScript(naam: string): Promise<void> {
+    expect(await this.cookiesInDeBrowser(), `cookies voor JavaScript bij ${this.alias}`).toContain(naam);
+  }
+
+  async verwachtCookieNietVoorJavaScript(naam: string): Promise<void> {
+    expect(await this.cookiesInDeBrowser(), `cookies voor JavaScript bij ${this.alias}`).not.toContain(naam);
+  }
+
+  private async cookiesInDeBrowser(): Promise<string[]> {
+    if (!this.browser) throw new Error(`${this.alias} is nog niet in de browser ingelogd`);
+    return this.browser.cookiesVoorJavaScript();
   }
 
   /** S6.1: met Jans gebruikersnaam en een ander wachtwoord; Jan is daarna niet ingelogd. */

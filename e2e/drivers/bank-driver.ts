@@ -139,6 +139,14 @@ export interface RekeninghouderInBeheer {
 }
 
 /** Wat de DSL van het systeem nodig heeft. De REST- en de UI-driver implementeren dit elk op hun eigen manier. */
+/** Een cookie zoals de bank het zet in een header Set-Cookie, met de vlaggen; `sameSite` ontbreekt als de bank het niet zet. */
+export interface GezetCookie {
+  naam: string;
+  secure: boolean;
+  httpOnly: boolean;
+  sameSite?: string;
+}
+
 export interface BankDriver {
   openStartpagina(): Promise<void>;
   /** De versie die BankSim toont of teruggeeft. */
@@ -171,6 +179,10 @@ export interface BankDriver {
   scherm(): Promise<'overzicht' | 'beheer'>;
   /** Inloggen via Keycloak en de BFF, zoals een gebruiker dat doet. */
   logIn(gebruikersnaam: string, wachtwoord: string): Promise<void>;
+  /** Alleen in de REST-driver: inloggen, en elk cookie dat de bank onderweg zet, uit de headers Set-Cookie. */
+  logInMetCookies(gebruikersnaam: string, wachtwoord: string): Promise<GezetCookie[]>;
+  /** Alleen in de UI-driver: de namen van de cookies die een script op de pagina ziet (document.cookie). */
+  cookiesVoorJavaScript(): Promise<string[]>;
   /** Alleen in de UI-driver (@ui): inloggen zonder te verwachten dat het lukt (S6.1). */
   probeerInTeLoggen(gebruikersnaam: string, wachtwoord: string): Promise<void>;
   /** De melding op het inlogscherm, of undefined als BankSim al geladen is. */

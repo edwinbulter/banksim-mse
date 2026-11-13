@@ -151,6 +151,19 @@ class BffTests {
         assertThat(token.isHttpOnly()).isFalse();
     }
 
+    /**
+     * ADR 0050: een formulier op een andere site krijgt het CSRF-cookie niet mee bij een POST. Spring Security zet
+     * SameSite als attribuut van het servlet-cookie; MockMvc laat dat weg uit de header Set-Cookie, Tomcat niet.
+     */
+    @Test
+    void hetCsrfCookieHeeftSameSiteLax() throws Exception {
+        Cookie token = mvc.perform(get("/api/versie")).andExpect(status().isOk())
+                .andReturn().getResponse().getCookie("XSRF-TOKEN");
+
+        assertThat(token).isNotNull();
+        assertThat(token.getAttribute("SameSite")).isEqualTo("Lax");
+    }
+
     /** ADR 0016: een verzoek dat iets verandert, zonder token, komt niet bij bank-api. */
     @Test
     void eenPutZonderCsrfTokenGeeft403() throws Exception {
