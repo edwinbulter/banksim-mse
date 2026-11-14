@@ -17,6 +17,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 **Commando's** (`make help` toont ze allemaal)
 - Commit stage: `make commit-stage`. Afzonderlijk: `make backend-test`, `make mutatie` (PIT, ADR 0018), `make frontend-test`, `make iac`. Het PIT-rapport staat in `backend/<module>/target/pit-reports/index.html`. In CI draait PIT in vier jobs tegelijk, met bank-api in twee delen (ADR 0048); elk heeft een artifact `pit-rapport-<deel>`.
 - Installeren + acceptatietests: `make acceptance`, dat `make install`, `make e2e` en `make e2e-infra` uitvoert.
+- Allure-rapport (ADR 0053): lokaal `make allure`, na `make e2e` of `make acceptance`; van `main` op https://edwinbulter.github.io/banksim-mse/, gemaakt door de workflow `Allure-rapport` na elke CI-run. De labels komen uit `e2e/dsl/rapport.ts`, nooit uit een spec. Het rapport is openbaar: een nieuwe bijlage gaat door `maskeer` in `e2e/drivers/logboek.ts`.
 - Installatiescenario's: `make e2e-infra` (project `infra`, zonder `@destructief`). In CI draaien ze met `BANKSIM_DESTRUCTIEF=1` en het nep-origineel, in drie jobs met elk een eigen cluster (ADR 0047): `installatie.spec.ts` apart, de rest in twee shards (ADR 0052). Een scenario mag dus niet afhangen van een scenario in een ander bestand.
 - Eén scenario: `cd e2e && npx playwright test --project=rest specs/<naam>.spec.ts`. Gebruik `--project=chromium` voor de UI en `--project=infra` voor een installatiescenario. Een scenario met `@simulatiedatum` draait in `simulatiedatum-rest` (of `-chromium`), met `--no-deps`; anders draaien eerst alle gewone projecten (ADR 0014). Nooit meerdere `simulatiedatum-*`-projecten tegelijk met `--no-deps`: dan valt de keten weg, draaien ze parallel en wissen ze elkaars datum.
 - Welke versie draait: `curl -sk https://bank-mse.localtest.me/api/versie`, of de voettekst. Dit is de image-tag: de korte commit-hash, eventueel met `-dirty-<tijdstempel>`.
@@ -37,7 +38,7 @@ Daarnaast zijn de IaC-testtools toegestaan: helm-unittest, kubeconform, conftest
 | UI | `frontend/src/app` | Vitest |
 | Helm-chart | `deploy/banksim-mse/templates` | `deploy/banksim-mse/tests/*_test.yaml`, plus de namespacecheck in `scripts/iac-check.sh` |
 | Scripts | `deploy/scripts`, `scripts` | `deploy/scripts/test/*.bats`, `scripts/test/*.bats`, shellcheck |
-| Pipeline | `.github/workflows/ci.yml` | actionlint |
+| Pipeline | `.github/workflows/ci.yml`, `.github/workflows/allure.yml` | actionlint |
 | ADR | `doc/adr/NNNN-titel.md` | – |
 
 **Vangrails** (skill §4; elk één keer rood gezien). De ArchUnit-tests staan in `backend/bank-api/src/test/java/nl/banksim/api/architectuur/` en controleren `bank-api` en `bank-domain`. `bank-domain`, `bank-seed` en `bank-bff` hebben daarnaast eigen regels in hun testcode. Wat nog ontbreekt of nog geen rood heeft gezien, staat in [doc/backlog.md](doc/backlog.md).

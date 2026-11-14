@@ -308,6 +308,21 @@ async gegeven(tekst: string, stap: () => Promise<unknown>) {
 
 In de originele repo is `e2e/pages/*` (`LoginPagina`, `RekeningPagina`, `BetalenPagina`, …) de protocol-driver-laag; de specs in `e2e/tests/*` mengen testcase en DSL. Hier houd je die lagen vanaf het begin gescheiden.
 
+**Het Allure-rapport (ADR 0053)**
+
+Naast het HTML-rapport van Playwright, met de trace viewer, schrijft elke run resultaten voor Allure. Na elke push naar `main` voegt de workflow `Allure-rapport` (`.github/workflows/allure.yml`) de resultaten van de vier Playwright-jobs samen. Het rapport komt op [GitHub Pages](https://edwinbulter.github.io/banksim-mse/), met de geschiedenis van de vorige runs. Lokaal maakt `make allure` het rapport van de laatste `make e2e` en `make e2e-infra`.
+
+| In het rapport | Waar het vandaan komt |
+| --- | --- |
+| De stappen Gegeven, Als, Dan en hun onderstappen | `bank.gegeven(…)` en de andere methodes van `dsl/stappen.ts`; met `detail: false` geen losse klik of fill, want een fill toont zijn waarde, ook een wachtwoord |
+| Epic (de slice), feature (het bestand), story (de `describe`), severity, laag en de parameter `driver` | `labelVoorAllure` in `dsl/rapport.ts`, via de automatische fixture `allureLabels` in `dsl/fixtures.ts`. Een nieuw specbestand hoort in de tabel `EPICS`; anders is zijn bestandsnaam de epic |
+| Links naar de spec en naar elke ADR die de spec noemt | `labelVoorAllure`: elke "ADR NNNN" in de tekst van de spec |
+| Bij een fout: de screenshot, de error-context en het verkeer met het systeem | Playwright, en de fixture `logboek` met `drivers/logboek.ts`. Alles gaat door `maskeer`: JWT's, wachtwoorden en de code van Keycloak. De trace blijft buiten Allure (`rapport/allure-zonder-trace.ts`) |
+| Categorieën: omgeving niet bereikbaar, installatie mislukt, timeout, fout in de test zelf, verkeerde waarde | `e2e/allure/categories.json`; de eerste die past, telt |
+| De omgeving en de run | `environmentInfo` in `playwright.config.ts`; `executor.json` in de workflow |
+
+Een spec zelf bevat niets van Allure. Dat zou de lagenregel breken (ADR 0031).
+
 **Projectindeling**
 
 ```text
@@ -1596,6 +1611,12 @@ Controle en leren zijn daarom twee aparte doelen. Controle houd je minimaal (§1
 Beide halen de uitleg uit de code van dat moment, en schrijven niets weg. Er is dus geen document dat kan verouderen. Elke bewering over de code heeft een `bestand:regel`, zodat je hem kunt nalopen. Een kritisch punt dat Claude vindt, zoals een ontbrekende test, wordt geen reparatie in de uitleg, maar een nieuwe iteratie met eerst een rode test.
 
 **Verhouding tot §10.1.** Code lezen als controle blijft overbodig: of de code werkt, bewijst de pipeline. Lezen om te leren is gericht. Je leest de route en de kritische punten die de uitleg aanwijst, en dat is geen keuring.
+
+**Allure leren.** Het rapport op Pages laat zien wat Allure met een groene pipeline doet. De rest zie je lokaal. Commit niets van deze oefeningen:
+1. **Een fout lezen.** Zet in een kopie van een spec een verkeerde verwachte waarde, draai `make e2e` en daarna `make allure`. Zoek de fout via Categories, open de stap die faalde, en lees de bijlage "verkeer met het systeem". Herhaal dat met een `throw new TypeError(…)` en met `test.setTimeout(1_000)`. Zie je ze elk in een andere categorie?
+2. **Geschiedenis.** `make e2e` wist `e2e/allure-results`, dus de geschiedenis moet er na elke run opnieuw in. Kopieer na `make e2e` en vóór `make allure` de map `e2e/allure-report/history` van het vorige rapport naar `e2e/allure-results/history`. Doe dat drie runs achter elkaar. Bekijk de trend in Overview, en de geschiedenis van één scenario in het tabblad History. Laat er één keer een scenario falen: wanneer noemt Allure hem "new failed" en wanneer "flaky"?
+3. **Ordenen.** Zoek in Behaviors alle scenario's van slice 5, en filter op severity critical en op de tag `ui`. Vergelijk hetzelfde scenario in `rest` en `chromium` via de parameter `driver`.
+4. **Uitbreiden.** Voeg een categorie toe aan `e2e/allure/categories.json`, of een label in `dsl/rapport.ts`, bijvoorbeeld `owner`. Werkt het, dan is het een gewone wijziging met een commit.
 
 **Zelf toetsen.** Of je de kennis echt hebt, test je met de vragen in [Code-ownership](code-ownership.md), zonder AI.
 
