@@ -25,7 +25,10 @@ export default defineConfig<Opties>({
   retries: 0,
   timeout: 30_000,
   expect: { timeout: 10_000 },
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // ADR 0053: naast het HTML-rapport (met de trace viewer) de resultaten voor Allure; make allure maakt er een rapport van.
+  // Zonder detail: alleen de stappen van de DSL, niet elke klik en elke fill. Een fill toont zijn waarde, ook een
+  // wachtwoord, en het Allure-rapport is openbaar.
+  reporter: [['list'], ['html', { open: 'never' }], ['allure-playwright', { resultsDir: 'allure-results', detail: false }]],
   use: {
     baseURL,
     locale: 'nl-NL',

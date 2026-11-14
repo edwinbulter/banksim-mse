@@ -8,7 +8,7 @@ BACKEND  := backend
 FRONTEND := frontend
 E2E      := e2e
 
-.PHONY: help test backend-test mutatie frontend-test iac commit-stage install uninstall e2e-install e2e e2e-infra acceptance handleiding
+.PHONY: help test backend-test mutatie frontend-test iac commit-stage install uninstall e2e-install e2e e2e-infra acceptance handleiding allure
 
 help: ## Overzicht van de targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -45,7 +45,8 @@ e2e-install: ## Playwright en browsers installeren
 	npm --prefix $(E2E) ci
 	npm --prefix $(E2E) exec -- playwright install chromium firefox webkit
 
-e2e: ## Acceptatietests tegen https://bank-mse.localtest.me
+e2e: ## Acceptatietests tegen https://bank-mse.localtest.me (wist eerst de vorige Allure-resultaten)
+	rm -rf $(E2E)/allure-results
 	npm --prefix $(E2E) test
 
 e2e-infra: ## Installatiescenario's tegen kind-single-node (zonder @destructief)
@@ -53,5 +54,9 @@ e2e-infra: ## Installatiescenario's tegen kind-single-node (zonder @destructief)
 
 handleiding: ## De schermafdrukken van doc/banksim-mse-handleiding.md opnieuw maken, tegen de installatie (alleen kijken, wijzigt niets)
 	npm --prefix $(E2E) run handleiding
+
+allure: ## Allure-rapport van de laatste lokale run(s) in e2e/allure-results maken en openen (ADR 0053)
+	npm --prefix $(E2E) exec -- allure generate --clean $(E2E)/allure-results -o $(E2E)/allure-report
+	npm --prefix $(E2E) exec -- allure open $(E2E)/allure-report
 
 acceptance: install e2e e2e-infra ## Installeren en daarna de acceptatie- en installatiescenario's, zoals de acceptance stage in CI
