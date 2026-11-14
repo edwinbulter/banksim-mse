@@ -1,6 +1,7 @@
 import { test as basis, type APIRequestContext, type BrowserContext } from '@playwright/test';
 import { Bank } from './bank';
 import { Omgeving } from './omgeving';
+import { labelVoorAllure } from './rapport';
 import { KeycloakDriver } from '../drivers/rest/keycloak-driver';
 import { RestDriver } from '../drivers/rest/rest-driver';
 import { BankSeed } from '../drivers/shell/bank-seed';
@@ -16,8 +17,16 @@ export interface Opties {
   driver: 'rest' | 'ui';
 }
 
-export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving }, { seedSessie: SeedSessie | undefined }>({
+export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving; allureLabels: void }, { seedSessie: SeedSessie | undefined }>({
   driver: ['rest', { option: true }],
+  // ADR 0053: elk scenario krijgt zijn labels voor Allure, ook als het alleen omgeving gebruikt, of omgeving en bank.
+  allureLabels: [
+    async ({ driver }, use, testInfo) => {
+      await labelVoorAllure(testInfo, testInfo.project.name === 'infra' ? 'shell' : driver);
+      await use();
+    },
+    { auto: true },
+  ],
   // ADR 0020: één seed-pod per worker, pas gestart bij de eerste opdracht. Niet in het project infra: daar wisselt een
   // upgrade de versie midden in de run, en een sessie zou de oude blijven draaien.
   seedSessie: [
