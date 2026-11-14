@@ -45,3 +45,19 @@ Een nieuw bestand komt zo vanzelf in `overig`; niemand hoeft het toe te wijzen. 
 - `actionlint` controleert de workflow.
 - Vooraf lokaal met `--list` en dezelfde selectie als in CI: 6, 19 en 18 scenario's, samen de 43 van het project `infra`, zonder dubbele.
 - **Meetbaar doel:** in de eerste run na deze wijziging duurt de zwaarste installatiejob 7:00 of korter, en de pipeline ongeveer 8:30 of korter. De meting komt hieronder, in een aparte commit.
+
+## Meting
+Run 43616088400 (f1d6ff1, 2026-11-14), de eerste met deze verdeling:
+
+| Job | Doel | Gemeten | Run 43606433077 (ADR 0047) |
+| --- | --- | --- | --- |
+| Zwaarste installatiejob | 7:00 of korter | 8:01 (`installatie`) | 9:36 |
+| `overig-1` en `overig-2` | – | 5:22 en 5:24 | – |
+| Acceptatietests | – | 7:31 | – |
+| Pipeline | ongeveer 8:30 of korter | 9:28 | 11:13 |
+
+**Het doel is niet gehaald.** De schatting voor de job `installatie` was te laag:
+- de 6 scenario's duurden 252 s in plaats van 209 s, vooral door de twee destructieve scenario's (elk ongeveer 1,5 minuut);
+- het cluster, de installatie en de browser kostten 3:38 in plaats van ongeveer 3:20.
+
+De wijziging blijft toch staan: de pipeline is bijna 2 minuten sneller, `overig-1` en `overig-2` zijn even lang, en de verdeling hangt niet meer af van het aantal scenario's in de andere bestanden. De job `installatie` bepaalt nu de duur van de pipeline, vóór de acceptatietests. Korter kan hij niet door anders te verdelen, omdat de scenario's op elkaar voortbouwen.
