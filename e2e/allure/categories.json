@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Omgeving niet bereikbaar",
+    "description": "De bank, Keycloak of het cluster antwoordt niet: geen fout in het gedrag, maar in de installatie of de runner.",
+    "matchedStatuses": [
+      "failed",
+      "broken"
+    ],
+    "messageRegex": "(?s).*(ECONNREFUSED|ENOTFOUND|ECONNRESET|socket hang up|net::ERR_|→ 50[234]).*"
+  },
+  {
+    "name": "Installatie mislukt",
+    "description": "Een installatiescript, helm of kubectl faalde (project infra).",
+    "matchedStatuses": [
+      "failed",
+      "broken"
+    ],
+    "messageRegex": "(?s).*(install\\.sh|uninstall\\.sh|helm |kubectl ).*"
+  },
+  {
+    "name": "Timeout van het scenario",
+    "description": "Het scenario duurde langer dan de timeout van het project.",
+    "matchedStatuses": [
+      "failed",
+      "broken",
+      "unknown"
+    ],
+    "messageRegex": "(?s).*Test timeout of \\d+ms exceeded.*"
+  },
+  {
+    "name": "Fout in de test zelf",
+    "description": "Een fout in de DSL of een driver, zoals een TypeError: geen bewering die faalt. allure-playwright geeft ook die de status failed.",
+    "matchedStatuses": [
+      "failed",
+      "broken"
+    ],
+    "messageRegex": "(?s)(TypeError|ReferenceError|SyntaxError|RangeError): .*"
+  },
+  {
+    "name": "Verkeerde waarde",
+    "description": "Een bewering in de DSL klopt niet: het systeem gedraagt zich anders dan het scenario verwacht.",
+    "matchedStatuses": [
+      "failed"
+    ],
+    "messageRegex": "(?s).*expect\\(.*"
+  }
+]

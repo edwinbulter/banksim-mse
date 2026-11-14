@@ -1,4 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import type { Opties } from './dsl/fixtures';
 
 /**
@@ -15,6 +17,15 @@ const baseURL = process.env.BANKSIM_URL ?? 'https://bank-mse.localtest.me';
 const app = { testIgnore: 'infra/**' };
 const destructief = process.env.BANKSIM_DESTRUCTIEF === '1';
 const gewoon = ['rest', 'chromium', 'firefox', 'webkit'];
+// ADR 0053: de omgeving en de categorieën van fouten in het Allure-rapport. De omgeving is in alle CI-jobs gelijk, want
+// Allure houdt na het samenvoegen er maar één over.
+const allureOmgeving = {
+  'Bank': baseURL,
+  'Image-tag': process.env.BANKSIM_IMAGE_TAG ?? process.env.GITHUB_SHA?.slice(0, 7) ?? 'lokale installatie',
+  'Playwright': (createRequire(import.meta.url)('@playwright/test/package.json') as { version: string }).version,
+  'Node': process.version,
+};
+const allureCategorieen = JSON.parse(readFileSync(new URL('./allure/categories.json', import.meta.url), 'utf-8'));
 const simulatiedatum = { ...app, grep: /@simulatiedatum/, fullyParallel: false, workers: 1 };
 
 export default defineConfig<Opties>({
@@ -31,7 +42,10 @@ export default defineConfig<Opties>({
   reporter: [
     ['list'],
     ['html', { open: 'never' }],
-    ['./rapport/allure-zonder-trace.ts', { resultsDir: 'allure-results', detail: false }],
+    [
+      './rapport/allure-zonder-trace.ts',
+      { resultsDir: 'allure-results', detail: false, environmentInfo: allureOmgeving, categories: allureCategorieen },
+    ],
   ],
   use: {
     baseURL,
