@@ -6,6 +6,7 @@ import type {
   Betaalopdracht,
   Contact,
   GezetCookie,
+  GevondenToken,
   MaximaleLengtes,
   Overschrijfopdracht,
   Spaarmutatie,
@@ -20,6 +21,7 @@ import type {
   Zoekopdracht,
 } from '../bank-driver';
 import { wijzigSimulatiedatum } from '../simulatiedatum';
+import { tokensIn } from '../tokens';
 
 /**
  * Spreekt BankSim aan via de publieke API-paden achter de ingress, net als de browser: inloggen via de BFF en
@@ -42,6 +44,8 @@ export class RestDriver implements BankDriver {
   private filter = new URLSearchParams();
   private probleem?: string;
   private nietGevonden = false;
+  /** De tokens in de antwoorden van de bank die bekijk() zag, sinds de vorige tokensVanDeBank(). */
+  private tokens: GevondenToken[] = [];
 
   constructor(private readonly request: APIRequestContext) {}
 
@@ -79,7 +83,8 @@ export class RestDriver implements BankDriver {
     const volg = async (eerste: APIResponse): Promise<APIResponse> => {
       let antwoord = eerste;
       for (let stap = 0; stap < 10; stap++) {
-        if (new URL(antwoord.url()).hostname === 'bank-mse.localtest.me') cookies.push(...gezetteCookies(antwoord));
+        if (vanDeBank(antwoord)) cookies.push(...gezetteCookies(antwoord));
+        await this.bekijk(antwoord);
         const naar = antwoord.headers()['location'];
         if (antwoord.status() < 300 || antwoord.status() >= 400 || !naar) return antwoord;
         antwoord = await this.request.get(new URL(naar, antwoord.url()).toString(), { maxRedirects: 0 });
@@ -104,6 +109,26 @@ export class RestDriver implements BankDriver {
     throw new Error('document.cookie bestaat alleen in de browser');
   }
 
+  async tokensVanDeBank(): Promise<GevondenToken[]> {
+    const gezien = this.tokens;
+    this.tokens = [];
+    return gezien;
+  }
+
+  async tokensInDeBrowser(): Promise<GevondenToken[]> {
+    throw new Error('De opslag van de browser bestaat alleen in de browser');
+  }
+
+  /** Zoekt tokens in elke header en in de inhoud van een antwoord van de bank; een antwoord van Keycloak telt niet mee. */
+  private async bekijk(antwoord: APIResponse): Promise<void> {
+    if (!vanDeBank(antwoord)) return;
+    const pad = new URL(antwoord.url()).pathname;
+    for (const { name, value } of antwoord.headersArray()) {
+      this.tokens.push(...tokensIn(value, `header ${name.toLowerCase()} van ${pad}`));
+    }
+    this.tokens.push(...tokensIn(await antwoord.text(), `inhoud van ${pad}`));
+  }
+
   async scherm(): Promise<'overzicht' | 'beheer'> {
     throw new Error('Schermen bestaan alleen in de browser (@ui)');
   }
@@ -123,9 +148,11 @@ export class RestDriver implements BankDriver {
   async logUit(): Promise<void> {
     const antwoord = await this.request.post('/logout', { headers: await this.csrfHeader(), maxRedirects: 0 });
     expect(antwoord.status(), 'POST /logout').toBe(202);
+    await this.bekijk(antwoord);
     const keycloak = antwoord.headers()['location'];
     expect(keycloak, 'Location na POST /logout').toBeTruthy();
     const terug = await this.request.get(keycloak!);
+    await this.bekijk(terug);
     expect(terug.url(), 'na uitloggen terug op BankSim').toMatch(/^https:\/\/bank-mse\.localtest\.me\/?$/);
   }
 
@@ -145,8 +172,13 @@ export class RestDriver implements BankDriver {
     return (await this.request.storageState()).cookies.find((cookie) => cookie.name === 'XSRF-TOKEN')?.value;
   }
 
+  /** Zoals de browser: de pagina en de rekeningen. rekeningenInOverzicht leest de rekeningen daarna opnieuw. */
   async openOverzicht(): Promise<void> {
-    // Het overzicht is één API-aanroep; die doet rekeningenInOverzicht.
+    for (const pad of ['/', '/api/rekeningen']) {
+      const antwoord = await this.request.get(pad);
+      expect(antwoord.status(), `GET ${pad}`).toBe(200);
+      await this.bekijk(antwoord);
+    }
   }
 
   async rekeningenInOverzicht(): Promise<RekeningInOverzicht[]> {
@@ -568,6 +600,10 @@ interface TransactieJson {
 }
 
 /** De cookies uit alle headers Set-Cookie van een antwoord; headers() zou meerdere tot één tekst samenvoegen. */
+function vanDeBank(antwoord: APIResponse): boolean {
+  return new URL(antwoord.url()).hostname === 'bank-mse.localtest.me';
+}
+
 function gezetteCookies(antwoord: APIResponse): GezetCookie[] {
   return antwoord
     .headersArray()

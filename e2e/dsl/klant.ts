@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 import type {
   BankDriver,
   GezetCookie,
+  GevondenToken,
   MaximaleLengtes,
   Spaarmutatie,
   Soort,
@@ -54,6 +55,8 @@ export class Klant {
   private browser?: BankDriver;
   /** Wat de bank zette tijdens logtInEnBewaartCookies. */
   private cookiesBijInloggen: GezetCookie[] = [];
+  /** De tokens in het antwoord van de bank bij logtUitEnBewaartTokens. */
+  private tokensBijUitloggen: GevondenToken[] = [];
 
   constructor(
     private readonly alias: string,
@@ -248,8 +251,61 @@ export class Klant {
   }
 
   private async cookiesInDeBrowser(): Promise<string[]> {
+    return this.inDeBrowser().cookiesVoorJavaScript();
+  }
+
+  private inDeBrowser(): BankDriver {
     if (!this.browser) throw new Error(`${this.alias} is nog niet in de browser ingelogd`);
-    return this.browser.cookiesVoorJavaScript();
+    return this.browser;
+  }
+
+  /** In de browser van logtInInDeBrowser: het overzicht staat er. */
+  async zietZijnOverzichtInDeBrowser(): Promise<void> {
+    expect(await this.inDeBrowser().scherm(), `scherm in de browser van ${this.alias}`).toBe('overzicht');
+  }
+
+  /** CFR OWASP Top 10, ADR 0008: geen enkel antwoord van de bank sinds het begin van het scenario bevatte een token. */
+  async verwachtGeenTokenVanDeBank(): Promise<void> {
+    expect(await (await this.sessie()).tokensVanDeBank(), `tokens van de bank bij ${this.alias}`).toEqual([]);
+  }
+
+  async verwachtGeenTokenInDeBrowser(): Promise<void> {
+    expect(await this.inDeBrowser().tokensInDeBrowser(), `tokens in de browser van ${this.alias}`).toEqual([]);
+  }
+
+  /** Uitloggen, en bewaren welke tokens er in het antwoord van de bank stonden; eerdere antwoorden tellen niet mee. */
+  async logtUitEnBewaartTokens(): Promise<void> {
+    const sessie = await this.sessie();
+    await sessie.tokensVanDeBank();
+    await this.logtUit();
+    this.tokensBijUitloggen = await sessie.tokensVanDeBank();
+  }
+
+  /** ADR 0021: Keycloak krijgt bij het uitloggen het ID-token als id_token_hint, via de uitlog-URL in Location. */
+  async verwachtAlleenEigenIdTokenInUitlogUrl(): Promise<void> {
+    expect(this.tokensBijUitloggen, `tokens bij het uitloggen van ${this.alias}`).toEqual([
+      expect.objectContaining({
+        soort: 'ID',
+        gebruiker: this.vereisGegevens().gebruikersnaam,
+        waar: 'header location van /logout',
+      }),
+    ]);
+  }
+
+  async verwachtGeenAccessOfRefreshTokenBijUitloggen(): Promise<void> {
+    const soorten = this.tokensBijUitloggen.map((token) => token.soort);
+    expect(soorten, `soorten tokens bij het uitloggen van ${this.alias}`).not.toContain('Bearer');
+    expect(soorten, `soorten tokens bij het uitloggen van ${this.alias}`).not.toContain('Refresh');
+  }
+
+  /**
+   * bank-api weigert elk token zonder bank-api in de claim aud (TokenControleTests). Via de ingress is dat niet aan te
+   * tonen: /api gaat naar de BFF, die geen token leest. Daarom de claim zelf.
+   */
+  async verwachtIdTokenNietVoorBankApi(): Promise<void> {
+    const idTokens = this.tokensBijUitloggen.filter((token) => token.soort === 'ID');
+    expect(idTokens.length, `ID-tokens bij het uitloggen van ${this.alias}`).toBeGreaterThan(0);
+    for (const token of idTokens) expect(token.audience, 'aud van het ID-token').not.toContain('bank-api');
   }
 
   /** S6.1: met Jans gebruikersnaam en een ander wachtwoord; Jan is daarna niet ingelogd. */

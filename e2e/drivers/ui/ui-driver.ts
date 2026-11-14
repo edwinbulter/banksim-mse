@@ -5,6 +5,7 @@ import type {
   Betaalopdracht,
   Contact,
   GezetCookie,
+  GevondenToken,
   MaximaleLengtes,
   Overschrijfopdracht,
   Spaarmutatie,
@@ -17,6 +18,7 @@ import type {
   Zoekopdracht,
 } from '../bank-driver';
 import { wijzigSimulatiedatum } from '../simulatiedatum';
+import { tokensIn } from '../tokens';
 import { BeheerPagina } from './beheer-pagina';
 import { BetaalrekeningPagina } from './betaalrekening-pagina';
 import { BetalenPagina } from './betalen-pagina';
@@ -71,6 +73,20 @@ export class UiDriver implements BankDriver {
   async cookiesVoorJavaScript(): Promise<string[]> {
     const tekst = await this.page.evaluate(() => document.cookie);
     return tekst ? tekst.split('; ').map((cookie) => cookie.slice(0, cookie.indexOf('='))) : [];
+  }
+
+  async tokensVanDeBank(): Promise<GevondenToken[]> {
+    throw new Error('De headers en de inhoud van elk antwoord ziet alleen de REST-driver');
+  }
+
+  /** Wat een script op de pagina kan lezen: document.cookie, localStorage en sessionStorage. */
+  async tokensInDeBrowser(): Promise<GevondenToken[]> {
+    const opslag = await this.page.evaluate(() => ({
+      cookies: document.cookie,
+      localStorage: JSON.stringify({ ...localStorage }),
+      sessionStorage: JSON.stringify({ ...sessionStorage }),
+    }));
+    return Object.entries(opslag).flatMap(([waar, tekst]) => tokensIn(tekst, waar));
   }
 
   /** Wacht tot het overzicht of het beheerscherm er staat. */

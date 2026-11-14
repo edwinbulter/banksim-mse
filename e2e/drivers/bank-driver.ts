@@ -147,6 +147,20 @@ export interface GezetCookie {
   sameSite?: string;
 }
 
+/**
+ * Een token dat de bank aan de browser gaf, of dat de browser bewaart. `soort` is de claim `typ` van Keycloak: `Bearer`
+ * (access token), `Refresh` of `ID`; `onbekend` als het geen leesbare JWT is.
+ */
+export interface GevondenToken {
+  soort: string;
+  /** De claim `preferred_username`. */
+  gebruiker?: string;
+  /** De claim `aud`: voor wie het token bestemd is. */
+  audience: string[];
+  /** Waar de driver het vond, zoals "header location van /logout". */
+  waar: string;
+}
+
 export interface BankDriver {
   openStartpagina(): Promise<void>;
   /** De versie die BankSim toont of teruggeeft. */
@@ -183,6 +197,10 @@ export interface BankDriver {
   logInMetCookies(gebruikersnaam: string, wachtwoord: string): Promise<GezetCookie[]>;
   /** Alleen in de UI-driver: de namen van de cookies die een script op de pagina ziet (document.cookie). */
   cookiesVoorJavaScript(): Promise<string[]>;
+  /** Alleen in de REST-driver: de tokens in de headers en de inhoud van de antwoorden van de bank sinds de vorige vraag. */
+  tokensVanDeBank(): Promise<GevondenToken[]>;
+  /** Alleen in de UI-driver: de tokens in de cookies, de localStorage en de sessionStorage van de pagina. */
+  tokensInDeBrowser(): Promise<GevondenToken[]>;
   /** Alleen in de UI-driver (@ui): inloggen zonder te verwachten dat het lukt (S6.1). */
   probeerInTeLoggen(gebruikersnaam: string, wachtwoord: string): Promise<void>;
   /** De melding op het inlogscherm, of undefined als BankSim al geladen is. */
