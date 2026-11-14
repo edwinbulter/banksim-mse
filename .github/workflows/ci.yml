@@ -197,6 +197,14 @@ jobs:
             e2e/playwright-report/
             e2e/test-results/
           if-no-files-found: ignore
+      # ADR 0053: de workflow Allure-rapport voegt de resultaten van de vier jobs samen.
+      - name: Allure-resultaten
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-resultaten-acceptatie
+          path: e2e/allure-results/
+          if-no-files-found: ignore
 
   installatie:
     # Een eigen runner en cluster, parallel aan de acceptatietests: de installatiescenario's installeren en
@@ -280,4 +288,12 @@ jobs:
           path: |
             e2e/playwright-report-infra/
             e2e/test-results/
+          if-no-files-found: ignore
+      # ADR 0053: de workflow Allure-rapport voegt de resultaten van de vier jobs samen.
+      - name: Allure-resultaten
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-resultaten-infra-${{ matrix.deel }}
+          path: e2e/allure-results/
           if-no-files-found: ignore

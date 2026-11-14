@@ -1,0 +1,98 @@
+# Het Allure-rapport van de Playwright-scenario's (ADR 0053). Start na elke CI-run van een push naar main, ook na een
+# rode, en zet het rapport met de geschiedenis van de vorige versie op GitHub Pages. Een eigen workflow, zodat de
+# CI-run er niet langer door wordt. workflow_run draait altijd de versie van dit bestand op main.
+# Actions staan op commit-SHA vast.
+name: Allure-rapport
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+# Eén rapport tegelijk: een tweede zou de geschiedenis van de eerste niet meenemen.
+concurrency:
+  group: allure-pages
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "24"
+  PAGES_URL: https://edwinbulter.github.io/banksim-mse
+
+jobs:
+  rapport:
+    name: Allure-rapport naar GitHub Pages
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
+      github.event.workflow_run.conclusion != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      # Dezelfde commit als de resultaten: categories.json en de versie van allure-commandline horen erbij.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - name: Resultaten van de vier jobs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          pattern: allure-resultaten-*
+          merge-multiple: true
+          path: allure-results
+      - name: Geschiedenis van de vorige versie op Pages
+        # De eerste keer is er nog geen rapport; dan begint de geschiedenis hier.
+        run: |
+          mkdir -p allure-results/history
+          for bestand in history.json history-trend.json duration-trend.json categories-trend.json retry-trend.json; do
+            curl -fsSL "$PAGES_URL/history/$bestand" -o "allure-results/history/$bestand" || rm -f "allure-results/history/$bestand"
+          done
+          ls allure-results/history
+      - name: Gegevens van de run
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_NUMMER: ${{ github.event.workflow_run.run_number }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          jq -n --arg id "$RUN_ID" --arg nummer "$RUN_NUMMER" --arg url "$RUN_URL" --arg sha "${SHA::7}" --arg pages "$PAGES_URL" '{
+            name: "GitHub Actions", type: "github", buildOrder: ($nummer | tonumber),
+            buildName: ("CI #" + $nummer + " (" + $sha + ")"), buildUrl: $url,
+            reportName: "BankSim-MSE", reportUrl: $pages
+          }' > allure-results/executor.json
+          cat allure-results/executor.json
+      - name: Allure-rapport maken
+        run: |
+          npm --prefix e2e ci
+          npm --prefix e2e exec -- allure generate --clean allure-results -o allure-report
+      - name: Allure-rapport als artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-rapport
+          path: allure-report/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: allure-report/
+      - id: pages
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
