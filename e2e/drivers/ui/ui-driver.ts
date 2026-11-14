@@ -299,6 +299,11 @@ export class UiDriver implements BankDriver {
     return this.page.evaluate(() => !('banksimMarkering' in window));
   }
 
+  async herlaadOverzicht(): Promise<void> {
+    await this.page.reload();
+    await this.overzicht.wachtTotGeladen();
+  }
+
   async herlaad(): Promise<void> {
     await this.page.reload();
   }

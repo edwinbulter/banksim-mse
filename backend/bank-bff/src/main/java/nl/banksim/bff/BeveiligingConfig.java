@@ -7,6 +7,8 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
 import org.springframework.security.web.SecurityFilterChain;
@@ -26,6 +28,12 @@ class BeveiligingConfig {
         return http.securityMatcher(EndpointRequest.toAnyEndpoint())
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .build();
+    }
+
+    /** ADR 0051: de tokens per sessie, niet per gebruiker; uitloggen wist ze met de sessie. */
+    @Bean
+    OAuth2AuthorizedClientRepository tokensPerSessie() {
+        return new HttpSessionOAuth2AuthorizedClientRepository();
     }
 
     @Bean

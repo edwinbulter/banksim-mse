@@ -57,6 +57,8 @@ export class Klant {
   private cookiesBijInloggen: GezetCookie[] = [];
   /** De tokens in het antwoord van de bank bij logtUitEnBewaartTokens. */
   private tokensBijUitloggen: GevondenToken[] = [];
+  /** De apparaten van deze klant, elk met een eigen sessie bij de bank. */
+  private readonly apparaten = new Map<string, BankDriver>();
 
   constructor(
     private readonly alias: string,
@@ -64,7 +66,19 @@ export class Klant {
     private readonly kiesDriver: () => Promise<BankDriver>,
     private readonly seed: BankSeed,
     private readonly maakBrowserDriver: () => Promise<BankDriver>,
+    /** Een eigen sessie in hetzelfde protocol, voor een tweede apparaat van deze klant. */
+    private readonly maakApparaatDriver: () => Promise<BankDriver>,
   ) {}
+
+  /** Het eerste apparaat is de sessie van de klant; elk volgend krijgt een eigen sessie, zoals een tweede browser. */
+  private async apparaat(naam: string): Promise<BankDriver> {
+    let driver = this.apparaten.get(naam);
+    if (!driver) {
+      driver = this.apparaten.size === 0 ? await this.sessie() : await this.maakApparaatDriver();
+      this.apparaten.set(naam, driver);
+    }
+    return driver;
+  }
 
   private async sessie(): Promise<BankDriver> {
     this.eigenDriver ??= await this.kiesDriver();
@@ -322,6 +336,30 @@ export class Klant {
   async logtUit(): Promise<void> {
     await (await this.sessie()).logUit();
     this.ingelogd = false;
+  }
+
+  async isIngelogdOp(apparaat: string): Promise<void> {
+    const { gebruikersnaam, wachtwoord } = this.vereisGegevens();
+    await (await this.apparaat(apparaat)).logIn(gebruikersnaam, wachtwoord);
+  }
+
+  async logtUitOp(apparaat: string): Promise<void> {
+    await (await this.apparaat(apparaat)).logUit();
+  }
+
+  /** Haalt het overzicht opnieuw op bij de bank: wat er al op het scherm stond, telt niet. */
+  async verwachtOpApparaatBetaalrekening(apparaat: string, saldo: string): Promise<void> {
+    const driver = await this.apparaat(apparaat);
+    await driver.herlaadOverzicht();
+    expect(await driver.rekeningenInOverzicht(), `rekeningen van ${this.alias} op ${apparaat}`).toContainEqual({
+      soort: 'betaal',
+      iban: this.vereisGegevens().iban,
+      saldo,
+    });
+  }
+
+  async verwachtNietIngelogdOp(apparaat: string): Promise<void> {
+    expect(await (await this.apparaat(apparaat)).ingelogd(), `${this.alias} nog ingelogd op ${apparaat}`).toBe(false);
   }
 
   async verwachtNietIngelogd(): Promise<void> {

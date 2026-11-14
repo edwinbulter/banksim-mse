@@ -249,6 +249,8 @@ export interface BankDriver {
   terugInBrowser(): Promise<void>;
   /** Of de app sinds de laatste terugInBrowser opnieuw is geladen, in plaats van binnen de pagina terug te gaan. */
   opnieuwGeladen(): Promise<boolean>;
+  /** Het overzicht opnieuw ophalen bij de bank, zoals na F5: de browser herlaadt de pagina, de REST-driver vraagt opnieuw op. */
+  herlaadOverzicht(): Promise<void>;
   /** De pagina herladen; alleen in de UI-driver (@ui). */
   herlaad(): Promise<void>;
   /**

@@ -172,10 +172,14 @@ export class RestDriver implements BankDriver {
     return (await this.request.storageState()).cookies.find((cookie) => cookie.name === 'XSRF-TOKEN')?.value;
   }
 
-  /** Zoals de browser: de pagina en de rekeningen. rekeningenInOverzicht leest de rekeningen daarna opnieuw. */
+  /**
+   * Zoals de browser: de pagina en de rekeningen. rekeningenInOverzicht leest de rekeningen daarna opnieuw. Zonder
+   * doorverwijzingen te volgen, zoals de app: een fetch kan een doorverwijzing naar Keycloak niet volgen (CORS). De
+   * request-context zou daar stilletjes opnieuw inloggen, met de Keycloak-sessie van dit apparaat (ADR 0051).
+   */
   async openOverzicht(): Promise<void> {
     for (const pad of ['/', '/api/rekeningen']) {
-      const antwoord = await this.request.get(pad);
+      const antwoord = await this.request.get(pad, { maxRedirects: 0 });
       expect(antwoord.status(), `GET ${pad}`).toBe(200);
       await this.bekijk(antwoord);
     }
@@ -372,6 +376,10 @@ export class RestDriver implements BankDriver {
 
   async opnieuwGeladen(): Promise<boolean> {
     throw new Error('Geen browser in de REST-driver: een scenario met de terugknop hoort de tag @ui te hebben');
+  }
+
+  async herlaadOverzicht(): Promise<void> {
+    await this.openOverzicht();
   }
 
   async herlaad(): Promise<void> {

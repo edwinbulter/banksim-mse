@@ -47,7 +47,7 @@ export class Bank extends Stappen {
   klant(alias: string): Klant {
     let klant = this.klanten.get(alias);
     if (!klant) {
-      klant = new Klant(alias, () => this.kiesKlantDriver(), this.seed, this.maakBrowserDriver);
+      klant = new Klant(alias, () => this.kiesKlantDriver(), this.seed, this.maakBrowserDriver, this.maakKlantDriver);
       this.klanten.set(alias, klant);
     }
     return klant;
