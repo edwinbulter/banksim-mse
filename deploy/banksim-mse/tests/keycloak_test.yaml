@@ -58,3 +58,21 @@ tests:
       - matchRegex:
           path: data["realm-banksim-mse.json"]
           pattern: '"defaultClientScopes": \[\s*"basic",\s*"profile",\s*"acr",\s*"roles"\s*\]'
+  - it: staat voor beide clients de implicit flow en de password grant niet toe (ADR 0008)
+    documentSelector: { path: kind, value: ConfigMap }
+    asserts:
+      - matchRegex:
+          path: data["realm-banksim-mse.json"]
+          pattern: '"clientId": "bank-bff",[^}]*"implicitFlowEnabled": false,\s*"directAccessGrantsEnabled": false,'
+      - matchRegex:
+          path: data["realm-banksim-mse.json"]
+          pattern: '"clientId": "bank-seed",[^}]*"implicitFlowEnabled": false,\s*"directAccessGrantsEnabled": false,'
+      - notMatchRegex:
+          path: data["realm-banksim-mse.json"]
+          pattern: '"(implicitFlowEnabled|directAccessGrantsEnabled)": true'
+  - it: blokkeert een klant na vijf verkeerde wachtwoorden een tijd, niet voorgoed
+    documentSelector: { path: kind, value: ConfigMap }
+    asserts:
+      - matchRegex:
+          path: data["realm-banksim-mse.json"]
+          pattern: '"bruteForceProtected": true,\s*"permanentLockout": false,\s*"failureFactor": 5,'

@@ -201,7 +201,7 @@ export interface BankDriver {
   tokensVanDeBank(): Promise<GevondenToken[]>;
   /** Alleen in de UI-driver: de tokens in de cookies, de localStorage en de sessionStorage van de pagina. */
   tokensInDeBrowser(): Promise<GevondenToken[]>;
-  /** Alleen in de UI-driver (@ui): inloggen zonder te verwachten dat het lukt (S6.1). */
+  /** Inloggen zonder te verwachten dat het lukt (S6.1). */
   probeerInTeLoggen(gebruikersnaam: string, wachtwoord: string): Promise<void>;
   /** De melding op het inlogscherm, of undefined als BankSim al geladen is. */
   inlogfout(): Promise<string | undefined>;

@@ -51,3 +51,16 @@ test('Een login met een vreemde redirect-URI wordt geweigerd', async ({ omgeving
   await omgeving.dan('toont Keycloak geen inlogscherm', () => keycloak.verwachtGeenInlogscherm());
   await omgeving.en('stuurt Keycloak niet door naar evil.example', () => keycloak.verwachtNietDoorgestuurdNaar('evil.example'));
 });
+
+/** ADR 0008: bij de implicit flow geeft Keycloak het access token direct aan de browser, in de URL. */
+test('Een login met de implicit flow wordt geweigerd', async ({ omgeving }) => {
+  const keycloak = omgeving.keycloak();
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
+  await omgeving.als('een browser bij Keycloak inlogt voor bank-bff met response_type=token, PKCE (S256) en de eigen redirect-URI', () =>
+    keycloak.vraagtLoginAan({ pkce: 'S256', redirectUri: EIGEN, implicit: true }),
+  );
+  await omgeving.dan('toont Keycloak geen inlogscherm', () => keycloak.verwachtGeenInlogscherm());
+  await omgeving.en('stuurt Keycloak terug naar de eigen redirect-URI met error=unauthorized_client', () =>
+    keycloak.verwachtTeruggestuurdMetFout(EIGEN, 'unauthorized_client'),
+  );
+});

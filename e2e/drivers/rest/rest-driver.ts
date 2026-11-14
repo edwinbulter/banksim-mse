@@ -46,6 +46,8 @@ export class RestDriver implements BankDriver {
   private nietGevonden = false;
   /** De tokens in de antwoorden van de bank die bekijk() zag, sinds de vorige tokensVanDeBank(). */
   private tokens: GevondenToken[] = [];
+  /** De melding van Keycloak na de laatste probeerInTeLoggen; undefined als de login lukte. */
+  private inlogmelding?: string;
 
   constructor(private readonly request: APIRequestContext) {}
 
@@ -63,15 +65,31 @@ export class RestDriver implements BankDriver {
 
   /** De authorization-code-flow met cookies: BFF → inlogformulier van Keycloak → terug naar de BFF. */
   async logIn(gebruikersnaam: string, wachtwoord: string): Promise<void> {
+    const antwoord = await this.vulInlogformulierIn(gebruikersnaam, wachtwoord);
+    // Na een geslaagde login eindigt de redirect-keten op de startpagina van bank-web.
+    expect(antwoord.url(), 'na inloggen terug op BankSim').toMatch(/^https:\/\/bank-mse\.localtest\.me\/?$/);
+  }
+
+  /** Zonder te verwachten dat het lukt; blijft Keycloak op het inlogscherm, dan bewaart de driver de melding. */
+  async probeerInTeLoggen(gebruikersnaam: string, wachtwoord: string): Promise<void> {
+    const antwoord = await this.vulInlogformulierIn(gebruikersnaam, wachtwoord);
+    this.inlogmelding = vanDeBank(antwoord)
+      ? undefined
+      : /class="[^"]*kc-feedback-text[^"]*"[^>]*>([^<]*)</.exec(await antwoord.text())?.[1]?.trim() ?? '';
+  }
+
+  async inlogfout(): Promise<string | undefined> {
+    return this.inlogmelding;
+  }
+
+  private async vulInlogformulierIn(gebruikersnaam: string, wachtwoord: string): Promise<APIResponse> {
     const loginPagina = await this.request.get('/oauth2/authorization/keycloak');
     expect(loginPagina.status(), 'inlogpagina van Keycloak').toBe(200);
     const action = /<form[^>]*id="kc-form-login"[^>]*action="([^"]+)"/.exec(await loginPagina.text())?.[1];
     expect(action, 'formulier kc-form-login op de inlogpagina').toBeTruthy();
-    const antwoord = await this.request.post(action!.replaceAll('&amp;', '&'), {
+    return this.request.post(action!.replaceAll('&amp;', '&'), {
       form: { username: gebruikersnaam, password: wachtwoord },
     });
-    // Na een geslaagde login eindigt de redirect-keten op de startpagina van bank-web.
-    expect(antwoord.url(), 'na inloggen terug op BankSim').toMatch(/^https:\/\/bank-mse\.localtest\.me\/?$/);
   }
 
   /**
@@ -133,13 +151,6 @@ export class RestDriver implements BankDriver {
     throw new Error('Schermen bestaan alleen in de browser (@ui)');
   }
 
-  async probeerInTeLoggen(): Promise<void> {
-    throw new Error('Het inlogscherm bestaat alleen in de browser (@ui)');
-  }
-
-  async inlogfout(): Promise<string | undefined> {
-    throw new Error('Het inlogscherm bestaat alleen in de browser (@ui)');
-  }
 
   /**
    * Zoals Angular: een POST met het CSRF-token uit het cookie XSRF-TOKEN (ADR 0016). De BFF antwoordt 202 met de

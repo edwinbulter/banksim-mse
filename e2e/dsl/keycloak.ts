@@ -14,8 +14,18 @@ export class Keycloak {
   constructor(private readonly driver: KeycloakDriver) {}
 
   /** Zonder `pkce` ontbreekt de code_challenge. */
-  async vraagtLoginAan({ pkce, redirectUri }: { pkce?: PkceMethode; redirectUri: string }): Promise<void> {
-    this.laatste = await this.driver.vraagLoginAan({ realm: REALM, clientId: CLIENT, redirectUri, pkce });
+  async vraagtLoginAan({
+    pkce,
+    redirectUri,
+    implicit = false,
+  }: {
+    pkce?: PkceMethode;
+    redirectUri: string;
+    /** De implicit flow (response_type=token): het token direct naar de browser. */
+    implicit?: boolean;
+  }): Promise<void> {
+    const responseType = implicit ? 'token' : 'code';
+    this.laatste = await this.driver.vraagLoginAan({ realm: REALM, clientId: CLIENT, redirectUri, pkce, responseType });
   }
 
   async verwachtInlogscherm(): Promise<void> {
@@ -28,13 +38,17 @@ export class Keycloak {
     expect(this.vereisAntwoord().inlogscherm, 'het inlogformulier van Keycloak').toBe(false);
   }
 
-  /** OAuth 2.0 (RFC 6749, 4.1.2.1): bij een geldige redirect-URI meldt Keycloak de fout daar, als parameter error. */
+  /**
+   * OAuth 2.0 (RFC 6749): bij een geldige redirect-URI meldt Keycloak de fout daar, als parameter error. Bij de code
+   * flow in de query (4.1.2.1), bij de implicit flow in het fragment (4.2.2.1).
+   */
   async verwachtTeruggestuurdMetFout(redirectUri: string, fout: string): Promise<void> {
     const { status, doorverwijzing } = this.vereisAntwoord();
     expect(status, 'status van de loginaanvraag').toBe(302);
     const naar = new URL(doorverwijzing ?? '');
     expect(`${naar.origin}${naar.pathname}`, 'doorverwijzing van Keycloak').toBe(redirectUri);
-    expect(naar.searchParams.get('error'), `fout in de doorverwijzing (${naar.searchParams.get('error_description')})`).toBe(fout);
+    const params = naar.hash ? new URLSearchParams(naar.hash.slice(1)) : naar.searchParams;
+    expect(params.get('error'), `fout in de doorverwijzing (${params.get('error_description')})`).toBe(fout);
   }
 
   async verwachtNietDoorgestuurdNaar(host: string): Promise<void> {

@@ -33,6 +33,42 @@ test('Uitloggen op het ene apparaat laat Jan op het andere ingelogd', async ({ b
   await bank.en('is Jan op zijn telefoon niet meer ingelogd', () => jan.verwachtNietIngelogdOp('telefoon'));
 });
 
+/**
+ * CFR OWASP Top 10: Keycloak blokkeert een klant na vijf verkeerde wachtwoorden een tijd (bruteForceProtected,
+ * failureFactor 5 in de realm). Het tweede scenario legt de grens vast: met failureFactor 1 zou het eerste ook groen zijn.
+ * De pogingen gaan een paar seconden na elkaar, zoals een mens; anders blokkeert de snelle-login-check (derde scenario).
+ */
+test('Na vijf verkeerde wachtwoorden kan Jan even niet inloggen, ook niet met het juiste', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening());
+  await bank.en('Jan heeft vijf keer, een paar seconden na elkaar, ingelogd met een verkeerd wachtwoord', () =>
+    jan.heeftVerkeerdIngelogd(5, { rustig: true }),
+  );
+  await bank.als('Jan inlogt met zijn juiste wachtwoord', () => jan.logtInMetJuisteWachtwoord());
+  await bank.dan('is Jan niet ingelogd', () => jan.verwachtIngelogd(false));
+});
+
+test('Na vier verkeerde wachtwoorden kan Jan nog inloggen', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening());
+  await bank.en('Jan heeft vier keer, een paar seconden na elkaar, ingelogd met een verkeerd wachtwoord', () =>
+    jan.heeftVerkeerdIngelogd(4, { rustig: true }),
+  );
+  await bank.als('Jan inlogt met zijn juiste wachtwoord', () => jan.logtInMetJuisteWachtwoord());
+  await bank.dan('ziet Jan zijn overzicht', () => jan.verwachtIngelogd(true));
+});
+
+/** Snel achter elkaar is geen mens: Keycloak blokkeert dan meteen (quickLoginCheckMilliSeconds, standaard 1000 ms). */
+test('Twee verkeerde wachtwoorden binnen een seconde blokkeren Jan meteen', async ({ bank }) => {
+  const jan = bank.klant('Jan');
+  await bank.gegeven('Jan heeft een betaalrekening', () => jan.heeftBetaalrekening());
+  await bank.en('Jan heeft twee keer binnen een seconde ingelogd met een verkeerd wachtwoord', () =>
+    jan.heeftVerkeerdIngelogd(2, { rustig: false }),
+  );
+  await bank.als('Jan inlogt met zijn juiste wachtwoord', () => jan.logtInMetJuisteWachtwoord());
+  await bank.dan('is Jan niet ingelogd', () => jan.verwachtIngelogd(false));
+});
+
 /** S6.1: Keycloak weigert een verkeerd wachtwoord; Jan blijft op het inlogscherm. @ui: het gaat om wat Jan ziet. */
 test('Verkeerd wachtwoord', { tag: '@ui' }, async ({ bank }) => {
   const jan = bank.klant('Jan');

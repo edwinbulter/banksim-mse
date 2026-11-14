@@ -9,6 +9,8 @@ export interface Loginaanvraag {
   clientId: string;
   redirectUri: string;
   pkce?: PkceMethode;
+  /** Standaard 'code' (authorization code flow); 'token' is de implicit flow. */
+  responseType?: 'code' | 'token';
 }
 
 /** Wat Keycloak terugstuurde: het inlogscherm, of een doorverwijzing (Location), of een foutpagina. */
@@ -28,10 +30,10 @@ export class KeycloakDriver {
     private readonly authUrl: string,
   ) {}
 
-  async vraagLoginAan({ realm, clientId, redirectUri, pkce }: Loginaanvraag): Promise<Loginantwoord> {
+  async vraagLoginAan({ realm, clientId, redirectUri, pkce, responseType = 'code' }: Loginaanvraag): Promise<Loginantwoord> {
     const params: Record<string, string> = {
       client_id: clientId,
-      response_type: 'code',
+      response_type: responseType,
       scope: 'openid',
       redirect_uri: redirectUri,
       state: randomUUID(),

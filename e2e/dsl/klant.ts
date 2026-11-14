@@ -327,6 +327,40 @@ export class Klant {
     await (await this.sessie()).probeerInTeLoggen(this.vereisGegevens().gebruikersnaam, wachtwoord);
   }
 
+  /**
+   * Wacht na elke poging op het antwoord van Keycloak. `rustig`: 2 s tussen de pogingen, zoals een mens. Twee mislukte
+   * pogingen binnen quickLoginCheckMilliSeconds (standaard 1000 ms) blokkeren een klant meteen, los van failureFactor.
+   */
+  async heeftVerkeerdIngelogd(keer: number, { rustig }: { rustig: boolean }): Promise<void> {
+    const sessie = await this.sessie();
+    let vorige: number | undefined;
+    for (let poging = 1; poging <= keer; poging++) {
+      if (rustig && poging > 1) await new Promise((klaar) => setTimeout(klaar, 2000));
+      await sessie.probeerInTeLoggen(this.vereisGegevens().gebruikersnaam, 'verkeerd');
+      expect(await sessie.inlogfout(), `melding bij verkeerd wachtwoord ${poging}`).toBeTruthy();
+      const nu = Date.now();
+      if (!rustig && vorige !== undefined) {
+        expect(nu - vorige, 'ms tussen twee verkeerde wachtwoorden (Gegeven: binnen een seconde)').toBeLessThan(1000);
+      }
+      vorige = nu;
+    }
+  }
+
+  /** Zonder te verwachten dat het lukt; daarna staat Jan op het inlogscherm of in BankSim. */
+  async logtInMetJuisteWachtwoord(): Promise<void> {
+    const { gebruikersnaam, wachtwoord } = this.vereisGegevens();
+    const sessie = await this.sessie();
+    await sessie.probeerInTeLoggen(gebruikersnaam, wachtwoord);
+    await sessie.inlogfout();
+  }
+
+  /** Opnieuw naar BankSim, zoals na de pagina sluiten: ziet Jan zijn overzicht of "Inloggen"? */
+  async verwachtIngelogd(ingelogd: boolean): Promise<void> {
+    const sessie = await this.sessie();
+    await sessie.openStartpagina();
+    expect(await sessie.ingelogd(), `${this.alias} ingelogd`).toBe(ingelogd);
+  }
+
   /** Jan staat nog op het inlogscherm, met deze melding. */
   async verwachtInlogfout(melding: string): Promise<void> {
     expect(await (await this.sessie()).inlogfout(), `inlogfout bij ${this.alias}`).toBe(melding);
