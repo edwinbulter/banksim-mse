@@ -200,17 +200,17 @@ jobs:
 
   installatie:
     # Een eigen runner en cluster, parallel aan de acceptatietests: de installatiescenario's installeren en
-    # verwijderen zelf (doc/werkwijze-mse.md, 9.2). Verdeeld over drie shards, elk met een eigen runner en
-    # cluster (ADR 0047).
-    name: Acceptance stage – installatiescenario's ${{ matrix.shard }}/3 (kind, namespace banksim-mse)
+    # verwijderen zelf (doc/werkwijze-mse.md, 9.2). Verdeeld over drie jobs, elk met een eigen runner en cluster
+    # (ADR 0047): installatie.spec.ts apart, de rest in twee shards (ADR 0052).
+    name: Acceptance stage – installatiescenario's ${{ matrix.deel }} (kind, namespace banksim-mse)
     # ADR 0049: niet op backend, net als de acceptatietests.
     needs: [frontend, infrastructuur, images]
     runs-on: ubuntu-24.04
     strategy:
-      # Elke shard maakt zijn run af, zodat een fout in de ene shard de uitkomst van de andere niet verbergt.
+      # Elke job maakt zijn run af, zodat een fout in de ene job de uitkomst van de andere niet verbergt.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        deel: [installatie, overig-1, overig-2]
     timeout-minutes: 30
     env:
       CONTEXT: kind-banksim-mse-ci
@@ -256,8 +256,16 @@ jobs:
         env:
           BANKSIM_DESTRUCTIEF: '1'
           PLAYWRIGHT_HTML_REPORT: playwright-report-infra
-          SHARD: ${{ matrix.shard }}
-        run: BANKSIM_CONTEXT="$CONTEXT" BANKSIM_IMAGE_TAG="${GITHUB_SHA::7}" npm --prefix e2e run test:infra -- --shard="$SHARD/3"
+          DEEL: ${{ matrix.deel }}
+        # ADR 0052: de serial-groep van installatie.spec.ts in een eigen job; Playwright verdeelt op aantal, en zette die
+        # groep anders in de shard waar zijn eerste scenario viel. Een nieuw bestand komt vanzelf in overig.
+        run: |
+          if [ "$DEEL" = installatie ]; then
+            selectie=(specs/infra/installatie.spec.ts)
+          else
+            selectie=(--grep-invert 'installatie\.spec\.ts' --shard="${DEEL#overig-}/2")
+          fi
+          BANKSIM_CONTEXT="$CONTEXT" BANKSIM_IMAGE_TAG="${GITHUB_SHA::7}" npm --prefix e2e run test:infra -- "${selectie[@]}"
       - name: Clusterstatus bij falen
         if: failure()
         run: |
@@ -268,7 +276,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-rapport-infra-${{ matrix.shard }}
+          name: playwright-rapport-infra-${{ matrix.deel }}
           path: |
             e2e/playwright-report-infra/
             e2e/test-results/

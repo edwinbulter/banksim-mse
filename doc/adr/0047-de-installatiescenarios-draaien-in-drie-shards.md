@@ -1,7 +1,7 @@
 # 0047. De installatiescenario's draaien in CI in drie shards, elk met een eigen kind-cluster
 
 Datum: 2026-11-11
-Status: Geaccepteerd
+Status: Geaccepteerd; de verdeling over de jobs is vervangen door ADR 0052
 
 ## Context
 De pipeline duurde in run 43029153054 21:16. De job "Acceptance stage – installatiescenario's" bepaalde die duur: 18:36, waarvan 3:04 voor het kind-cluster en de installatie, 0:31 voor de browser, en 14:44 voor de 32 scenario's van het project `infra`. Die draaien na elkaar met één worker, omdat ze zelf installeren en verwijderen (`installatie.spec.ts`, `upgrade.spec.ts`), en omdat de `@simulatiedatum`-scenario's in `huishoudens.spec.ts` de datum van de hele bank verzetten (ADR 0014).
