@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Logboek } from '../logboek';
 
 export interface Resultaat {
   code: number;
@@ -31,22 +32,26 @@ const IMAGES = ['bank-api', 'bank-bff', 'bank-seed', 'bank-web'].map((naam) => `
  * Geen shell-interpolatie: elk argument gaat los naar execFile.
  */
 export class ShellDriver {
-  constructor(readonly context: string) {}
+  /** Met een logboek komt elk commando erin, met de exitcode; de uitvoer alleen als het commando faalde (ADR 0053). */
+  constructor(
+    readonly context: string,
+    private readonly logboek?: Logboek,
+  ) {}
 
   /** deploy/scripts/<naam> met de gegeven argumenten. Faalt niet bij een exitcode ≠ 0; dat beoordeelt de DSL. */
   script(naam: string, args: string[], env: Record<string, string> = {}): Promise<Resultaat> {
-    return voerUit(join(REPO_ROOT, 'deploy/scripts', naam), args, env);
+    return this.voer(join(REPO_ROOT, 'deploy/scripts', naam), args, env);
   }
 
   /** Tagt de images van BankSim-MSE in Docker opnieuw, zodat install.sh --image-tag ze als nieuwe versie laadt. */
   async tagImages(van: string, naar: string): Promise<void> {
     for (const image of IMAGES) {
-      await verwacht(voerUit('docker', ['tag', `${image}:${van}`, `${image}:${naar}`]));
+      await verwacht(this.voer('docker', ['tag', `${image}:${van}`, `${image}:${naar}`]));
     }
   }
 
   async kubectl(args: string[]): Promise<Resultaat> {
-    return voerUit('kubectl', ['--context', this.context, ...args]);
+    return this.voer('kubectl', ['--context', this.context, ...args]);
   }
 
   /** kubectl als langlopend proces, met stdin open; voor de seed-sessie (ADR 0020). */
@@ -75,7 +80,7 @@ export class ShellDriver {
 
   /** De waarden van een Helm-release, of undefined als de release niet bestaat. */
   async helmWaarden(namespace: string, release: string): Promise<Record<string, unknown> | undefined> {
-    const resultaat = await voerUit('helm', [
+    const resultaat = await this.voer('helm', [
       '--kube-context', this.context, '-n', namespace, 'get', 'values', release, '-o', 'json',
     ]);
     return resultaat.code === 0 ? (JSON.parse(resultaat.stdout) as Record<string, unknown>) : undefined;
@@ -83,12 +88,12 @@ export class ShellDriver {
 
   /** De status van een Helm-release, zoals "deployed" of "failed", of undefined als de release niet bestaat. */
   async helmStatus(namespace: string, release: string): Promise<string | undefined> {
-    const resultaat = await voerUit('helm', ['--kube-context', this.context, '-n', namespace, 'status', release, '-o', 'json']);
+    const resultaat = await this.voer('helm', ['--kube-context', this.context, '-n', namespace, 'status', release, '-o', 'json']);
     return resultaat.code === 0 ? (JSON.parse(resultaat.stdout) as { info: { status: string } }).info.status : undefined;
   }
 
   async helmRevisie(namespace: string, release: string): Promise<number> {
-    const resultaat = await voerUit('helm', ['--kube-context', this.context, '-n', namespace, 'history', release, '-o', 'json']);
+    const resultaat = await this.voer('helm', ['--kube-context', this.context, '-n', namespace, 'history', release, '-o', 'json']);
     if (resultaat.code !== 0) throw new Error(`helm history faalde:\n${resultaat.uitvoer}`);
     const historie = JSON.parse(resultaat.stdout) as { revision: number }[];
     return Math.max(...historie.map((r) => r.revision));
@@ -96,7 +101,7 @@ export class ShellDriver {
 
   /** HTTP-status van een URL via de ingress, met het zelfondertekende certificaat van ingress-nginx. */
   async httpStatus(url: string): Promise<number> {
-    const resultaat = await voerUit('curl', ['-sk', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '10', url]);
+    const resultaat = await this.voer('curl', ['-sk', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '10', url]);
     return Number(resultaat.stdout.trim()) || 0;
   }
 
@@ -110,10 +115,10 @@ export class ShellDriver {
     const map = await mkdtemp(join(tmpdir(), 'banksim-mse-kubeconfig-'));
     try {
       const pad = join(map, 'config');
-      const huidig = await voerUit('kubectl', ['config', 'view', '--raw']);
+      const huidig = await this.voer('kubectl', ['config', 'view', '--raw']);
       if (huidig.code !== 0) throw new Error(`kubectl config view faalde:\n${huidig.uitvoer}`);
       await writeFile(pad, huidig.stdout, { mode: 0o600 });
-      const config = (...args: string[]) => voerUit('kubectl', ['--kubeconfig', pad, 'config', ...args]);
+      const config = (...args: string[]) => this.voer('kubectl', ['--kubeconfig', pad, 'config', ...args]);
       if (this.context !== STANDAARD_CONTEXT) {
         await verwacht(config('delete-context', STANDAARD_CONTEXT), true);
         await verwacht(config('rename-context', this.context, STANDAARD_CONTEXT));
@@ -127,6 +132,14 @@ export class ShellDriver {
     } finally {
       await rm(map, { recursive: true, force: true });
     }
+  }
+  private async voer(bestand: string, args: string[], env: Record<string, string> = {}): Promise<Resultaat> {
+    const resultaat = await voerUit(bestand, args, env);
+    this.logboek?.schrijf(
+      `$ ${[bestand.replace(REPO_ROOT, ''), ...args].join(' ')} → ${resultaat.code}` +
+        (resultaat.code === 0 ? '' : `\n${resultaat.uitvoer.slice(-2_000)}`),
+    );
+    return resultaat;
   }
 }
 

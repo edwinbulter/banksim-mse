@@ -2,6 +2,7 @@ import { test as basis, type APIRequestContext, type BrowserContext } from '@pla
 import { Bank } from './bank';
 import { Omgeving } from './omgeving';
 import { labelVoorAllure } from './rapport';
+import { gelogd, Logboek } from '../drivers/logboek';
 import { KeycloakDriver } from '../drivers/rest/keycloak-driver';
 import { RestDriver } from '../drivers/rest/rest-driver';
 import { BankSeed } from '../drivers/shell/bank-seed';
@@ -17,7 +18,7 @@ export interface Opties {
   driver: 'rest' | 'ui';
 }
 
-export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving; allureLabels: void }, { seedSessie: SeedSessie | undefined }>({
+export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving; allureLabels: void; logboek: Logboek }, { seedSessie: SeedSessie | undefined }>({
   driver: ['rest', { option: true }],
   // ADR 0053: elk scenario krijgt zijn labels voor Allure, ook als het alleen omgeving gebruikt, of omgeving en bank.
   allureLabels: [
@@ -27,6 +28,14 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving; allu
     },
     { auto: true },
   ],
+  // ADR 0053: het verkeer van de drivers met het systeem, bij een fout als bijlage in het rapport (gemaskeerd).
+  logboek: async ({}, use, testInfo) => {
+    const logboek = new Logboek();
+    await use(logboek);
+    if (testInfo.status !== testInfo.expectedStatus && !logboek.leeg) {
+      await testInfo.attach('verkeer met het systeem', { body: logboek.toString(), contentType: 'text/plain' });
+    }
+  },
   // ADR 0020: één seed-pod per worker, pas gestart bij de eerste opdracht. Niet in het project infra: daar wisselt een
   // upgrade de versie midden in de run, en een sessie zou de oude blijven draaien.
   seedSessie: [
@@ -38,14 +47,14 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving; allu
     },
     { scope: 'worker' },
   ],
-  bank: async ({ driver, page, request, playwright, browser, baseURL, seedSessie }, use, testInfo) => {
-    const bankDriver = driver === 'ui' ? new UiDriver(page) : new RestDriver(request);
-    const seed = new BankSeed(new ShellDriver(context()), seedSessie);
+  bank: async ({ driver, page, request, playwright, browser, baseURL, seedSessie, logboek }, use, testInfo) => {
+    const bankDriver = driver === 'ui' ? new UiDriver(page) : new RestDriver(gelogd(request, logboek));
+    const seed = new BankSeed(new ShellDriver(context(), logboek), seedSessie);
     const eigenSessies: (APIRequestContext | BrowserContext)[] = [];
     const eigenRestDriver = async () => {
       const sessie = await playwright.request.newContext({ baseURL, ignoreHTTPSErrors: true });
       eigenSessies.push(sessie);
-      return new RestDriver(sessie);
+      return new RestDriver(gelogd(sessie, logboek));
     };
     // Een tweede klant in de browser krijgt een eigen context, met dezelfde instellingen als het project.
     const eigenUiDriver = async () => {
@@ -69,14 +78,14 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving; allu
   },
   // Installatiescenario's (project infra). BANKSIM_CONTEXT is in CI het tijdelijke cluster; BANKSIM_IMAGE_TAG de
   // images uit de commit stage. Zonder tag hergebruikt de omgeving de bestaande installatie (install.sh --skip-build).
-  omgeving: async ({ request, playwright, browser, baseURL }, use, testInfo) => {
-    const shell = new ShellDriver(context());
+  omgeving: async ({ request, playwright, browser, baseURL, logboek }, use, testInfo) => {
+    const shell = new ShellDriver(context(), logboek);
     const imageTag = process.env.BANKSIM_IMAGE_TAG || undefined;
     const eigenSessies: (APIRequestContext | BrowserContext)[] = [];
     const maakRestDriver = async () => {
       const sessie = await playwright.request.newContext({ baseURL, ignoreHTTPSErrors: true });
       eigenSessies.push(sessie);
-      return new RestDriver(sessie);
+      return new RestDriver(gelogd(sessie, logboek));
     };
     const maakUiDriver = async () => {
       const { locale, timezoneId, ignoreHTTPSErrors } = testInfo.project.use;
@@ -84,8 +93,8 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving; allu
       eigenSessies.push(sessie);
       return new UiDriver(await sessie.newPage());
     };
-    const omgeving = new Omgeving(shell, new RestDriver(request), imageTag, (titel, stap) => basis.step(titel, stap), maakRestDriver, maakUiDriver,
-      new KeycloakDriver(request, authUrl));
+    const omgeving = new Omgeving(shell, new RestDriver(gelogd(request, logboek)), imageTag, (titel, stap) => basis.step(titel, stap), maakRestDriver, maakUiDriver,
+      new KeycloakDriver(gelogd(request, logboek), authUrl));
     await use(omgeving);
     // De simulatiedatum geldt voor de hele bank: wissen, ook als het scenario faalde (ADR 0014).
     if (testInfo.tags.includes('@simulatiedatum')) {
