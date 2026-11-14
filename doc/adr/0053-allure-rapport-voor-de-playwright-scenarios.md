@@ -45,3 +45,22 @@ Optie 3, **naast** het HTML-rapport van Playwright. Dat blijft, vanwege de trace
 - `make iac` (actionlint) controleert `ci.yml` en `allure.yml`.
 - **Na elke push:** de workflow `Allure-rapport` is groen. Het rapport op Pages telt evenveel scenario's als de acceptatiejob plus de installatiescenario's samen.
 - **Meetbaar doel:** de CI-run wordt hoogstens 15 s langer dan de 9:28 van run 43616088400. Het rapport staat binnen 2 minuten na het einde van de CI-run op Pages. De meting komt hieronder, in een aparte commit.
+
+## Meting
+Eerste run: CI-run 43651543643 (6ae22ea, 2026-11-14), met daarna de workflow Allure-rapport in run 43652314147.
+
+| | Doel | Gemeten |
+| --- | --- | --- |
+| Extra duur van de CI-run | hoogstens 15 s | 0 tot 1 s per job: de nieuwe stap Allure-resultaten |
+| Duur van de CI-run | – | 8:54 (run 43616088400: 9:28) |
+| Rapport op Pages na het einde van de CI-run | binnen 2 minuten | 31 s (Allure generate 4 s, deploy-pages 7 s) |
+| Scenario's in het rapport | gelijk aan de vier jobs | 186 = 143 (acceptatie) + 6 (installatie) + 18 en 19 (overig-1 en overig-2) |
+
+**Het doel is gehaald.** De CI-run duurde 34 s korter dan de vorige meting. Dat komt niet door deze wijziging. De duur van een job verschilt per runner: de job `installatie` duurde nu 6:12, in run 43616088400 nog 8:01. Het verschil tussen twee runs is dus groter dan wat de upload kost. Daarom is de duur van de stap zelf gemeten.
+
+Het rapport op Pages heeft:
+- 14 epics;
+- de omgeving met image-tag 6ae22ea;
+- de link naar de CI-run.
+
+De geschiedenis begint bij deze run (`history/history-trend.json` staat op Pages).
