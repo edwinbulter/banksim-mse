@@ -59,3 +59,15 @@ De afweging staat in [observability-opties.md](../observability-opties.md), het 
   - Keycloak heeft `KC_METRICS_ENABLED`.
 - **`scripts/iac-check.sh`:** alles blijft in `banksim-mse`, zonder cluster-brede resources.
 - **Meetbaar doel:** de infra-job met `otel-lgtm` blijft korter dan de acceptatiejob in dezelfde run. Zo wordt de pipeline er niet langer door. Een vergelijking met een vorige run zegt weinig, want de duur van een job verschilt per runner tot 2 minuten (ADR 0052). De meting komt hieronder, in een aparte commit.
+
+## Meting
+Eerste run: CI-run 43766616522 (9fde51b, 2026-11-15).
+
+| | Doel | Gemeten |
+| --- | --- | --- |
+| Duur van de job `overig-1` (met `otel-lgtm`) | korter dan de acceptatiejob | 6:29, tegen 7:23 voor de acceptatiejob |
+| Cluster en installatie in `overig-1` | – | 3:05, tegen 2:25 in `overig-2` (zonder `otel-lgtm`): ongeveer 40 s voor het image en het opstarten |
+| De stap Telemetrie | – | 50 s |
+| Duur van de CI-run | – | 9:20; de langste job is `installatie` (7:31), zonder `otel-lgtm` |
+
+**Het doel is gehaald.** De job met `otel-lgtm` duurt ongeveer 1:30 langer dan zonder, maar blijft bijna een minuut korter dan de acceptatiejob. De pipeline wordt er dus niet langer door.
