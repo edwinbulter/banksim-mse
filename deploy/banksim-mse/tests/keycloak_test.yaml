@@ -76,3 +76,13 @@ tests:
       - matchRegex:
           path: data["realm-banksim-mse.json"]
           pattern: '"bruteForceProtected": true,\s*"permanentLockout": false,\s*"failureFactor": 5,'
+  - it: biedt zijn eigen metrics aan op de management-poort, voor otel-lgtm (ADR 0054)
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: KC_METRICS_ENABLED, value: "true" }
+        documentSelector: { path: kind, value: Deployment }
+      - contains:
+          path: spec.ports
+          content: { name: management, port: 9000, targetPort: management }
+        documentSelector: { path: kind, value: Service }

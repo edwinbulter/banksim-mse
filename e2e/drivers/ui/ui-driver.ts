@@ -233,6 +233,10 @@ export class UiDriver implements BankDriver {
     return this.betalen.betaalDubbel(opdracht);
   }
 
+  laatsteBetaalsleutel(): string {
+    throw new Error('De sleutel maakt de app in de browser; alleen de REST-driver kent hem');
+  }
+
   async openBetalen(): Promise<void> {
     await this.betalen.open();
   }

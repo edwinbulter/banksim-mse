@@ -51,3 +51,32 @@ tests:
           content:
             name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
             value: http://keycloak:8080/realms/banksim-mse/protocol/openid-connect/certs
+  - it: stuurt traces en metrics met OTLP naar otel-lgtm, met de image-tag als versie (ADR 0054)
+    documentSelector: { path: kind, value: Deployment }
+    set:
+      imageTag: abc1234
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT, value: http://otel-lgtm:4318/v1/traces }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED, value: "true" }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: MANAGEMENT_OTLP_METRICS_EXPORT_URL, value: http://otel-lgtm:4318/v1/metrics }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: OTEL_RESOURCE_ATTRIBUTES, value: service.version=abc1234 }
+  - it: stuurt niets met observability.enabled false
+    documentSelector: { path: kind, value: Deployment }
+    set:
+      observability.enabled: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: { name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED, value: "true" }
+          any: true
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].env[*].name
+          pattern: OTLP

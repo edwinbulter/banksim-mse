@@ -11,7 +11,13 @@ images:
   keycloak: quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
   postgres: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
   # ADR 0017: nog geen build voor Keycloak 26.8; 26.5.5 is getest tegen 26.8.0.
+  # ADR 0054: Collector, Prometheus, Tempo, Loki en Grafana.
+  otelLgtm: grafana/otel-lgtm:0.41.0@sha256:2e3290657f2f2a256c7a9175f097424a3ac5b54840741ace433e108e109348b6
   keycloakConfigCli: adorsys/keycloak-config-cli:6.5.1-26.5.5@sha256:0955d98c8a341898b7aa177477edf8a1e90569ae50bbe7598141c1270b773274
+
+# ADR 0054: telemetrie van bank-api, bank-bff en Keycloak naar otel-lgtm in deze namespace.
+observability:
+  enabled: true
 
 hosts:
   bank: bank-mse.localtest.me
@@ -46,6 +52,10 @@ resources:
   demo:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { memory: 512Mi }
+  # Spike: ongeveer 630 MB eigen geheugen, plus cache (ADR 0054).
+  otelLgtm:
+    requests: { cpu: 100m, memory: 1Gi }
+    limits: { memory: 2Gi }
   postgres:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { memory: 256Mi }

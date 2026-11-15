@@ -522,6 +522,11 @@ export class Klant {
     await this.verwachtGelukt(await (await this.sessie()).betaalDubbel({ bedrag, naam: aan.naam(), iban: aan.iban() }), 'betaling');
   }
 
+  /** De Idempotency-Key van de laatste betaling van deze klant (ADR 0027): zo is die betaling in Tempo te vinden. */
+  async betaalsleutel(): Promise<string> {
+    return (await this.sessie()).laatsteBetaalsleutel();
+  }
+
   /** Vanaf de eigen betaalrekening, met "Betalen". */
   async opentBetalen(): Promise<void> {
     await this.opentBetaalrekening();

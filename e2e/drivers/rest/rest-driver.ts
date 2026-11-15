@@ -29,6 +29,7 @@ import { tokensIn } from '../tokens';
  */
 export class RestDriver implements BankDriver {
   private geopend?: string;
+  private betaalsleutel?: string;
   /** Het pad waarlangs de rekening geopend is: van de klant, of alleen-lezen in beheer (ADR 0038). */
   private transactiepad = (iban: string) => `/api/rekeningen/${iban}/transacties`;
   /** Het pad van de geopende rekening zelf, voor de kop (FO "Kopgedeelte"). */
@@ -473,7 +474,13 @@ export class RestDriver implements BankDriver {
 
   /** Het CSRF-token en, zoals de app per controlescherm, een nieuwe Idempotency-Key (ADR 0027). */
   private async betaalHeaders(): Promise<Record<string, string>> {
-    return { ...(await this.csrfHeader()), 'Idempotency-Key': randomUUID() };
+    this.betaalsleutel = randomUUID();
+    return { ...(await this.csrfHeader()), 'Idempotency-Key': this.betaalsleutel };
+  }
+
+  laatsteBetaalsleutel(): string {
+    if (!this.betaalsleutel) throw new Error('Er is nog niet betaald of overgeschreven');
+    return this.betaalsleutel;
   }
 
   /** Het CSRF-token uit het cookie XSRF-TOKEN (ADR 0016); zonder cookie haalt een GET via de BFF het eerst op. */

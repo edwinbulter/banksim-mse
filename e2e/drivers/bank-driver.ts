@@ -263,6 +263,8 @@ export interface BankDriver {
    * browser een dubbelklik op "Bevestigen" (S7.1, CFR).
    */
   betaalDubbel(opdracht: Betaalopdracht): Promise<Uitkomst>;
+  /** Alleen in de REST-driver: de Idempotency-Key van de laatste betaling of overschrijving (ADR 0027, 0054). */
+  laatsteBetaalsleutel(): string;
   /** Alleen in de UI-driver (@ui): vanaf de geopende rekening het betaalscherm openen. */
   openBetalen(): Promise<void>;
   /** Alleen in de UI-driver (@ui): hoeveel tekens er in elk veld van het betaalscherm passen. */

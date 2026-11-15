@@ -3,8 +3,10 @@ import { expect } from '@playwright/test';
 import type { BankDriver, Contact, RekeningInOverzicht, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { KeycloakDriver } from '../drivers/rest/keycloak-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
+import type { Span, TempoDriver } from '../drivers/telemetrie/tempo-driver';
 import { DEMO_BEHEERDER, DEMO_KLANTEN, GELDAUTOMATEN, SUPERMARKTEN, VASTE_LASTEN, WEBWINKELS } from './huishoudens';
 import { Keycloak } from './keycloak';
+import type { Klant } from './klant';
 import { Stappen, type Stap } from './stappen';
 
 const NAMESPACE = 'banksim-mse';
@@ -67,6 +69,8 @@ export class Omgeving extends Stappen {
   private beheerder?: BankDriver;
   /** De contacten die de bank bij de laatste zoekopdracht van zoektContact voorstelde. */
   private voorgesteld: Contact[] = [];
+  /** De spans van de trace die verwachtEenTraceVanDeBetaling vond. */
+  private trace: Span[] = [];
 
   constructor(
     private readonly shell: ShellDriver,
@@ -79,8 +83,27 @@ export class Omgeving extends Stappen {
     private readonly maakUiDriver: () => Promise<BankDriver>,
     /** Het inlogadres van Keycloak, rechtstreeks zoals een browser het opvraagt. */
     private readonly keycloakDriver: KeycloakDriver,
+    /** Tempo in otel-lgtm (ADR 0054). */
+    private readonly tempo: TempoDriver,
   ) {
     super(stap);
+  }
+
+  /** ADR 0054: de laatste betaling van `klant` staat in Tempo als precies één trace, gevonden op haar Idempotency-Key. */
+  async verwachtEenTraceVanDeBetaling(klant: Klant): Promise<void> {
+    const traces = await this.tempo.tracesMet('bank.idempotency_key', await klant.betaalsleutel());
+    expect(traces, 'traces met de Idempotency-Key van de betaling').toHaveLength(1);
+    this.trace = traces[0];
+  }
+
+  async verwachtSpansVanDiensten(diensten: string[]): Promise<void> {
+    expect([...new Set(this.trace.map((span) => span.dienst))].sort(), 'diensten in de trace').toEqual(expect.arrayContaining(diensten));
+  }
+
+  /** Een span van de JDBC-instrumentatie: hij heeft de query als attribuut. */
+  async verwachtEenSqlQueryVan(dienst: string): Promise<void> {
+    const queries = this.trace.filter((span) => span.dienst === dienst && Object.keys(span.attributen).some((naam) => naam.startsWith('jdbc.query')));
+    expect(queries.length, `spans met een SQL-query van ${dienst}`).toBeGreaterThan(0);
   }
 
   async installeer(): Promise<void> {

@@ -11,6 +11,8 @@ node_modules/
 e2e/test-results/
 e2e/playwright-report/
 e2e/playwright-report-infra/
+e2e/playwright-report-observability/
+e2e/test-results-observability/
 e2e/blob-report/
 e2e/allure-results/
 e2e/allure-report/

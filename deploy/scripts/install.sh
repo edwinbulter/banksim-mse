@@ -5,6 +5,7 @@
 #   install.sh [--context <kubectl-context>] [--image-tag <tag>] [--skip-build] [--skip-smoke-tests]
 #     --image-tag  niet bouwen, maar de al gebouwde images met deze tag laden (de acceptance stage in CI)
 #     --skip-build niet bouwen en niet laden; de tag van de bestaande installatie opnieuw gebruiken
+#   BANKSIM_OBSERVABILITY=false installeert zonder otel-lgtm (ADR 0054); CI doet dat in de jobs die de telemetrie niet testen.
 set -euo pipefail
 # shellcheck source-path=SCRIPTDIR
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -23,6 +24,9 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+OBSERVABILITY="${BANKSIM_OBSERVABILITY:-true}"
+[[ "$OBSERVABILITY" == true || "$OBSERVABILITY" == false ]] || fail "BANKSIM_OBSERVABILITY moet true of false zijn, niet $OBSERVABILITY"
 
 BANK_URL="https://bank-mse.localtest.me"
 AUTH_URL="https://auth-mse.localtest.me"
@@ -124,6 +128,7 @@ helm_install() {
   helm --kube-context "$KUBE_CONTEXT" upgrade --install "$RELEASE" "$REPO_ROOT/deploy/banksim-mse" \
     --namespace "$NAMESPACE" \
     --set-string imageTag="$tag" \
+    --set observability.enabled="$OBSERVABILITY" \
     --wait --timeout 10m >/dev/null
   ok "Release $RELEASE geïnstalleerd (image-tag $tag)"
 }

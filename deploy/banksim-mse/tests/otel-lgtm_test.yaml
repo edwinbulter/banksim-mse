@@ -1,0 +1,43 @@
+# ADR 0054: grafana/otel-lgtm in de namespace, achter observability.enabled.
+suite: otel-lgtm
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+templates:
+  - templates/otel-lgtm.yaml
+tests:
+  - it: draait otel-lgtm 0.41.0 op digest, met een emptyDir zodat verwijderen niets achterlaat
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: grafana/otel-lgtm:0.41.0@sha256:2e3290657f2f2a256c7a9175f097424a3ac5b54840741ace433e108e109348b6
+      - contains:
+          path: spec.template.spec.volumes
+          content: { name: data, emptyDir: {} }
+      - equal:
+          path: spec.template.spec.containers[0].resources
+          value:
+            requests: { cpu: 100m, memory: 1Gi }
+            limits: { memory: 2Gi }
+  - it: gebruikt een eigen Collector-configuratie die ook de metrics van Keycloak ophaalt
+    documentSelector: { path: kind, value: ConfigMap }
+    asserts:
+      - matchRegex:
+          path: data["otelcol-config.yaml"]
+          pattern: 'targets: \["keycloak:9000"\]'
+  - it: biedt OTLP en Tempo aan als Service otel-lgtm
+    documentSelector: { path: kind, value: Service }
+    asserts:
+      - contains:
+          path: spec.ports
+          content: { name: otlp-http, port: 4318, targetPort: 4318 }
+      - contains:
+          path: spec.ports
+          content: { name: tempo, port: 3200, targetPort: 3200 }
+  - it: maakt niets aan met observability.enabled false
+    set:
+      observability.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

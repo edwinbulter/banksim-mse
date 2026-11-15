@@ -43,3 +43,11 @@ management:
     health:
       probes:
         enabled: true
+  # ADR 0054: elk verzoek wordt getraced. De chart zet de export naar otel-lgtm aan; zonder chart (tests, lokaal) gaat er niets weg.
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    metrics:
+      export:
+        enabled: false

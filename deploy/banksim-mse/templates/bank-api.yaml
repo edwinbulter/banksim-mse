@@ -49,6 +49,17 @@ spec:
               value: https://{{ .Values.hosts.auth }}/realms/banksim-mse
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
               value: http://keycloak:8080/realms/banksim-mse/protocol/openid-connect/certs
+            {{- if .Values.observability.enabled }}
+            # ADR 0054: traces en metrics met OTLP naar otel-lgtm; elk gegeven krijgt de image-tag als versie.
+            - name: MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT
+              value: http://otel-lgtm:4318/v1/traces
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
+              value: "true"
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
+              value: http://otel-lgtm:4318/v1/metrics
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.version={{ .Values.imageTag }}
+            {{- end }}
           envFrom:
             - secretRef: { name: bank-api }
           ports:

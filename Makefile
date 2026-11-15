@@ -8,7 +8,7 @@ BACKEND  := backend
 FRONTEND := frontend
 E2E      := e2e
 
-.PHONY: help test backend-test mutatie frontend-test iac commit-stage install uninstall e2e-install e2e e2e-infra acceptance handleiding allure
+.PHONY: help test backend-test mutatie frontend-test iac commit-stage install uninstall e2e-install e2e e2e-infra acceptance handleiding allure grafana
 
 help: ## Overzicht van de targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -58,5 +58,9 @@ handleiding: ## De schermafdrukken van doc/banksim-mse-handleiding.md opnieuw ma
 allure: ## Allure-rapport van de laatste lokale run(s) in e2e/allure-results maken en openen (ADR 0053)
 	npm --prefix $(E2E) exec -- allure generate --clean $(E2E)/allure-results -o $(E2E)/allure-report
 	npm --prefix $(E2E) exec -- allure open $(E2E)/allure-report
+
+grafana: ## Grafana van otel-lgtm openen op http://localhost:3000 via een port-forward; Ctrl-C stopt hem (ADR 0054)
+	@echo "Grafana: http://localhost:3000"
+	kubectl --context kind-single-node -n banksim-mse port-forward svc/otel-lgtm 3000:3000
 
 acceptance: install e2e e2e-infra ## Installeren en daarna de acceptatie- en installatiescenario's, zoals de acceptance stage in CI
