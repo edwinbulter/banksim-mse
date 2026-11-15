@@ -14,6 +14,7 @@ De actuele lijst staat op de plekken die al worden bijgehouden:
 | Welke controles lokaal draaien | `make help` en de [`Makefile`](../Makefile) |
 | Welke controles in de pipeline draaien, en in welke stage | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) |
 | Waarom een controle bestaat | de sectie "Bewaking" van elke ADR in [`doc/adr/`](adr) |
+| De uitkomst van de acceptatietests en installatiescenario's op `main`, met de geschiedenis | het [Allure-rapport op GitHub Pages](https://edwinbulter.github.io/banksim-mse/) (ADR 0053), zie hoofdstuk 4 |
 | De werkwijze erachter | [`werkwijze-mse.md`](werkwijze-mse.md): de double loop (hoofdstuk 4), de acceptatietests (hoofdstuk 5), de infrastructuur (hoofdstuk 9) en de controle door de mens (§10.1) |
 
 Verschillen dit document en die bronnen, dan wint de bron.
@@ -252,6 +253,33 @@ flowchart LR
 - De acceptance stage gebruikt de images die de commit stage één keer heeft gebouwd. Getest wordt dus precies wat later draait.
 - Elke stap die faalt, maakt de pipeline rood, ook de mutatietests die parallel lopen.
 - Lokaal doet `make commit-stage` hetzelfde als de commit stage, en `make acceptance` hetzelfde als de acceptance stage, tegen het lokale cluster.
+
+### De uitkomst van de acceptance stage lezen
+
+Na elke push naar `main` voegt de workflow `Allure-rapport` (`.github/workflows/allure.yml`) de resultaten van de vier Playwright-jobs samen tot één [Allure-rapport op GitHub Pages](https://edwinbulter.github.io/banksim-mse/) (ADR 0053). Dat rapport is geen extra controle: het controleert niets, en de pipeline wordt er niet rood of groen van. Het maakt de uitkomst van de acceptatietests (3.10) en de installatiescenario's (3.11) leesbaar.
+
+Wat het laat zien, en welke vraag je ermee beantwoordt:
+
+| In het rapport | Vraag die het beantwoordt |
+| --- | --- |
+| Overview: alle scenario's van de vier jobs samen | Is de acceptance stage als geheel groen, zonder vier losse Playwright-rapporten te openen? |
+| Trend over de vorige runs (Overview en Graphs) | Wordt de suite stabieler of slechter, en langzamer of sneller? |
+| Tabblad History van één scenario | Faalt dit scenario voor het eerst, of faalde het eerder ook? Allure markeert een scenario als "flaky" op grond van die geschiedenis. Er zijn geen herkansingen (`retries: 0`), dus de geschiedenis is de enige bron daarvoor. |
+| Behaviors: epic, feature en story | Welke scenario's horen bij een slice, en is die slice in zijn geheel groen? De epic is de slice uit hoofdstuk 7 van de werkwijze, of een hoofdstuk over de infrastructuur of de beveiliging. |
+| Severity en tags | Faalt er een rooktest (`@rook`, critical) of een destructief installatiescenario (`@destructief`, blocker), of alleen een gewoon scenario? |
+| De parameter `driver` (`rest`, `ui`, `shell`) en het project | Faalt het gedrag (in elke driver rood), of alleen één route, zoals de browser? |
+| Categories | Wat voor soort fout is het: de omgeving was niet bereikbaar, de installatie mislukte, een timeout, een fout in de testcode zelf, of een verkeerde waarde? Alleen die laatste wijst direct op gedrag van de bank. |
+| Bij een fout: de stap Gegeven, Als of Dan die faalde, het verkeer met het systeem en, in de browser, een screenshot | Waar in het voorbeeld ging het mis, en wat antwoordde het systeem? Wachtwoorden en tokens zijn gemaskeerd, want het rapport is openbaar. |
+| Timeline en de duur per scenario | Welke scenario's maken de acceptance stage traag, en hoe zijn ze over de workers verdeeld? |
+| Links naar de spec en de ADR's die de spec noemt, op de commit van de run | Wat zegt het scenario precies, en welke beslissing bewaakt het? |
+| Environment en Executor | Welke image-tag is getest, en bij welke CI-run hoort dit rapport? |
+
+Wat het rapport niet laat zien:
+- **De trace van Playwright.** Die bevat de ingevulde waarden, ook wachtwoorden, en hoort dus niet in een openbaar rapport. Hij staat in het HTML-rapport van Playwright, als artifact van de CI-run.
+- **De commit stage.** De unittests, vangrails en mutatietests staan er niet in; hun uitkomst staat in de joblogs en de artifacts van de CI-run.
+- **Pull requests.** Het rapport komt alleen van een push naar `main`.
+
+Lokaal maakt `make allure` hetzelfde rapport van de laatste `make e2e` of `make acceptance`, zonder geschiedenis.
 
 ## 5. Een nieuwe controle toevoegen
 

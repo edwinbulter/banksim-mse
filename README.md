@@ -49,6 +49,17 @@ Na de installatie staan er 10 demo-klanten en een beheerder klaar (ADR 0040), bi
 kubectl --context kind-single-node -n banksim-mse get secret bank-demo -o jsonpath='{.data.KLANT_WACHTWOORD}' | base64 -d
 ```
 
+## Testresultaten
+
+Na elke push naar `main` staat de uitkomst van alle acceptatietests en installatiescenario's in één [Allure-rapport op GitHub Pages](https://edwinbulter.github.io/banksim-mse/) (ADR 0053). Daarin zie je:
+- of de acceptance stage groen is, en de trend over de vorige runs;
+- per slice welke scenario's er zijn en of ze slagen;
+- per scenario of het eerder ook faalde, en via welke route (API, browser of shell);
+- bij een fout de stap die faalde, het soort fout, het verkeer met het systeem en, in de browser, een screenshot;
+- welke versie getest is, met een link naar de CI-run.
+
+Wat het rapport wel en niet laat zien, staat in [Kwaliteitscontroles](doc/kwaliteitscontroles.md#de-uitkomst-van-de-acceptance-stage-lezen). Lokaal maakt `make allure` het rapport van de laatste testrun.
+
 ## Werken met Claude Code
 
 De werkwijze is als Claude Code-skill vastgelegd. Zo volgt elke sessie dezelfde procedure, met stoppunten voor jou bij het scenario, bij elke ADR en bij elke commit.
@@ -67,6 +78,7 @@ Start een iteratie met bijvoorbeeld `/atdd begin aan slice 1` of `/atdd volgend 
 | [Een story door de stack](doc/story-door-de-stack.md) | Waar de stack uit bestaat (onderdelen, Kubernetes-resources, databases, Keycloak), en hoe de story "Betalen naar een contact" er van scenario tot database doorheen loopt |
 | [Code-ownership](doc/code-ownership.md) | Welke kennis je nodig hebt om de code te supporten, per onderwerp, met een zelftoets met ingeklapte antwoorden en bronnen |
 | [Kwaliteitscontroles](doc/kwaliteitscontroles.md) | Welke soorten tests en controles het project heeft (van compiler tot acceptatietest en mutatietest), wat elke soort controleert, hoe, en waar ze in de pipeline draait |
+| [Allure-rapport](https://edwinbulter.github.io/banksim-mse/) | De uitkomst van de acceptatietests en installatiescenario's van de laatste run op `main`, met de geschiedenis, per slice en per driver (ADR 0053) |
 | [Farley Score van de tests](doc/farley-score.md) | Wat de Farley Score-plugin meet, het rapport over de tests van dit project (7,46 van 10), en of dat een goed resultaat is |
 | [deploy/README.md](deploy/README.md) | Hoe de Helm-chart en de scripts BankSim-MSE in het kind-cluster installeren: aanroepen, input en output, de stappen van `install.sh`, verwijderen en controleren |
 | [ATDD in een team](doc/teamwerk-mse.md) | Hoe een team de werkwijze toepast volgens Farley: van epic naar scenario, werk verdelen per scenario in plaats van per laag, en de samenwerkingsmomenten |
