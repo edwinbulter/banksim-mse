@@ -6,6 +6,7 @@
 #     --image-tag  niet bouwen, maar de al gebouwde images met deze tag laden (de acceptance stage in CI)
 #     --skip-build niet bouwen en niet laden; de tag van de bestaande installatie opnieuw gebruiken
 #   BANKSIM_OBSERVABILITY=false installeert zonder otel-lgtm (ADR 0054); CI doet dat in de jobs die de telemetrie niet testen.
+#   BANKSIM_VERKEER=true installeert ook de verkeersklanten voor k6 (ADR 0055); make verkeer doet dat.
 set -euo pipefail
 # shellcheck source-path=SCRIPTDIR
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -27,6 +28,8 @@ done
 
 OBSERVABILITY="${BANKSIM_OBSERVABILITY:-true}"
 [[ "$OBSERVABILITY" == true || "$OBSERVABILITY" == false ]] || fail "BANKSIM_OBSERVABILITY moet true of false zijn, niet $OBSERVABILITY"
+VERKEER="${BANKSIM_VERKEER:-false}"
+[[ "$VERKEER" == true || "$VERKEER" == false ]] || fail "BANKSIM_VERKEER moet true of false zijn, niet $VERKEER"
 
 BANK_URL="https://bank-mse.localtest.me"
 AUTH_URL="https://auth-mse.localtest.me"
@@ -119,6 +122,7 @@ create_secrets() {
   ensure_secret bank-bff BANKSIM_BFF_CLIENT_SECRET
   ensure_secret keycloak KC_DB_PASSWORD KC_BOOTSTRAP_ADMIN_PASSWORD
   ensure_secret bank-demo KLANT_WACHTWOORD BEHEERDER_WACHTWOORD
+  ensure_secret bank-verkeer VERKEER_WACHTWOORD
   ok "Secrets aanwezig"
 }
 
@@ -129,6 +133,7 @@ helm_install() {
     --namespace "$NAMESPACE" \
     --set-string imageTag="$tag" \
     --set observability.enabled="$OBSERVABILITY" \
+    --set verkeer.klanten="$VERKEER" \
     --wait --timeout 10m >/dev/null
   ok "Release $RELEASE geïnstalleerd (image-tag $tag)"
 }

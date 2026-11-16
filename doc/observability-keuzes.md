@@ -1,6 +1,12 @@
 # Observability: de keuzes
 
-Status: voorstel, 3 november 2026. Er is nog niets gebouwd of gemeten.
+Status: de stappen 1–5 zijn gebouwd (16 november 2026), onder ADR 0054 (OpenTelemetry en `otel-lgtm`) en ADR 0055 (k6). De stappen 6–8 zijn nog voorstel.
+
+Afwijkingen van dit voorstel, met de reden in de ADR's:
+- **k6 draait vanaf de Mac** in een container, met `make verkeer`, en niet als Deployment in de chart. In een pod verwijst `bank-mse.localtest.me` naar de pod zelf (ADR 0055).
+- **Geen fast-forward van de simulatiedatum.** Die werd overwogen om load te maken, maar geeft geen load: de transacties tot eind 2026 bestaan al, en een nieuwe dag maakt ze alleen zichtbaar.
+- **CPU en geheugen meldt elk proces zelf**, ook Keycloak; metrics per container vragen iets voor het hele cluster (ADR 0004, 0054).
+- **In CI een eigen job `telemetrie`**, met `otel-lgtm` en de verkeersklanten (ADR 0054, tweede meting).
 
 Dit document noemt alleen de geadviseerde keuzes. De afgewogen alternatieven staan in [observability-opties.md](observability-opties.md).
 

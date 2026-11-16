@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 # ADR 0054: otel-lgtm staat standaard aan; CI zet het uit in de jobs die de telemetrie niet testen.
+# ADR 0055: de verkeersklanten voor k6 staan standaard uit.
 
 setup() {
   SCRIPTS="$BATS_TEST_DIRNAME/.."
@@ -35,4 +36,13 @@ NEP
   BANKSIM_OBSERVABILITY=nee run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
   [ "$status" -ne 0 ]
   [[ "$output" == *"BANKSIM_OBSERVABILITY"* ]]
+}
+
+@test "install.sh installeert standaard zonder verkeersklanten, en met BANKSIM_VERKEER=true met (ADR 0055)" {
+  run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
+  grep -q 'helm .*--set verkeer.klanten=false' "$AANROEPEN"
+  : >"$AANROEPEN"
+  BANKSIM_VERKEER=true run "$SCRIPTS/install.sh" --image-tag abc1234 --skip-smoke-tests
+  [ "$status" -eq 0 ]
+  grep -q 'helm .*--set verkeer.klanten=true' "$AANROEPEN"
 }

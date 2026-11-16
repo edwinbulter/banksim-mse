@@ -229,6 +229,8 @@ jobs:
       BANKSIM_CONTEXT: kind-banksim-mse-ci
       # ADR 0054: otel-lgtm alleen in de job die de telemetrie test.
       BANKSIM_OBSERVABILITY: ${{ matrix.deel == 'telemetrie' && 'true' || 'false' }}
+      # ADR 0055: de verkeersklanten voor k6, ook alleen in die job.
+      BANKSIM_VERKEER: ${{ matrix.deel == 'telemetrie' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -272,16 +274,16 @@ jobs:
           DEEL: ${{ matrix.deel }}
         # ADR 0052: de serial-groep van installatie.spec.ts in een eigen job; Playwright verdeelt op aantal, en zette die
         # groep anders in de shard waar zijn eerste scenario viel. Een nieuw bestand komt vanzelf in overig.
-        # ADR 0054: observability.spec.ts in de job telemetrie, met otel-lgtm; de scenario's daar tegelijk, want ze
-        # installeren niets zelf.
+        # ADR 0054, 0055: observability.spec.ts en verkeer.spec.ts in de job telemetrie, met otel-lgtm en de
+        # verkeersklanten; de scenario's daar tegelijk, want ze installeren niets zelf.
         run: |
           if [ "$DEEL" = installatie ]; then
             selectie=(specs/infra/installatie.spec.ts)
           elif [ "$DEEL" = telemetrie ]; then
-            selectie=(specs/infra/observability.spec.ts)
+            selectie=(specs/infra/observability.spec.ts specs/infra/verkeer.spec.ts)
             export BANKSIM_INFRA_WORKERS=3
           else
-            selectie=(--grep-invert 'installatie\.spec\.ts|observability\.spec\.ts' --shard="${DEEL#overig-}/2")
+            selectie=(--grep-invert 'installatie\.spec\.ts|observability\.spec\.ts|verkeer\.spec\.ts' --shard="${DEEL#overig-}/2")
           fi
           BANKSIM_CONTEXT="$CONTEXT" BANKSIM_IMAGE_TAG="${GITHUB_SHA::7}" npm --prefix e2e run test:infra -- "${selectie[@]}"
       - name: Clusterstatus bij falen

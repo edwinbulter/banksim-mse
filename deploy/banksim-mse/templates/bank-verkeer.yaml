@@ -1,0 +1,40 @@
+{{- /*
+  ADR 0055: bank-seed maakt de verkeersklanten voor k6 na elke installatie en upgrade, alleen met verkeer.klanten;
+  wat er al is, blijft staan.
+  Na keycloak-config (gewicht 0): de client bank-seed moet bestaan.
+*/}}
+{{- if .Values.verkeer.klanten }}
+{{- $ctx := dict "root" . "name" "bank-verkeer" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bank-verkeer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+  annotations:
+    # Na --wait: de database en Keycloak zijn dan gereed. Faalt de Job, dan faalt de installatie.
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "20"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "banksim-mse.labels" $ctx | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: bank-verkeer
+          image: {{ include "banksim-mse.image" (dict "root" . "key" "seed") }}
+          imagePullPolicy: IfNotPresent
+          args: [verkeer]
+          envFrom:
+            - secretRef:
+                name: bank-seed
+            - secretRef:
+                name: bank-verkeer
+          resources:
+            {{- toYaml .Values.resources.demo | nindent 12 }}
+{{- end }}

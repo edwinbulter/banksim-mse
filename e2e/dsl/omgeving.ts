@@ -17,6 +17,9 @@ const RELEASE = 'banksim-mse';
 const LABEL = `app.kubernetes.io/instance=${RELEASE}`;
 const ORIGINEEL = 'banksim';
 const DEMO_SECRET = 'bank-demo';
+/** ADR 0055: de kring van verkeersklanten voor k6, en hun wachtwoord. */
+const VERKEERSKLANTEN = ['verkeer-1', 'verkeer-2', 'verkeer-3', 'verkeer-4', 'verkeer-5'];
+const VERKEER_SECRET = 'bank-verkeer';
 const GEMEENTE = 'Gemeente Zuidstad';
 /** Energie volgt de energieprijzen, niet de inflatie. */
 const ENERGIE = 'Groenstroom Energie';
@@ -80,6 +83,9 @@ export class Omgeving extends Stappen {
   private readonly begin = new Date();
   /** Het aantal weigeringen per reden dat onthoudWeigeringen zag. */
   private readonly weigeringen = new Map<string, number>();
+  /** Het totaal van de verkeersklanten in centen, en het aantal verzoeken per dienst, van vóór het verkeer. */
+  private totaalVoorHetVerkeer?: bigint;
+  private readonly verzoekenVoorHetVerkeer = new Map<string, number>();
 
   constructor(
     private readonly shell: ShellDriver,
@@ -156,6 +162,69 @@ export class Omgeving extends Stappen {
     if (voor === undefined) throw new Error(`Begin met onthoudWeigeringen('${reden}')`);
     await expect.poll(() => this.aantalWeigeringen(reden), { message: `weigeringen met reden ${reden}`, timeout: 60_000, intervals: [2_000] })
       .toBe(voor + 1);
+  }
+
+  /**
+   * ADR 0055: de Job bank-verkeer draait alleen met verkeer.klanten. Staat dat nog niet aan, dan installeert dit opnieuw
+   * met BANKSIM_VERKEER=true; in CI doet de installatie van de job telemetrie dat al.
+   */
+  async heeftVerkeersklanten(): Promise<void> {
+    const waarden = await this.shell.helmWaarden(NAMESPACE, RELEASE);
+    if ((waarden?.verkeer as { klanten?: boolean } | undefined)?.klanten !== true) {
+      const bron = this.imageTag ? ['--image-tag', this.imageTag] : ['--skip-build'];
+      this.laatste = await this.shell.script('install.sh', ['--context', this.shell.context, ...bron, '--skip-smoke-tests'],
+        { BANKSIM_VERKEER: 'true' });
+      verwachtGeslaagd('install.sh met de verkeersklanten', this.laatste);
+    }
+    for (const gebruikersnaam of VERKEERSKLANTEN) {
+      expect(await this.betaalsaldoVanVerkeersklant(gebruikersnaam), `betaalrekening van ${gebruikersnaam}`).toBeDefined();
+    }
+  }
+
+  async onthoudTotaalVanDeVerkeersklanten(): Promise<void> {
+    this.totaalVoorHetVerkeer = await this.totaalVanDeVerkeersklanten();
+  }
+
+  /** Via verkeer.sh, zoals make verkeer; het aantal verzoeken van daarvoor is het nulpunt voor de metrics. */
+  async maaktVerkeer({ snelheid, duur }: { snelheid: number; duur: string }): Promise<void> {
+    this.verzoekenVoorHetVerkeer.set('bank-bff', await this.verzoekenVan('bank-bff'));
+    this.laatste = await this.shell.script('verkeer.sh', ['--context', this.shell.context, '--snelheid', String(snelheid), '--duur', duur]);
+  }
+
+  /** k6 faalt zelf boven de thresholds van verkeer.js: meer dan 1% fouten of mislukte checks. */
+  async verwachtGeslaagdVerkeer(): Promise<void> {
+    if (!this.laatste) throw new Error('Begin met maaktVerkeer');
+    verwachtGeslaagd('verkeer.sh (k6)', this.laatste);
+  }
+
+  async verwachtHetzelfdeTotaalVanDeVerkeersklanten(): Promise<void> {
+    if (this.totaalVoorHetVerkeer === undefined) throw new Error('Begin met onthoudTotaalVanDeVerkeersklanten');
+    expect(await this.totaalVanDeVerkeersklanten(), 'totaal van de verkeersklanten, in centen').toBe(this.totaalVoorHetVerkeer);
+  }
+
+  async verwachtVerzoekenSindsHetVerkeer(dienst: string, minstens: number): Promise<void> {
+    const voor = this.verzoekenVoorHetVerkeer.get(dienst);
+    if (voor === undefined) throw new Error('Begin met maaktVerkeer');
+    await expect.poll(async () => (await this.verzoekenVan(dienst)) - voor,
+      { message: `verzoeken van ${dienst} sinds het verkeer`, timeout: 60_000, intervals: [2_000] })
+      .toBeGreaterThanOrEqual(minstens);
+  }
+
+  private async verzoekenVan(dienst: string): Promise<number> {
+    const reeksen = await this.prometheus.reeksen(`sum(http_server_requests_milliseconds_count{job="${dienst}"})`);
+    return reeksen[0]?.waarde ?? 0;
+  }
+
+  private async totaalVanDeVerkeersklanten(): Promise<bigint> {
+    let totaal = 0n;
+    for (const gebruikersnaam of VERKEERSKLANTEN) totaal += centen(await this.betaalsaldoVanVerkeersklant(gebruikersnaam));
+    return totaal;
+  }
+
+  private async betaalsaldoVanVerkeersklant(gebruikersnaam: string): Promise<string> {
+    const driver = await this.maakRestDriver();
+    await driver.logIn(gebruikersnaam, await this.shell.secretWaarde(NAMESPACE, VERKEER_SECRET, 'VERKEER_WACHTWOORD'));
+    return betaalrekening(await driver.rekeningenInOverzicht(), gebruikersnaam).saldo;
   }
 
   /** Alleen of de metrics er zijn: hun waarde verschilt bij elke meting. */

@@ -19,6 +19,10 @@ images:
 observability:
   enabled: true
 
+# ADR 0055: de kring van verkeersklanten voor k6; make verkeer zet dit aan.
+verkeer:
+  klanten: false
+
 hosts:
   bank: bank-mse.localtest.me
   auth: auth-mse.localtest.me

@@ -8,7 +8,7 @@ BACKEND  := backend
 FRONTEND := frontend
 E2E      := e2e
 
-.PHONY: help test backend-test mutatie frontend-test iac commit-stage install uninstall e2e-install e2e e2e-infra acceptance handleiding allure grafana
+.PHONY: help test backend-test mutatie frontend-test iac commit-stage install uninstall e2e-install e2e e2e-infra acceptance handleiding allure grafana verkeer
 
 help: ## Overzicht van de targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -62,5 +62,10 @@ allure: ## Allure-rapport van de laatste lokale run(s) in e2e/allure-results mak
 grafana: ## Grafana van otel-lgtm openen op http://localhost:3000 via een port-forward; Ctrl-C stopt hem (ADR 0054)
 	@echo "Grafana: http://localhost:3000"
 	kubectl --context kind-single-node -n banksim-mse port-forward svc/otel-lgtm 3000:3000
+
+# Niet tegelijk met make e2e: de simulatiedatum geldt voor de hele bank (ADR 0014).
+verkeer: ## Doorlopend verkeer met k6 (ADR 0055); SNELHEID=bezoeken per seconde (2), DUUR (10m); Ctrl-C stopt het
+	BANKSIM_VERKEER=true deploy/scripts/install.sh --skip-build --skip-smoke-tests
+	deploy/scripts/verkeer.sh --snelheid $(or $(SNELHEID),2) --duur $(or $(DUUR),10m)
 
 acceptance: install e2e e2e-infra ## Installeren en daarna de acceptatie- en installatiescenario's, zoals de acceptance stage in CI

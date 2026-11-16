@@ -25,3 +25,6 @@ banksim:
     demo:
       klant-wachtwoord: ${KLANT_WACHTWOORD:}
       beheerder-wachtwoord: ${BEHEERDER_WACHTWOORD:}
+    # ADR 0055: alleen de K8s Job bank-verkeer krijgt het Secret bank-verkeer; zonder faalt "verkeer" met een melding.
+    verkeer:
+      wachtwoord: ${VERKEER_WACHTWOORD:}

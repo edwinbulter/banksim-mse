@@ -60,6 +60,22 @@ Na elke push naar `main` staat de uitkomst van alle acceptatietests en installat
 
 Wat het rapport wel en niet laat zien, staat in [Kwaliteitscontroles](doc/kwaliteitscontroles.md#de-uitkomst-van-de-acceptance-stage-lezen). Lokaal maakt `make allure` het rapport van de laatste testrun.
 
+## Load zetten en kijken wat er gebeurt
+
+De bank stuurt traces, logs en metrics naar Grafana in de namespace (ADR 0054). Met k6 zet je er verkeer op dat lijkt op klanten (ADR 0055):
+
+```bash
+make verkeer SNELHEID=5 DUUR=30m   # 5 klantbezoeken per seconde: inloggen, kijken, soms betalen; Ctrl-C stopt
+make grafana                        # in een tweede terminal: Grafana op http://localhost:3000
+```
+
+In Grafana zie je:
+- in het dashboard "BankSim-MSE": verzoeken per seconde en hun duur, CPU en geheugen van bank-api, bank-bff en Keycloak, en de boekingen en weigeringen;
+- in Explore → Tempo: de route van een verzoek door de BFF, bank-api en de database;
+- in Explore → Loki: de logregels van hetzelfde verzoek, via het trace-ID.
+
+Een maandafsluiting zie je door als beheerder de simulatiedatum een maand vooruit te zetten.
+
 ## Werken met Claude Code
 
 De werkwijze is als Claude Code-skill vastgelegd. Zo volgt elke sessie dezelfde procedure, met stoppunten voor jou bij het scenario, bij elke ADR en bij elke commit.

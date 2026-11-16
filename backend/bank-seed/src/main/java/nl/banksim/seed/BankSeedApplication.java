@@ -65,6 +65,9 @@ public class BankSeedApplication {
                 new DemoData(logins, rekeninghouders, rekeninghouders, spaarrekeningen, transacties, new JdbcOverboekingen(jdbc, transactie),
                         new JdbcRentebijschrijvingen(jdbc), contacten, nieuweIban, transactie,
                         properties.demo().klantWachtwoord(), properties.demo().beheerderWachtwoord()).maak();
+            } else if (args.length == 1 && args[0].equals("verkeer")) {
+                new Verkeersklanten(logins, rekeninghouders, rekeninghouders, contacten, nieuweIban, transactie,
+                        properties.verkeer().wachtwoord()).maak();
             } else if (args.length == 1 && args[0].equals("sessie")) {
                 var stdin = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
                 new SeedSessie(commando, json, stdin, System.out).voerUit();

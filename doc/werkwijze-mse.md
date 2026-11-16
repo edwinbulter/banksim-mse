@@ -1250,6 +1250,7 @@ Niet-functionele eisen uit het TO (zero trust, OWASP, resilience) zijn geen fase
 | OWASP Top 10 | Per categorie een test of check; de matrix uit TO §11 groeit mee per slice in plaats van achteraf | — | TO §11 |
 | Supply chain | CI faalt op een kwetsbaarheid ≥ high (Trivy, Dependency-Check, `npm audit`); SBOM als artefact (CycloneDX) | Vaste versies en Renovate | TO §16 |
 | Container-hardening | Template- of policy-check: non-root, read-only rootfs, `drop: [ALL]` | — | TO §15.3 |
+| Observability (stappen 1–5 van [observability-keuzes.md](observability-keuzes.md); gebouwd) | `observability.spec.ts`: een betaling is één trace over de BFF, bank-api en de database; een weigering staat met hetzelfde trace-ID in de melding, Loki en Tempo; geen IBAN of naam in de telemetrie; tellers, CPU en geheugen in Prometheus; het dashboard in Grafana. `verkeer.spec.ts`: bij verkeer van k6 blijft het geld in de kring van verkeersklanten | ADR 0054 (OpenTelemetry, `otel-lgtm`), ADR 0055 (k6) | — |
 
 ### Losse backlogpunten
 

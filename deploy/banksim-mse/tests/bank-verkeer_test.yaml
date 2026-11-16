@@ -1,0 +1,29 @@
+# ADR 0055: de kring van verkeersklanten voor k6, alleen als erom gevraagd wordt.
+suite: bank-verkeer
+release:
+  name: banksim-mse
+  namespace: banksim-mse
+templates:
+  - templates/bank-verkeer.yaml
+tests:
+  - it: maakt niets aan zonder verkeer.klanten
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: draait bank-seed verkeer na elke installatie, met het wachtwoord uit het Secret bank-verkeer
+    set:
+      verkeer.klanten: true
+      imageTag: abc1234
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [verkeer]
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: banksim-mse/bank-seed:abc1234
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content: { secretRef: { name: bank-verkeer } }
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
