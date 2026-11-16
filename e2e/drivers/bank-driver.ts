@@ -265,6 +265,8 @@ export interface BankDriver {
   betaalDubbel(opdracht: Betaalopdracht): Promise<Uitkomst>;
   /** Alleen in de REST-driver: de Idempotency-Key van de laatste betaling of overschrijving (ADR 0027, 0054). */
   laatsteBetaalsleutel(): string;
+  /** Alleen in de REST-driver: het trace-ID uit de laatste weigering van de bank (ADR 0054), of undefined. */
+  laatsteTraceId(): string | undefined;
   /** Alleen in de UI-driver (@ui): vanaf de geopende rekening het betaalscherm openen. */
   openBetalen(): Promise<void>;
   /** Alleen in de UI-driver (@ui): hoeveel tekens er in elk veld van het betaalscherm passen. */

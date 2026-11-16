@@ -233,6 +233,10 @@ export class UiDriver implements BankDriver {
     return this.betalen.betaalDubbel(opdracht);
   }
 
+  laatsteTraceId(): string | undefined {
+    throw new Error('Het trace-ID staat niet op het scherm; alleen de REST-driver ziet het');
+  }
+
   laatsteBetaalsleutel(): string {
     throw new Error('De sleutel maakt de app in de browser; alleen de REST-driver kent hem');
   }

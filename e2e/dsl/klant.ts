@@ -522,6 +522,16 @@ export class Klant {
     await this.verwachtGelukt(await (await this.sessie()).betaalDubbel({ bedrag, naam: aan.naam(), iban: aan.iban() }), 'betaling');
   }
 
+  /** ADR 0054: het trace-ID in de laatste melding van de bank, of undefined. */
+  async traceIdVanDeMelding(): Promise<string | undefined> {
+    return (await this.sessie()).laatsteTraceId();
+  }
+
+  /** S7.1: wat de bank voorstelt als deze klant `tekst` intypt op het betaalscherm. */
+  async zoektContact(tekst: string): Promise<void> {
+    await (await this.sessie()).contacten(tekst);
+  }
+
   /** De Idempotency-Key van de laatste betaling van deze klant (ADR 0027): zo is die betaling in Tempo te vinden. */
   async betaalsleutel(): Promise<string> {
     return (await this.sessie()).laatsteBetaalsleutel();

@@ -35,6 +35,8 @@
         <archunit.version>1.5.1</archunit.version>
         <!-- ADR 0054: SQL-spans; geen onderdeel van Spring Boot. 2.2.1 is gebouwd tegen Spring Boot 4.0.5, 2.3.0 vraagt 4.1 -->
         <datasource-micrometer.version>2.2.1</datasource-micrometer.version>
+        <!-- ADR 0054: Logback naar OpenTelemetry; niet in Spring Boot. 2.21.0-alpha hoort bij OpenTelemetry 1.55.0 van Spring Boot 4.0.8 -->
+        <opentelemetry-logback.version>2.21.0-alpha</opentelemetry-logback.version>
 
         <jib-maven-plugin.version>3.5.2</jib-maven-plugin.version>
         <!-- ADR 0018: mutation testing; de JUnit-plugin moet bij de JUnit-versie van Spring Boot passen -->

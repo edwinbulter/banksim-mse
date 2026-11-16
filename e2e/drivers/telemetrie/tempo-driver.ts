@@ -51,6 +51,26 @@ export class TempoDriver {
     return Promise.all(ids.map(async (id) => spansVan(await this.vraag<TempoTrace>(`api/traces/${id}`))));
   }
 
+  /** De trace met dit ID; wacht tot Tempo hem heeft. */
+  async trace(id: string): Promise<Span[]> {
+    const einde = Date.now() + WACHTTIJD_MS;
+    let spans: Span[] = [];
+    while (spans.length === 0 && Date.now() < einde) {
+      spans = spansVan(await this.vraag<TempoTrace>(`api/traces/${id}`));
+      if (spans.length === 0) await new Promise((klaar) => setTimeout(klaar, INTERVAL_MS));
+    }
+    return spans;
+  }
+
+  /** Alle traces van de bank sinds `sinds`, als de JSON die Tempo teruggeeft; om in te zoeken naar wat er niet in mag. */
+  async alleTracesSinds(sinds: Date): Promise<string[]> {
+    const query = encodeURIComponent('{ resource.service.name =~ "bank-.*" }');
+    const start = Math.floor(sinds.getTime() / 1000);
+    const gevonden = await this.vraag<{ traces?: { traceID: string }[] }>(`api/search?q=${query}&start=${start}&end=${Math.ceil(Date.now() / 1000) + 1}&limit=1000`);
+    const ids = (gevonden?.traces ?? []).map((trace) => trace.traceID);
+    return Promise.all(ids.map(async (id) => JSON.stringify(await this.vraag<TempoTrace>(`api/traces/${id}`))));
+  }
+
   private async vraag<T>(pad: string): Promise<T | undefined> {
     const resultaat = await this.shell.kubectl([
       'get', '--raw', `/api/v1/namespaces/${this.namespace}/services/otel-lgtm:3200/proxy/${pad}`,

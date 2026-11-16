@@ -26,7 +26,7 @@ tests:
       - matchRegex:
           path: data["otelcol-config.yaml"]
           pattern: 'targets: \["keycloak:9000"\]'
-  - it: biedt OTLP en Tempo aan als Service otel-lgtm
+  - it: biedt OTLP, Tempo en Loki aan als Service otel-lgtm
     documentSelector: { path: kind, value: Service }
     asserts:
       - contains:
@@ -35,6 +35,9 @@ tests:
       - contains:
           path: spec.ports
           content: { name: tempo, port: 3200, targetPort: 3200 }
+      - contains:
+          path: spec.ports
+          content: { name: loki, port: 3100, targetPort: 3100 }
   - it: maakt niets aan met observability.enabled false
     set:
       observability.enabled: false

@@ -1,5 +1,7 @@
 package nl.banksim.api.betaling;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.net.URI;
 
 import nl.banksim.api.grootboek.SaldoOntoereikend;
@@ -13,9 +15,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(assignableTypes = {BetalingController.class, OverschrijvingController.class})
 class BetalingAdvice {
 
+    private static final Logger LOG = LoggerFactory.getLogger(BetalingAdvice.class);
+
     /** RFC 9457: het probleemtype voor de software, de melding voor de klant. */
     @ExceptionHandler(BetalingGeweigerd.class)
     ProblemDetail geweigerd(BetalingGeweigerd fout) {
+        // ADR 0054: alleen het probleemtype; de melding kan een naam bevatten.
+        LOG.info("Betaling geweigerd: {}", fout.probleem().code());
         ProblemDetail probleem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, fout.getMessage());
         probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem().code()));
         return probleem;

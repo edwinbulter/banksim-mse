@@ -654,3 +654,7 @@ components:
           type: string
         instance:
           type: string
+        traceId:
+          description: ADR 0054; het trace-ID van het verzoek (W3C), om de trace in Tempo en de logregels in Loki te vinden
+          type: string
+          pattern: '^[0-9a-f]{32}$'

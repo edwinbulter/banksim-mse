@@ -25,8 +25,9 @@ spec:
   ports:
     - { name: grafana, port: 3000, targetPort: 3000 }
     - { name: otlp-http, port: 4318, targetPort: 4318 }
-    # Tempo: de acceptatietests zoeken er via de service-proxy van de API-server (e2e/drivers/telemetrie).
+    # Tempo en Loki: de acceptatietests zoeken erin via de service-proxy van de API-server (e2e/drivers/telemetrie).
     - { name: tempo, port: 3200, targetPort: 3200 }
+    - { name: loki, port: 3100, targetPort: 3100 }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -57,6 +58,7 @@ spec:
             - { name: grafana, containerPort: 3000 }
             - { name: otlp-http, containerPort: 4318 }
             - { name: tempo, containerPort: 3200 }
+            - { name: loki, containerPort: 3100 }
           readinessProbe:
             httpGet: { path: /ready, port: 13133 }
             periodSeconds: 5

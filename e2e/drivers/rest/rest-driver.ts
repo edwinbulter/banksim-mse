@@ -30,6 +30,7 @@ import { tokensIn } from '../tokens';
 export class RestDriver implements BankDriver {
   private geopend?: string;
   private betaalsleutel?: string;
+  private traceId?: string;
   /** Het pad waarlangs de rekening geopend is: van de klant, of alleen-lezen in beheer (ADR 0038). */
   private transactiepad = (iban: string) => `/api/rekeningen/${iban}/transacties`;
   /** Het pad van de geopende rekening zelf, voor de kop (FO "Kopgedeelte"). */
@@ -436,9 +437,11 @@ export class RestDriver implements BankDriver {
    */
   private async uitkomstVan(antwoord: APIResponse, verzoek: string): Promise<Uitkomst> {
     this.probleem = undefined;
+    this.traceId = undefined;
     if (WEIGERING.includes(antwoord.status())) {
-      const { type } = (await antwoord.json()) as { type?: string };
+      const { type, traceId } = (await antwoord.json()) as { type?: string; traceId?: string };
       this.probleem = type?.split(':').at(-1);
+      this.traceId = traceId;
       return 'geweigerd';
     }
     expect(antwoord.status(), `${verzoek}: ${(await antwoord.text()).slice(0, 300)}`).toBe(201);
@@ -476,6 +479,10 @@ export class RestDriver implements BankDriver {
   private async betaalHeaders(): Promise<Record<string, string>> {
     this.betaalsleutel = randomUUID();
     return { ...(await this.csrfHeader()), 'Idempotency-Key': this.betaalsleutel };
+  }
+
+  laatsteTraceId(): string | undefined {
+    return this.traceId;
   }
 
   laatsteBetaalsleutel(): string {

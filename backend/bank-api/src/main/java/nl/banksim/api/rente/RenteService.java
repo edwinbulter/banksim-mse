@@ -11,6 +11,8 @@ import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.rekening.Iban;
 import nl.banksim.domain.rente.RenteCalculator;
 import nl.banksim.domain.transactie.TransactieType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Service;
 @Service
 class RenteService implements Maandafsluiting, LopendeRente {
 
+    private static final Logger LOG = LoggerFactory.getLogger(RenteService.class);
     private static final Bedrag GEEN_RENTE = Bedrag.van("0.00");
 
     private final RenteOpslag opslag;
@@ -40,6 +43,8 @@ class RenteService implements Maandafsluiting, LopendeRente {
                 maandRente.boek(rekening, maand);
             }
         }
+        // ADR 0054: de bankdatum, want de simulatiedatum springt; de echte tijd staat bij de logregel zelf.
+        LOG.info("Maandafsluiting tot en met {} afgerond", totEnMet);
     }
 
     /**

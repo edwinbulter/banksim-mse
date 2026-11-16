@@ -30,6 +30,9 @@ De afweging staat in [observability-opties.md](../observability-opties.md), het 
 
 ## Beslissing
 - **Instrumentatie: optie 1.** `spring-boot-starter-opentelemetry` komt in bank-api en bank-bff, met de versie van Spring Boot. Elk verzoek wordt getraced (`sampling.probability` 1.0). Voor de SQL-spans komt `net.ttddyy.observation:datasource-micrometer-spring-boot` 2.2.1 in bank-api. Die versie is gebouwd tegen Spring Boot 4.0.5. Elk gegeven krijgt `service.version` mee, de image-tag. Een verzoek met een Idempotency-Key (ADR 0027) krijgt die sleutel als attribuut `bank.idempotency_key` op zijn span. Zo is één betaalpoging terug te vinden; een UUID is geen persoonsgegeven.
+- **Logs** (aangevuld in stap 3, de beslissing is dezelfde): Logback schrijft naar stdout, gestructureerd in ECS-formaat, en via `io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0` naar OTLP. Die appender zit niet in Spring Boot. Versie 2.21.0-alpha hoort bij OpenTelemetry 1.55.0 van Spring Boot 4.0.8. Een logregel krijgt het trace-ID van zijn verzoek mee.
+- **Trace-ID in de melding:** elk probleembericht van bank-api krijgt het veld `traceId` (contract, ADR 0034). Een onverwachte fout wordt een 500 met probleemtype `onverwachte-fout`, zonder interne details; de fout zelf staat in de log.
+- **Geen IBAN's en geen zoektermen in de telemetrie:** een `ObservationFilter` in bank-api en bank-bff vervangt elk IBAN door `{iban}` en haalt de querystring weg, in elk attribuut van een span en elk label van een metric. Logregels noemen alleen een probleemtype, nooit de melding voor de klant: die kan een naam bevatten.
 - **Opslag en scherm: optie 1.** `grafana/otel-lgtm` 0.41.0 komt als Deployment in `banksim-mse`, op digest vastgezet:
   - achter `observability.enabled` in `values.yaml`, standaard aan;
   - met een `emptyDir`: de telemetrie overleeft een herstart niet, en verwijderen laat niets achter;
@@ -49,10 +52,11 @@ De afweging staat in [observability-opties.md](../observability-opties.md), het 
 - **`process_cpu_usage` is een fractie van alle CPU's van de node.** Het dashboard rekent het om naar cores.
 - **De pipeline:** de gekozen infra-job wordt naar schatting 1 tot 2 minuten langer, door het image en het laden in kind. Die job loopt naast de langere acceptatiejob.
 - **Geen tracing:** het inloggen bij Keycloak, de ingress en bank-web. Een trace begint bij de BFF.
-- **`datasource-micrometer` is geen onderdeel van Spring Boot.** Bij een upgrade van Spring Boot hoort een controle van de versie. Breekt hij, dan valt het scenario met de SQL-span om.
+- **`datasource-micrometer` en de Logback-appender zijn geen onderdeel van Spring Boot.** Bij een upgrade van Spring Boot hoort een controle van hun versies. De appender is een alpha-versie: zijn API kan nog veranderen. Breekt een van beide, dan valt een scenario van de telemetrie om.
 
 ## Bewaking
-- **`e2e/specs/infra/observability.spec.ts`** (project `infra`, in CI in de gekozen infra-job): één betaling geeft één trace over bank-bff en bank-api, met een span voor de SQL. Later komen er scenario's bij voor de logs (stap 3) en de metrics (stap 4).
+- **`e2e/specs/infra/observability.spec.ts`** (project `infra`, in CI in de gekozen infra-job): één betaling geeft één trace over bank-bff en bank-api, met een span voor de SQL. Een geweigerde betaling staat met hetzelfde trace-ID in de melding, in Loki en in Tempo. Later komen er scenario's bij voor de metrics (stap 4).
+- **De vangrail "geen IBAN en geen naam in de telemetrie":** het scenario "De telemetrie bevat geen IBAN en geen naam van een klant" zoekt in alle traces en logregels van het scenario. `ZonderPersoonsgegevensTests` in bank-api en bank-bff test het filter.
 - **helm-unittest:**
   - `otel-lgtm` staat op digest vast en heeft een `emptyDir`;
   - de chart installeert ook met `observability.enabled: false`, en dan zonder de env-variabelen voor OTLP;

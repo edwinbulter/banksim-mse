@@ -365,6 +365,8 @@ export interface components {
             status: number;
             detail: string;
             instance?: string;
+            /** @description ADR 0054; het trace-ID van het verzoek (W3C), om de trace in Tempo en de logregels in Loki te vinden */
+            traceId?: string;
         };
     };
     responses: {

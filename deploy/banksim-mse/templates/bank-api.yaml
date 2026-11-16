@@ -59,6 +59,13 @@ spec:
               value: http://otel-lgtm:4318/v1/metrics
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.version={{ .Values.imageTag }}
+            - name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED
+              value: "true"
+            - name: MANAGEMENT_OPENTELEMETRY_LOGGING_EXPORT_OTLP_ENDPOINT
+              value: http://otel-lgtm:4318/v1/logs
+            # Ook op stdout gestructureerd, met het trace-ID; stdout vangt wat de app bij een crash niet meer verstuurt.
+            - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
+              value: ecs
             {{- end }}
           envFrom:
             - secretRef: { name: bank-api }

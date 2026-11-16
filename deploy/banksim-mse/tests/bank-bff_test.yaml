@@ -52,6 +52,15 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content: { name: OTEL_RESOURCE_ATTRIBUTES, value: service.version=abc1234 }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED, value: "true" }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: MANAGEMENT_OPENTELEMETRY_LOGGING_EXPORT_OTLP_ENDPOINT, value: http://otel-lgtm:4318/v1/logs }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: { name: LOGGING_STRUCTURED_FORMAT_CONSOLE, value: ecs }
   - it: stuurt niets met observability.enabled false
     documentSelector: { path: kind, value: Deployment }
     set:

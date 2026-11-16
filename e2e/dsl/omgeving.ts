@@ -3,6 +3,7 @@ import { expect } from '@playwright/test';
 import type { BankDriver, Contact, RekeningInOverzicht, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { KeycloakDriver } from '../drivers/rest/keycloak-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
+import type { LokiDriver } from '../drivers/telemetrie/loki-driver';
 import type { Span, TempoDriver } from '../drivers/telemetrie/tempo-driver';
 import { DEMO_BEHEERDER, DEMO_KLANTEN, GELDAUTOMATEN, SUPERMARKTEN, VASTE_LASTEN, WEBWINKELS } from './huishoudens';
 import { Keycloak } from './keycloak';
@@ -71,6 +72,10 @@ export class Omgeving extends Stappen {
   private voorgesteld: Contact[] = [];
   /** De spans van de trace die verwachtEenTraceVanDeBetaling vond. */
   private trace: Span[] = [];
+  /** Het trace-ID uit de melding van verwachtTraceIdInDeMelding. */
+  private traceId?: string;
+  /** Het begin van het scenario: de telemetrie van daarvoor hoort bij een ander scenario. */
+  private readonly begin = new Date();
 
   constructor(
     private readonly shell: ShellDriver,
@@ -85,6 +90,8 @@ export class Omgeving extends Stappen {
     private readonly keycloakDriver: KeycloakDriver,
     /** Tempo in otel-lgtm (ADR 0054). */
     private readonly tempo: TempoDriver,
+    /** Loki in otel-lgtm (ADR 0054). */
+    private readonly loki: LokiDriver,
   ) {
     super(stap);
   }
@@ -98,6 +105,37 @@ export class Omgeving extends Stappen {
 
   async verwachtSpansVanDiensten(diensten: string[]): Promise<void> {
     expect([...new Set(this.trace.map((span) => span.dienst))].sort(), 'diensten in de trace').toEqual(expect.arrayContaining(diensten));
+  }
+
+  /** ADR 0054: de melding van de bank noemt het trace-ID van het verzoek, 32 hexadecimale tekens (W3C). */
+  async verwachtTraceIdInDeMelding(klant: Klant): Promise<void> {
+    this.traceId = await klant.traceIdVanDeMelding();
+    expect(this.traceId, 'trace-ID in de melding van de bank').toMatch(/^[0-9a-f]{32}$/);
+  }
+
+  async verwachtLogregelBijDeTrace(dienst: string, tekst: string): Promise<void> {
+    const regels = await this.loki.regelsBijTrace(dienst, this.vereisTraceId(), this.begin);
+    expect(regels.map((regel) => regel.tekst), `logregels van ${dienst} bij de trace`).toContainEqual(expect.stringContaining(tekst));
+  }
+
+  async verwachtDeTraceInTempo(): Promise<void> {
+    expect((await this.tempo.trace(this.vereisTraceId())).length, 'spans van de trace in Tempo').toBeGreaterThan(0);
+  }
+
+  /**
+   * De vangrail van ADR 0054: `tekst` staat in geen enkele trace en geen enkele logregel van dit scenario. Roep eerst
+   * verwachtEenTraceVanDeBetaling aan: dan heeft Tempo de traces van het scenario.
+   */
+  async verwachtNietInDeTelemetrie(tekst: string, wat: string): Promise<void> {
+    const traces = await this.tempo.alleTracesSinds(this.begin);
+    expect(traces.length, 'traces van dit scenario').toBeGreaterThan(0);
+    expect(traces.filter((trace) => trace.includes(tekst)).length, `traces met ${wat}`).toBe(0);
+    expect(await this.loki.regelsMet(tekst, this.begin), `logregels met ${wat}`).toEqual([]);
+  }
+
+  private vereisTraceId(): string {
+    if (!this.traceId) throw new Error('Geen trace-ID: begin met verwachtTraceIdInDeMelding');
+    return this.traceId;
   }
 
   /** Een span van de JDBC-instrumentatie: hij heeft de query als attribuut. */

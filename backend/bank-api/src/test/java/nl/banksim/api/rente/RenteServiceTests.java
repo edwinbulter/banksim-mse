@@ -17,8 +17,11 @@ import nl.banksim.domain.grootboek.Partij;
 import nl.banksim.domain.rekening.Iban;
 import nl.banksim.domain.transactie.TransactieType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.config.CronTask;
@@ -34,6 +37,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
         "banksim.cursor.sleutel=test-sleutel-van-minstens-32-tekens",
         "management.server.port="})
 @Import(PostgresTestDatabase.class)
+@ExtendWith(OutputCaptureExtension.class)
 class RenteServiceTests {
 
     static final String RENTEREKENING = "NL24SIMB0000000000";
@@ -75,6 +79,14 @@ class RenteServiceTests {
         assertThat(jdbc.sql("SELECT bedrag FROM transactie WHERE iban = :iban AND tegen_iban = :spaar")
                 .param("iban", RENTEREKENING).param("spaar", spaar).query(BigDecimal.class).single())
                 .isEqualByComparingTo("-25.48");
+    }
+
+    /** ADR 0054: een afgeronde maandafsluiting is een logregel, met de bankdatum; zonder IBAN of naam. */
+    @Test
+    void eenAfgerondeMaandafsluitingKomtInDeLog(CapturedOutput uitvoer) {
+        rente.sluitAf(LocalDate.of(2026, 2, 1));
+
+        assertThat(uitvoer).contains("Maandafsluiting tot en met 2026-02-01 afgerond");
     }
 
     @Test

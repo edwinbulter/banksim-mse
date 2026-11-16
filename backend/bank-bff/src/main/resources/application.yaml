@@ -51,3 +51,7 @@ management:
     metrics:
       export:
         enabled: false
+  logging:
+    export:
+      otlp:
+        enabled: false
