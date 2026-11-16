@@ -86,8 +86,8 @@ export default defineConfig<Opties>({
       // verwijdert en installeert opnieuw.
       retries: 0,
       // Eén installatie per cluster: de specs mogen elkaar niet tegelijk installeren of verwijderen. In CI heeft
-      // elke shard een eigen cluster.
-      workers: 1,
+      // elke shard een eigen cluster. De job telemetrie zet dit hoger: die scenario's installeren niets zelf (ADR 0054).
+      workers: Number(process.env.BANKSIM_INFRA_WORKERS ?? 1),
       // Een installatie wacht op Helm en de rooktests.
       timeout: 10 * 60_000,
       grepInvert: destructief ? /@wip/ : /@wip|@destructief/,

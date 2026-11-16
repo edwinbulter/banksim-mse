@@ -211,7 +211,8 @@ jobs:
   installatie:
     # Een eigen runner en cluster, parallel aan de acceptatietests: de installatiescenario's installeren en
     # verwijderen zelf (doc/werkwijze-mse.md, 9.2). Verdeeld over drie jobs, elk met een eigen runner en cluster
-    # (ADR 0047): installatie.spec.ts apart, de rest in twee shards (ADR 0052).
+    # (ADR 0047): installatie.spec.ts apart, de rest in twee shards (ADR 0052). observability.spec.ts in een eigen job,
+    # de enige met otel-lgtm (ADR 0054).
     name: Acceptance stage – installatiescenario's ${{ matrix.deel }} (kind, namespace banksim-mse)
     # ADR 0049: niet op backend, net als de acceptatietests.
     needs: [frontend, infrastructuur, images]
@@ -220,14 +221,14 @@ jobs:
       # Elke job maakt zijn run af, zodat een fout in de ene job de uitkomst van de andere niet verbergt.
       fail-fast: false
       matrix:
-        deel: [installatie, overig-1, overig-2]
+        deel: [installatie, overig-1, overig-2, telemetrie]
     timeout-minutes: 30
     env:
       CONTEXT: kind-banksim-mse-ci
       # De shell-driver (bank-seed, installatiescenario's) gebruikt deze context; zonder valt hij terug op kind-single-node.
       BANKSIM_CONTEXT: kind-banksim-mse-ci
-      # ADR 0054: otel-lgtm alleen in overig-1, de kortste van de drie; die job test ook de telemetrie.
-      BANKSIM_OBSERVABILITY: ${{ matrix.deel == 'overig-1' && 'true' || 'false' }}
+      # ADR 0054: otel-lgtm alleen in de job die de telemetrie test.
+      BANKSIM_OBSERVABILITY: ${{ matrix.deel == 'telemetrie' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -271,22 +272,18 @@ jobs:
           DEEL: ${{ matrix.deel }}
         # ADR 0052: de serial-groep van installatie.spec.ts in een eigen job; Playwright verdeelt op aantal, en zette die
         # groep anders in de shard waar zijn eerste scenario viel. Een nieuw bestand komt vanzelf in overig.
-        # ADR 0054: observability.spec.ts draait apart, in de job met otel-lgtm.
+        # ADR 0054: observability.spec.ts in de job telemetrie, met otel-lgtm; de scenario's daar tegelijk, want ze
+        # installeren niets zelf.
         run: |
           if [ "$DEEL" = installatie ]; then
             selectie=(specs/infra/installatie.spec.ts)
+          elif [ "$DEEL" = telemetrie ]; then
+            selectie=(specs/infra/observability.spec.ts)
+            export BANKSIM_INFRA_WORKERS=3
           else
             selectie=(--grep-invert 'installatie\.spec\.ts|observability\.spec\.ts' --shard="${DEEL#overig-}/2")
           fi
           BANKSIM_CONTEXT="$CONTEXT" BANKSIM_IMAGE_TAG="${GITHUB_SHA::7}" npm --prefix e2e run test:infra -- "${selectie[@]}"
-      - name: Telemetrie (ADR 0054)
-        if: ${{ !cancelled() && matrix.deel == 'overig-1' }}
-        env:
-          PLAYWRIGHT_HTML_REPORT: playwright-report-observability
-        # Een eigen map voor de resultaten: Playwright wist zijn outputmap bij elke start, ook die van de stap hierboven.
-        run: |
-          BANKSIM_CONTEXT="$CONTEXT" BANKSIM_IMAGE_TAG="${GITHUB_SHA::7}" npm --prefix e2e run test:infra -- \
-            specs/infra/observability.spec.ts --output=test-results-observability
       - name: Clusterstatus bij falen
         if: failure()
         run: |
@@ -301,8 +298,6 @@ jobs:
           path: |
             e2e/playwright-report-infra/
             e2e/test-results/
-            e2e/playwright-report-observability/
-            e2e/test-results-observability/
           if-no-files-found: ignore
       # ADR 0053: de workflow Allure-rapport voegt de resultaten van de vier jobs samen.
       - name: Allure-resultaten
