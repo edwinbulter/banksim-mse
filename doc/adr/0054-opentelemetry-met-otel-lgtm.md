@@ -75,3 +75,20 @@ Eerste run: CI-run 43766616522 (9fde51b, 2026-11-15).
 | Duur van de CI-run | – | 9:20; de langste job is `installatie` (7:31), zonder `otel-lgtm` |
 
 **Het doel is gehaald.** De job met `otel-lgtm` duurt ongeveer 1:30 langer dan zonder, maar blijft bijna een minuut korter dan de acceptatiejob. De pipeline wordt er dus niet langer door.
+
+### Tweede meting, na stap 3
+Met drie telemetrie-scenario's haalde run 43847163490 (e86e864) het doel niet:
+- `overig-1` duurde 9:08, de acceptatiejob 7:24, en de pipeline 10:58;
+- de scenario's draaiden na elkaar (1:54);
+- het opzetten met `otel-lgtm` duurde 1:47 langer dan zonder.
+
+Daarom draaien de telemetrie-scenario's sinds 13cad55 in een eigen, vierde installatiejob `telemetrie`, met drie workers. Alleen die job heeft `otel-lgtm`. Dit vervangt "de infra-job die het kortst duurt" uit de Beslissing; het doel blijft hetzelfde.
+
+| | Doel | Run 43849917672 (13cad55) |
+| --- | --- | --- |
+| Duur van de job `telemetrie` | korter dan de acceptatiejob | 5:08, tegen 6:25 voor de acceptatiejob |
+| waarvan cluster en installatie met `otel-lgtm` | – | 2:48 |
+| waarvan de drie scenario's, tegelijk | – | 1:18 |
+| Duur van de CI-run | – | 8:39; de langste job is nu PIT voor bank-api (8:35) |
+
+**Het doel is weer gehaald.** Er draait één runner meer per pipeline.
