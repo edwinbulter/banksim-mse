@@ -1,0 +1,9 @@
+# ADR 0054: het dashboard BankSim-MSE in Grafana van otel-lgtm, naast de dashboards die het image zelf meebrengt.
+apiVersion: 1
+
+providers:
+  - name: "BankSim-MSE"
+    type: file
+    options:
+      path: /otel-lgtm/banksim-mse-dashboard.json
+      foldersFromFilesStructure: false

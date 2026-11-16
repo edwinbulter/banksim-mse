@@ -35,7 +35,7 @@ class OverschrijfService {
      * databasetransactie, zoals bij betalen.
      */
     @Transactional
-    void schrijfOver(String gebruikersnaam, String sleutel, Iban van, Iban naar, Bedrag bedrag) {
+    Afhandeling schrijfOver(String gebruikersnaam, String sleutel, Iban van, Iban naar, Bedrag bedrag) {
         String verzoek = VerzoekHash.van("overschrijving", van.toString(), naar.toString(), bedrag.toString());
         Optional<String> eerder = idempotentie.claim(sleutel, gebruikersnaam, verzoek);
         if (eerder.isPresent()) {
@@ -43,7 +43,7 @@ class OverschrijfService {
                 throw new BetalingGeweigerd(Weigering.SLEUTEL_AL_GEBRUIKT,
                         "Deze overschrijving is al met een ander verzoek verstuurd.");
             }
-            return;
+            return Afhandeling.HERHAALD;
         }
         String naamVan = grootboek.naamBijEigenRekening(gebruikersnaam, van).orElseThrow(RekeningNietGevonden::new);
         String naamNaar = grootboek.naamBijEigenRekening(gebruikersnaam, naar).orElseThrow(RekeningNietGevonden::new);
@@ -52,5 +52,6 @@ class OverschrijfService {
         ledger.boek(grootboek.isSpaarrekening(van)
                 ? Overboeking.opname(vanPartij, naarPartij, bedrag, klok.nu(), "Opname")
                 : Overboeking.inleg(vanPartij, naarPartij, bedrag, klok.nu(), "Inleg"));
+        return Afhandeling.GEBOEKT;
     }
 }

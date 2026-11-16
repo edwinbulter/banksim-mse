@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Optional;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import nl.banksim.api.grootboek.OverboekingGeboekt;
 import nl.banksim.api.simulatie.Maandafsluiting;
 import nl.banksim.domain.geld.Bedrag;
@@ -29,21 +31,30 @@ class RenteService implements Maandafsluiting, LopendeRente {
 
     private final RenteOpslag opslag;
     private final MaandRente maandRente;
+    private final ObservationRegistry waarnemingen;
 
-    RenteService(RenteOpslag opslag, MaandRente maandRente) {
+    RenteService(RenteOpslag opslag, MaandRente maandRente, ObservationRegistry waarnemingen) {
         this.opslag = opslag;
         this.maandRente = maandRente;
+        this.waarnemingen = waarnemingen;
     }
 
+    /**
+     * ADR 0054: de afsluiting is een Timer bank.maandafsluiting en een span. De span krijgt de bankdatum als attribuut
+     * bank.datum, want de simulatiedatum springt; de tijd van de span zelf is echte tijd.
+     */
     @Override
     public void sluitAf(LocalDate totEnMet) {
-        for (Spaarrekening rekening : opslag.spaarrekeningen()) {
-            for (YearMonth maand = YearMonth.from(rekening.geopendOp()); !maand.atEndOfMonth().isAfter(totEnMet);
-                    maand = maand.plusMonths(1)) {
-                maandRente.boek(rekening, maand);
-            }
-        }
-        // ADR 0054: de bankdatum, want de simulatiedatum springt; de echte tijd staat bij de logregel zelf.
+        Observation.createNotStarted("bank.maandafsluiting", waarnemingen)
+                .highCardinalityKeyValue("bank.datum", totEnMet.toString())
+                .observe(() -> {
+                    for (Spaarrekening rekening : opslag.spaarrekeningen()) {
+                        for (YearMonth maand = YearMonth.from(rekening.geopendOp()); !maand.atEndOfMonth().isAfter(totEnMet);
+                                maand = maand.plusMonths(1)) {
+                            maandRente.boek(rekening, maand);
+                        }
+                    }
+                });
         LOG.info("Maandafsluiting tot en met {} afgerond", totEnMet);
     }
 

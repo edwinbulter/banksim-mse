@@ -7,7 +7,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationHandler;
 import nl.banksim.api.PostgresTestDatabase;
 import nl.banksim.api.grootboek.LedgerService;
 import nl.banksim.api.grootboek.SaldoOntoereikend;
@@ -20,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
@@ -57,6 +61,26 @@ class RenteServiceTests {
     @Autowired
     ScheduledTaskHolder geplandeTaken;
 
+    @Autowired
+    Waarnemingen waarnemingen;
+
+    /** Onthoudt elke afgeronde Observation; Spring Boot koppelt een ObservationHandler-bean vanzelf aan de registry. */
+    @TestConfiguration
+    static class Waarnemingen implements ObservationHandler<Observation.Context> {
+
+        final List<Observation.Context> gestopt = new CopyOnWriteArrayList<>();
+
+        @Override
+        public boolean supportsContext(Observation.Context context) {
+            return true;
+        }
+
+        @Override
+        public void onStop(Observation.Context context) {
+            gestopt.add(context);
+        }
+    }
+
     /** De nachtelijke afsluiting staat ingepland om 00:05 (ADR 0028). */
     @Test
     void deNachtelijkeAfsluitingIsIngeplandOm0005() {
@@ -87,6 +111,20 @@ class RenteServiceTests {
         rente.sluitAf(LocalDate.of(2026, 2, 1));
 
         assertThat(uitvoer).contains("Maandafsluiting tot en met 2026-02-01 afgerond");
+    }
+
+    /**
+     * ADR 0054: de maandafsluiting is een Observation bank.maandafsluiting; Spring Boot maakt daar in de app een Timer
+     * en een span van (in tests staat het exporteren uit). De bankdatum is het attribuut bank.datum: de simulatiedatum
+     * springt, en de tijd van de span zelf is echte tijd (UTC).
+     */
+    @Test
+    void deMaandafsluitingIsEenObservationMetDeBankdatum() {
+        rente.sluitAf(LocalDate.of(2026, 2, 1));
+
+        assertThat(waarnemingen.gestopt).filteredOn(context -> "bank.maandafsluiting".equals(context.getName()))
+                .last().satisfies(context -> assertThat(context.getHighCardinalityKeyValue("bank.datum").getValue())
+                        .isEqualTo("2026-02-01"));
     }
 
     @Test

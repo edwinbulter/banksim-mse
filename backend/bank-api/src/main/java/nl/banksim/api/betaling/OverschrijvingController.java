@@ -31,8 +31,9 @@ class OverschrijvingController {
         if (sleutel == null) {
             throw new SleutelOntbreekt();
         }
-        overschrijven.schrijfOver(gebruiker.gebruikersnaam(), sleutel, Iban.van(json.van()), Iban.van(json.naar()),
-                Bedrag.van(json.bedrag()));
+        Afhandeling afhandeling = overschrijven.schrijfOver(gebruiker.gebruikersnaam(), sleutel, Iban.van(json.van()),
+                Iban.van(json.naar()), Bedrag.van(json.bedrag()));
+        Boekingsmetrics.afgehandeld(afhandeling, Boekingsmetrics.OVERSCHRIJVING);
     }
 
     /** ADR 0010: het bedrag als string, bijvoorbeeld "250.00". */

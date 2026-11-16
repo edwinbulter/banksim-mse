@@ -1,10 +1,11 @@
 package nl.banksim.api.betaling;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.net.URI;
 
+import jakarta.servlet.http.HttpServletRequest;
 import nl.banksim.api.grootboek.SaldoOntoereikend;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -19,9 +20,10 @@ class BetalingAdvice {
 
     /** RFC 9457: het probleemtype voor de software, de melding voor de klant. */
     @ExceptionHandler(BetalingGeweigerd.class)
-    ProblemDetail geweigerd(BetalingGeweigerd fout) {
+    ProblemDetail geweigerd(BetalingGeweigerd fout, HttpServletRequest verzoek) {
         // ADR 0054: alleen het probleemtype; de melding kan een naam bevatten.
         LOG.info("Betaling geweigerd: {}", fout.probleem().code());
+        Boekingsmetrics.geweigerd(fout.probleem(), Boekingsmetrics.soortVan(verzoek.getRequestURI()));
         ProblemDetail probleem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, fout.getMessage());
         probleem.setType(URI.create("urn:banksim:probleem:" + fout.probleem().code()));
         return probleem;
@@ -29,8 +31,8 @@ class BetalingAdvice {
 
     /** ADR 0025: geen rekening komt onder € 0,00, ook een spaarrekening niet. */
     @ExceptionHandler(SaldoOntoereikend.class)
-    ProblemDetail saldoOntoereikend(SaldoOntoereikend fout) {
-        return geweigerd(new BetalingGeweigerd(Weigering.SALDO_ONTOEREIKEND, fout.getMessage()));
+    ProblemDetail saldoOntoereikend(SaldoOntoereikend fout, HttpServletRequest verzoek) {
+        return geweigerd(new BetalingGeweigerd(Weigering.SALDO_ONTOEREIKEND, fout.getMessage()), verzoek);
     }
 
     /** ADR 0027: zonder sleutel geen betaling of overschrijving; zo boekt geen client per ongeluk zonder bescherming. */

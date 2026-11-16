@@ -21,12 +21,13 @@ tests:
             requests: { cpu: 100m, memory: 1Gi }
             limits: { memory: 2Gi }
   - it: gebruikt een eigen Collector-configuratie die ook de metrics van Keycloak ophaalt
-    documentSelector: { path: kind, value: ConfigMap }
+    # Het eerste document: de ConfigMap otel-lgtm. Op naam kiezen kan niet, want de Service en de Deployment heten ook zo.
+    documentIndex: 0
     asserts:
       - matchRegex:
           path: data["otelcol-config.yaml"]
           pattern: 'targets: \["keycloak:9000"\]'
-  - it: biedt OTLP, Tempo en Loki aan als Service otel-lgtm
+  - it: biedt OTLP, Tempo, Loki en Prometheus aan als Service otel-lgtm
     documentSelector: { path: kind, value: Service }
     asserts:
       - contains:
@@ -38,9 +39,30 @@ tests:
       - contains:
           path: spec.ports
           content: { name: loki, port: 3100, targetPort: 3100 }
+      - contains:
+          path: spec.ports
+          content: { name: prometheus, port: 9090, targetPort: 9090 }
   - it: maakt niets aan met observability.enabled false
     set:
       observability.enabled: false
     asserts:
       - hasDocuments:
           count: 0
+  - it: zet het dashboard BankSim-MSE klaar in Grafana
+    documentSelector: { path: metadata.name, value: otel-lgtm-dashboard }
+    asserts:
+      - matchRegex:
+          path: data["banksim-mse.json"]
+          pattern: '"title": "BankSim-MSE"'
+      - matchRegex:
+          path: data["dashboards.yaml"]
+          pattern: 'path: /otel-lgtm/banksim-mse-dashboard.json'
+  - it: laadt het dashboard via de provisioning van Grafana
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content: { name: dashboard, mountPath: /otel-lgtm/banksim-mse-dashboard.json, subPath: banksim-mse.json }
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content: { name: dashboard, mountPath: /otel-lgtm/grafana/conf/provisioning/dashboards/banksim-mse.yaml, subPath: dashboards.yaml }

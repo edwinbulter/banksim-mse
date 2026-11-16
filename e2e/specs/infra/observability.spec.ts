@@ -58,3 +58,32 @@ test('De telemetrie bevat geen IBAN en geen naam van een klant', async ({ omgevi
     omgeving.verwachtNietInDeTelemetrie(piet.naam(), 'de naam van Piet'),
   );
 });
+
+test('Een geweigerde betaling telt mee in de metrics', async ({ omgeving, bank }) => {
+  const jan = bank.klant('Jan');
+  const sanne = bank.klant('Sanne');
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
+  await omgeving.en('klant Jan met een betaalrekening met saldo 100,00 en contact Sanne', async () => {
+    await jan.heeftBetaalrekening({ saldo: '100.00' });
+    await sanne.heeftBetaalrekening({ contact: true });
+  });
+  await omgeving.en('de bank telde N weigeringen met reden "naam-past-niet"', () => omgeving.onthoudWeigeringen('naam-past-niet'));
+  await omgeving.als('Jan 25,00 probeert te betalen aan Sanne, met de naam Piet', () =>
+    jan.probeertTeBetalen({ bedrag: '25.00', aan: sanne, naam: 'Piet' }),
+  );
+  await omgeving.dan('telt de bank N + 1 weigeringen met reden "naam-past-niet"', () =>
+    omgeving.verwachtEenWeigeringMeer('naam-past-niet'),
+  );
+});
+
+test('CPU en geheugen van de processen komen aan', async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
+  await omgeving.dan('zijn er CPU- en geheugenmetrics van bank-api, bank-bff en Keycloak', () =>
+    omgeving.verwachtCpuEnGeheugenVan(['bank-api', 'bank-bff', 'keycloak']),
+  );
+});
+
+test('Het dashboard staat klaar', async ({ omgeving }) => {
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
+  await omgeving.dan('heeft Grafana het dashboard "BankSim-MSE"', () => omgeving.verwachtDashboard('BankSim-MSE'));
+});

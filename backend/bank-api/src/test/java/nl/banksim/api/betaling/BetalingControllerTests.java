@@ -26,8 +26,11 @@ import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.grootboek.Partij;
 import nl.banksim.domain.rekening.Iban;
 import nl.banksim.domain.transactie.TransactieType;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -63,6 +66,19 @@ class BetalingControllerTests {
 
     @MockitoBean
     JwtDecoder jwtDecoder;
+
+    /** ADR 0054: de tellers staan in de globale registry van Micrometer; Spring Boot koppelt daar zijn registry aan. */
+    final SimpleMeterRegistry metrics = new SimpleMeterRegistry();
+
+    @BeforeEach
+    void telMee() {
+        Metrics.addRegistry(metrics);
+    }
+
+    @AfterEach
+    void telNietMeerMee() {
+        Metrics.removeRegistry(metrics);
+    }
 
     @BeforeEach
     void janHeeftEenRekening() {
@@ -315,6 +331,35 @@ class BetalingControllerTests {
 
     private static RequestPostProcessor jan() {
         return jwt().jwt(token -> token.claim("preferred_username", "jan-a1-1"));
+    }
+
+    /** ADR 0054: een geboekte betaling telt in bank.boekingen, met soort betaling. */
+    @Test
+    void eenGeboekteBetalingTelt() throws Exception {
+        mvc.perform(betaalverzoek().content(betaling(VAN_JAN))).andExpect(status().isCreated());
+
+        assertThat(metrics.counter("bank.boekingen", "soort", "betaling").count()).isEqualTo(1.0);
+    }
+
+    /** ADR 0054: een weigering telt in bank.boekingen.geweigerd, met de reden en de soort; niet als boeking. */
+    @Test
+    void eenWeigeringTeltMetDeReden() throws Exception {
+        mvc.perform(betaalverzoek().content(betaling(VAN_JAN, "Piet"))).andExpect(status().isUnprocessableContent());
+
+        assertThat(metrics.counter("bank.boekingen.geweigerd", "reden", "naam-past-niet", "soort", "betaling").count())
+                .isEqualTo(1.0);
+        assertThat(metrics.counter("bank.boekingen", "soort", "betaling").count()).isZero();
+    }
+
+    /** ADR 0027, 0054: een herhaling met dezelfde sleutel telt als herhaling, niet als tweede boeking. */
+    @Test
+    void eenHerhalingTeltAlsHerhaling() throws Exception {
+        String sleutel = UUID.randomUUID().toString();
+        mvc.perform(betaalverzoek(sleutel).content(betaling(VAN_JAN))).andExpect(status().isCreated());
+        mvc.perform(betaalverzoek(sleutel).content(betaling(VAN_JAN))).andExpect(status().isCreated());
+
+        assertThat(metrics.counter("bank.boekingen", "soort", "betaling").count()).isEqualTo(1.0);
+        assertThat(metrics.counter("bank.idempotentie.herhaald", "soort", "betaling").count()).isEqualTo(1.0);
     }
 
     @TestConfiguration

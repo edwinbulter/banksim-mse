@@ -67,6 +67,9 @@ tests:
           content: { name: MANAGEMENT_OTLP_METRICS_EXPORT_URL, value: http://otel-lgtm:4318/v1/metrics }
       - contains:
           path: spec.template.spec.containers[0].env
+          content: { name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP, value: 10s }
+      - contains:
+          path: spec.template.spec.containers[0].env
           content: { name: OTEL_RESOURCE_ATTRIBUTES, value: service.version=abc1234 }
       - contains:
           path: spec.template.spec.containers[0].env

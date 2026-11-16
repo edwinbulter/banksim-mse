@@ -13,6 +13,19 @@ data:
     {{- .Files.Get "files/otelcol-config.yaml" | nindent 4 }}
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-lgtm-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "banksim-mse.labels" $ctx | nindent 4 }}
+data:
+  banksim-mse.json: |
+    {{- .Files.Get "files/grafana-dashboard.json" | nindent 4 }}
+  dashboards.yaml: |
+    {{- .Files.Get "files/grafana-dashboards.yaml" | nindent 4 }}
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: otel-lgtm
@@ -25,9 +38,10 @@ spec:
   ports:
     - { name: grafana, port: 3000, targetPort: 3000 }
     - { name: otlp-http, port: 4318, targetPort: 4318 }
-    # Tempo en Loki: de acceptatietests zoeken erin via de service-proxy van de API-server (e2e/drivers/telemetrie).
+    # Tempo, Loki en Prometheus: de acceptatietests zoeken erin via de service-proxy van de API-server (e2e/drivers/telemetrie).
     - { name: tempo, port: 3200, targetPort: 3200 }
     - { name: loki, port: 3100, targetPort: 3100 }
+    - { name: prometheus, port: 9090, targetPort: 9090 }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -49,6 +63,7 @@ spec:
       annotations:
         # Een andere Collector-configuratie start de pod opnieuw.
         checksum/config: {{ .Files.Get "files/otelcol-config.yaml" | sha256sum }}
+        checksum/dashboard: {{ .Files.Get "files/grafana-dashboard.json" | sha256sum }}
     spec:
       containers:
         - name: otel-lgtm
@@ -59,17 +74,22 @@ spec:
             - { name: otlp-http, containerPort: 4318 }
             - { name: tempo, containerPort: 3200 }
             - { name: loki, containerPort: 3100 }
+            - { name: prometheus, containerPort: 9090 }
           readinessProbe:
             httpGet: { path: /ready, port: 13133 }
             periodSeconds: 5
           volumeMounts:
             - { name: config, mountPath: /otel-lgtm/otelcol-config.yaml, subPath: otelcol-config.yaml }
             - { name: data, mountPath: /data }
+            - { name: dashboard, mountPath: /otel-lgtm/banksim-mse-dashboard.json, subPath: banksim-mse.json }
+            - { name: dashboard, mountPath: /otel-lgtm/grafana/conf/provisioning/dashboards/banksim-mse.yaml, subPath: dashboards.yaml }
           resources:
             {{- toYaml .Values.resources.otelLgtm | nindent 12 }}
       volumes:
         - name: config
           configMap: { name: otel-lgtm }
+        - name: dashboard
+          configMap: { name: otel-lgtm-dashboard }
         # De telemetrie overleeft een herstart niet; verwijderen laat niets achter.
         - name: data
           emptyDir: {}

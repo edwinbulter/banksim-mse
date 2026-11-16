@@ -3,7 +3,9 @@ import { expect } from '@playwright/test';
 import type { BankDriver, Contact, RekeningInOverzicht, Spaarmutatie, TransactiesOpDatum } from '../drivers/bank-driver';
 import type { KeycloakDriver } from '../drivers/rest/keycloak-driver';
 import type { K8sObject, Resultaat, ShellDriver } from '../drivers/shell/shell-driver';
+import type { GrafanaDriver } from '../drivers/telemetrie/grafana-driver';
 import type { LokiDriver } from '../drivers/telemetrie/loki-driver';
+import type { PrometheusDriver } from '../drivers/telemetrie/prometheus-driver';
 import type { Span, TempoDriver } from '../drivers/telemetrie/tempo-driver';
 import { DEMO_BEHEERDER, DEMO_KLANTEN, GELDAUTOMATEN, SUPERMARKTEN, VASTE_LASTEN, WEBWINKELS } from './huishoudens';
 import { Keycloak } from './keycloak';
@@ -76,6 +78,8 @@ export class Omgeving extends Stappen {
   private traceId?: string;
   /** Het begin van het scenario: de telemetrie van daarvoor hoort bij een ander scenario. */
   private readonly begin = new Date();
+  /** Het aantal weigeringen per reden dat onthoudWeigeringen zag. */
+  private readonly weigeringen = new Map<string, number>();
 
   constructor(
     private readonly shell: ShellDriver,
@@ -92,6 +96,9 @@ export class Omgeving extends Stappen {
     private readonly tempo: TempoDriver,
     /** Loki in otel-lgtm (ADR 0054). */
     private readonly loki: LokiDriver,
+    /** Prometheus en Grafana in otel-lgtm (ADR 0054). */
+    private readonly prometheus: PrometheusDriver,
+    private readonly grafana: GrafanaDriver,
   ) {
     super(stap);
   }
@@ -131,6 +138,38 @@ export class Omgeving extends Stappen {
     expect(traces.length, 'traces van dit scenario').toBeGreaterThan(0);
     expect(traces.filter((trace) => trace.includes(tekst)).length, `traces met ${wat}`).toBe(0);
     expect(await this.loki.regelsMet(tekst, this.begin), `logregels met ${wat}`).toEqual([]);
+  }
+
+  /** ADR 0054: de teller bank.boekingen.geweigerd van bank-api, opgeteld over de soorten. Zonder reeks is hij 0. */
+  private async aantalWeigeringen(reden: string): Promise<number> {
+    const reeksen = await this.prometheus.reeksen(`sum(bank_boekingen_geweigerd_total{reden="${reden}"})`);
+    return reeksen[0]?.waarde ?? 0;
+  }
+
+  async onthoudWeigeringen(reden: string): Promise<void> {
+    this.weigeringen.set(reden, await this.aantalWeigeringen(reden));
+  }
+
+  /** De apps sturen hun metrics om de 10 s; dan wacht deze bewering op de volgende export. */
+  async verwachtEenWeigeringMeer(reden: string): Promise<void> {
+    const voor = this.weigeringen.get(reden);
+    if (voor === undefined) throw new Error(`Begin met onthoudWeigeringen('${reden}')`);
+    await expect.poll(() => this.aantalWeigeringen(reden), { message: `weigeringen met reden ${reden}`, timeout: 60_000, intervals: [2_000] })
+      .toBe(voor + 1);
+  }
+
+  /** Alleen of de metrics er zijn: hun waarde verschilt bij elke meting. */
+  async verwachtCpuEnGeheugenVan(diensten: string[]): Promise<void> {
+    for (const metric of ['process_cpu_usage', 'jvm_memory_used_bytes']) {
+      await expect.poll(async () => [...new Set((await this.prometheus.reeksen(metric)).map((reeks) => reeks.labels.job))].sort(),
+        { message: `diensten met ${metric}`, timeout: 60_000, intervals: [2_000] })
+        .toEqual(expect.arrayContaining(diensten));
+    }
+  }
+
+  async verwachtDashboard(titel: string): Promise<void> {
+    await expect.poll(() => this.grafana.dashboards(), { message: 'dashboards in Grafana', timeout: 30_000, intervals: [2_000] })
+      .toContain(titel);
   }
 
   private vereisTraceId(): string {

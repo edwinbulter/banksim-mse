@@ -39,7 +39,7 @@ class BetaalService {
      * rolt ook de sleutel terug, zodat een nieuwe poging opnieuw beoordeeld wordt.
      */
     @Transactional
-    void betaal(String gebruikersnaam, String sleutel, Betaalopdracht opdracht) {
+    Afhandeling betaal(String gebruikersnaam, String sleutel, Betaalopdracht opdracht) {
         Iban van = opdracht.van();
         Iban naar = opdracht.naar();
         String verzoek = VerzoekHash.van(van.toString(), naar.toString(), opdracht.naam(), opdracht.bedrag().toString(),
@@ -50,7 +50,7 @@ class BetaalService {
                 throw new BetalingGeweigerd(Weigering.SLEUTEL_AL_GEBRUIKT,
                         "Deze betaling is al met een ander verzoek verstuurd.");
             }
-            return;
+            return Afhandeling.HERHAALD;
         }
         String eigenNaam = grootboek.naamBijEigenRekening(gebruikersnaam, van).orElseThrow(RekeningNietGevonden::new);
         Contact contact = contacten.vind(naar).orElseThrow(() ->
@@ -63,5 +63,6 @@ class BetaalService {
         ledger.boek(new Overboeking(new Partij(van, eigenNaam), new Partij(naar, contact.naam()), opdracht.bedrag(),
                 TransactieType.ONLINE_BANKIEREN, klok.nu(), opdracht.omschrijving(), opdracht.betalingskenmerk(),
                 opdracht.extraOmschrijving()));
+        return Afhandeling.GEBOEKT;
     }
 }

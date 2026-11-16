@@ -25,8 +25,11 @@ import nl.banksim.domain.grootboek.Overboeking;
 import nl.banksim.domain.grootboek.Partij;
 import nl.banksim.domain.rekening.Iban;
 import nl.banksim.domain.transactie.TransactieType;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -62,6 +65,19 @@ class OverschrijvingControllerTests {
 
     @MockitoBean
     JwtDecoder jwtDecoder;
+
+    /** ADR 0054: de tellers staan in de globale registry van Micrometer; Spring Boot koppelt daar zijn registry aan. */
+    final SimpleMeterRegistry metrics = new SimpleMeterRegistry();
+
+    @BeforeEach
+    void telMee() {
+        Metrics.addRegistry(metrics);
+    }
+
+    @AfterEach
+    void telNietMeerMee() {
+        Metrics.removeRegistry(metrics);
+    }
 
     @BeforeEach
     void janHeeftEenBetaalEnEenSpaarrekening() {
@@ -181,6 +197,19 @@ class OverschrijvingControllerTests {
     private static String opdracht(Iban van, Iban naar) {
         return """
                 {"van": "%s", "naar": "%s", "bedrag": "250.00"}""".formatted(van, naar);
+    }
+
+    /** ADR 0054: een overschrijving telt met soort overschrijving, ook als ze geweigerd wordt. */
+    @Test
+    void eenOverschrijvingTeltMetSoortOverschrijving() throws Exception {
+        mvc.perform(verzoek(UUID.randomUUID().toString()).content(opdracht(BETAAL_JAN, SPAAR_JAN))).andExpect(status().isCreated());
+        mvc.perform(verzoek(UUID.randomUUID().toString()).content("""
+                        {"van": "%s", "naar": "%s", "bedrag": "9000.00"}""".formatted(SPAAR_JAN, BETAAL_JAN)))
+                .andExpect(status().isUnprocessableContent());
+
+        assertThat(metrics.counter("bank.boekingen", "soort", "overschrijving").count()).isEqualTo(1.0);
+        assertThat(metrics.counter("bank.boekingen.geweigerd", "reden", "saldo-ontoereikend", "soort", "overschrijving").count())
+                .isEqualTo(1.0);
     }
 
     @TestConfiguration

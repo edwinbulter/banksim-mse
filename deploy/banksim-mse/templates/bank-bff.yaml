@@ -55,6 +55,9 @@ spec:
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
               value: http://otel-lgtm:4318/v1/metrics
+            # Om de 10 s in plaats van elke minuut: een grafiek en een scenario hoeven dan niet lang te wachten.
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
+              value: 10s
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.version={{ .Values.imageTag }}
             - name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED

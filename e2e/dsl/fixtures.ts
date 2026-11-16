@@ -8,7 +8,9 @@ import { RestDriver } from '../drivers/rest/rest-driver';
 import { BankSeed } from '../drivers/shell/bank-seed';
 import { SeedSessie } from '../drivers/shell/seed-sessie';
 import { ShellDriver } from '../drivers/shell/shell-driver';
+import { GrafanaDriver } from '../drivers/telemetrie/grafana-driver';
 import { LokiDriver } from '../drivers/telemetrie/loki-driver';
+import { PrometheusDriver } from '../drivers/telemetrie/prometheus-driver';
 import { TempoDriver } from '../drivers/telemetrie/tempo-driver';
 import { UiDriver } from '../drivers/ui/ui-driver';
 
@@ -96,7 +98,8 @@ export const test = basis.extend<Opties & { bank: Bank; omgeving: Omgeving; allu
       return new UiDriver(await sessie.newPage());
     };
     const omgeving = new Omgeving(shell, new RestDriver(gelogd(request, logboek)), imageTag, (titel, stap) => basis.step(titel, stap), maakRestDriver, maakUiDriver,
-      new KeycloakDriver(gelogd(request, logboek), authUrl), new TempoDriver(shell, 'banksim-mse'), new LokiDriver(shell, 'banksim-mse'));
+      new KeycloakDriver(gelogd(request, logboek), authUrl), new TempoDriver(shell, 'banksim-mse'), new LokiDriver(shell, 'banksim-mse'),
+      new PrometheusDriver(shell, 'banksim-mse'), new GrafanaDriver(shell, 'banksim-mse'));
     await use(omgeving);
     // De simulatiedatum geldt voor de hele bank: wissen, ook als het scenario faalde (ADR 0014).
     if (testInfo.tags.includes('@simulatiedatum')) {
