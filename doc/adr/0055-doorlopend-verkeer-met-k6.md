@@ -55,3 +55,15 @@ Optie 1.
 - **bats:** `install.sh` maakt het Secret `bank-verkeer`.
 - **Unittests en Testcontainers:** de opdracht `bank-seed verkeer` is idempotent.
 - **Meetbaar doel:** de job `telemetrie` blijft korter dan de acceptatiejob in dezelfde run. De meting komt hieronder, in een aparte commit.
+
+## Meting
+Eerste run: CI-run 43874202172 (98d526d, 2026-11-16).
+
+| | Doel | Gemeten |
+| --- | --- | --- |
+| Duur van de job `telemetrie` | korter dan de acceptatiejob | 6:07, tegen 7:14 voor de acceptatiejob |
+| waarvan cluster en installatie, met `otel-lgtm` en de verkeersklanten | – | 3:04 (zonder verkeersklanten, run 43849917672: 2:48) |
+| waarvan de scenario's, met een halve minuut k6 | – | 1:48 (zonder k6: 1:18) |
+| Duur van de CI-run | – | 8:27; de langste job is `installatie` (7:16) |
+
+**Het doel is gehaald.** Het verkeer en de verkeersklanten kosten de job ongeveer 50 s, en hij blijft ruim een minuut korter dan de acceptatiejob.
