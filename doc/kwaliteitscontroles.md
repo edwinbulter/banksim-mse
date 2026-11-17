@@ -21,6 +21,7 @@ Dit document beschrijft welke **soorten** tests en controles dit project heeft o
    - [3.11 Installatiescenario's](#311-installatiescenarios)
    - [3.12 Rooktests](#312-rooktests)
    - [3.13 Controle door de mens](#313-controle-door-de-mens)
+   - [3.14 Testen onder load](#314-testen-onder-load)
 4. [Hoe het samenkomt in de pipeline](#4-hoe-het-samenkomt-in-de-pipeline)
    - [De uitkomst van de acceptance stage lezen](#de-uitkomst-van-de-acceptance-stage-lezen)
 5. [Een nieuwe controle toevoegen](#5-een-nieuwe-controle-toevoegen)
@@ -71,7 +72,7 @@ Verschillen dit document en die bronnen, dan wint de bron.
 | Installatiescenario's | Installeren, opnieuw installeren, upgraden en verwijderen | Playwright met de shell-driver | acceptance stage |
 | Rooktests | Dat de installatie antwoordt | `install.sh` | bij elke installatie, ook in de acceptance stage |
 | Controle door de mens | Wat een machine niet kan beoordelen | Scenario, ADR, rapport, diff van de specs, verkennend testen | buiten de pipeline, per slice |
-| Testen onder load (hoofdstuk 6) | Wat de bank doet bij doorlopend verkeer van klanten | k6 vanaf de Mac, Grafana met traces, logs en metrics | lokaal met de hand; een korte run in de acceptance stage |
+| Testen onder load | Wat de bank doet bij doorlopend verkeer van klanten | k6 vanaf de Mac, Grafana met traces, logs en metrics | lokaal met de hand; een korte run in de acceptance stage |
 
 ## 3. De soorten
 
@@ -248,6 +249,14 @@ Een paar eigenschappen volgen uit die opbouw:
 - voelt de applicatie goed aan?
 
 **Hoe.** De mens controleert het scenario vóór de bouw, elke ADR en de diff van de specs. Per slice wordt er verkennend getest, en onder load zoals in hoofdstuk 6. Wat de controles hierboven al doen, controleert de mens niet meer met de hand. Zie [werkwijze §10.1](werkwijze-mse.md#101-controle-door-de-mens).
+
+### 3.14 Testen onder load
+
+**Wat.** Wat de bank doet bij doorlopend verkeer van klanten: worden verzoeken trager, stijgen CPU en geheugen, en gaan er dingen mis die bij één klant niet misgaan?
+
+**Hoe.** k6 doet zich voor als vijf verkeersklanten die inloggen, rekeningen bekijken, soms betalen en uitloggen, door de voordeur (ADR 0055). Je kijkt in Grafana naar de traces, logs en metrics (ADR 0054). Het grootste deel is verkennend testen (3.13) met hulpmiddelen: er is geen grens die de bank rood maakt, behalve de thresholds van k6.
+
+**Waar.** Het script staat in `deploy/verkeer/`. Lokaal met de hand met `make verkeer`; in de acceptance stage een korte run in `e2e/specs/infra/verkeer.spec.ts`. De handleiding staat in [hoofdstuk 6](#6-testen-onder-load).
 
 ## 4. Hoe het samenkomt in de pipeline
 
