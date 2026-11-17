@@ -32,10 +32,19 @@ VERKEER_WACHTWOORD="$(kc -n "$NAMESPACE" get secret bank-verkeer -o jsonpath='{.
 export VERKEER_WACHTWOORD
 
 # Een vrije poort op deze machine naar OTLP van otel-lgtm; de uitvoer van kubectl noemt de poort.
+# kubectl zelf op de achtergrond, niet via kc: dan zou $! een subshell zijn, en bleef kubectl na het opruimen draaien.
 uitvoer="$(mktemp)"
-kc -n "$NAMESPACE" port-forward svc/otel-lgtm :4318 >"$uitvoer" 2>&1 &
+kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" port-forward svc/otel-lgtm :4318 >"$uitvoer" 2>&1 &
 port_forward=$!
-trap 'kill "$port_forward" 2>/dev/null || true; rm -f "$uitvoer"' EXIT
+# De container heeft een naam: als docker run stopt, stopt de container niet vanzelf.
+container="banksim-verkeer-$$"
+k6=""
+trap '[[ -z "$k6" ]] || docker stop --time 5 "$container" >/dev/null 2>&1 || true
+  kill "$port_forward" 2>/dev/null || true
+  rm -f "$uitvoer"' EXIT
+# Ctrl-C of een time-out: opruimen gebeurt via EXIT. 130 en 143 zijn de gebruikelijke codes voor SIGINT en SIGTERM.
+trap 'exit 130' INT
+trap 'exit 143' TERM
 poort=""
 for _ in {1..20}; do
   poort="$(sed -n 's/^Forwarding from 127.0.0.1:\([0-9]*\).*/\1/p' "$uitvoer" | head -1)"
@@ -54,10 +63,12 @@ fi
 
 info "k6: $snelheid klantbezoeken per seconde, $duur"
 # --network host: bank-mse.localtest.me is 127.0.0.1, en daar luistert de ingress van kind.
-set +e
-docker run --rm --network host -v "$REPO_ROOT/deploy/verkeer:/verkeer:ro" \
+# Op de achtergrond met wait: zo reageert het script meteen op Ctrl-C of SIGTERM, en niet pas als k6 klaar is.
+docker run --rm --network host --name "$container" -v "$REPO_ROOT/deploy/verkeer:/verkeer:ro" \
   -e "SNELHEID=$snelheid" -e "DUUR=$duur" -e VERKEER_WACHTWOORD ${cijfers[@]+"${cijfers[@]}"} \
-  "$K6_IMAGE" run --quiet ${poort:+--out opentelemetry} /verkeer/verkeer.js
-status=$?
-set -e
+  "$K6_IMAGE" run --quiet ${poort:+--out opentelemetry} /verkeer/verkeer.js &
+k6=$!
+status=0
+wait "$k6" || status=$?
+k6=""
 exit "$status"

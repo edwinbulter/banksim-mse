@@ -52,7 +52,8 @@ Sommige antwoorden zijn "dat is niet getest" of "dat bestaat nog niet". Dat is g
 12. [Installatie en Kubernetes](#12-installatie-en-kubernetes)
 13. [Testdata en demo-data](#13-testdata-en-demo-data)
 14. [Storingen in productie](#14-storingen-in-productie)
-15. [Werken met AI](#15-werken-met-ai)
+15. [Telemetrie en doorlopend verkeer](#15-telemetrie-en-doorlopend-verkeer)
+16. [Werken met AI](#16-werken-met-ai)
 
 ---
 
@@ -141,7 +142,7 @@ Bepaal eerst waar de flow stopt, want dat wijst het onderdeel aan:
 - **Terug bij de BFF met een fout (`?error`):** de BFF kon de code niet inwisselen. Kijk in de logs van `bank-bff` en `keycloak`. Een verschil tussen het client secret in het Secret `bank-bff` en dat in de realm hoort bij de verdachten.
 - **Ingelogd, maar elke aanroep geeft een fout:** `bank-api` weigert het token, of de sessie is weg.
 
-Controleer ook wat er als laatste is veranderd: `helm history`, en de K8s Job `keycloak-config`. Er zijn geen eigen logregels en geen metrics (zie [14](#14-storingen-in-productie)).
+Controleer ook wat er als laatste is veranderd: `helm history`, en de K8s Job `keycloak-config`. Het inloggen heeft geen eigen logregels, en wat er bij Keycloak zelf gebeurt, staat niet in de traces. Wat de telemetrie wel laat zien, staat in [15](#15-telemetrie-en-doorlopend-verkeer).
 
 *Bron:* `deploy/scripts/install.sh`, `deploy/banksim-mse/files/realm-banksim-mse.json`, [ADR 0017](adr/0017-realm-wijzigingen-met-keycloak-config-cli.md).
 </details>
@@ -813,16 +814,16 @@ Een upgrade vervangt de installatie midden in de run, en een sessie zou dan nog 
 **Basiskennis:** de drie pijlers van observability (logs, metrics en traces), probes, rolling update, backup en restore.
 
 **Dit moet je van ons systeem weten**
-- Eigen logregels, metrics en traces ontbreken. Je hebt `kubectl get`, `logs` en `events`, de versie via `/api/versie`, `helm history`, en de database.
+- Er zijn traces, logs met trace-ID en metrics in `otel-lgtm` (hoofdstuk 15), maar ze worden niet bewaard na een herstart van die pod. Daarnaast heb je `kubectl get`, `logs` en `events`, de versie via `/api/versie`, `helm history`, en de database.
 - Elk onderdeel heeft één replica.
 - Liveness en readiness staan op een aparte poort en controleren geen afhankelijkheden.
 
 **14.1 Een klant meldt dat een betaling misging. Wat kun je nu terugvinden, en wat niet?**
 <details><summary>Antwoord</summary>
 
-De database vertelt wat er is geboekt: `overboeking`, `transactie` en `idempotency_sleutel`. Een geslaagde betaling is dus terug te vinden. Een geweigerde niet: die rolt terug, inclusief de sleutel, en de code schrijft geen eigen logregel. Er is ook geen correlatie-ID tussen de BFF en `bank-api`.
+De database vertelt wat er is geboekt: `overboeking`, `transactie` en `idempotency_sleutel`. Een geslaagde betaling is dus terug te vinden. Een geweigerde staat niet in de database: die rolt terug, inclusief de sleutel. Wel staat ze in de telemetrie. De melding aan de klant heeft een trace-ID, en daarmee vind je de trace in Tempo, over de BFF en bank-api, en de logregel `Betaling geweigerd: <probleemtype>` in Loki. Ook de Idempotency-Key staat op de span, als `bank.idempotency_key`. Dat werkt alleen zolang `otel-lgtm` niet is herstart, en alleen met `observability.enabled: true`.
 
-*Bron:* [ADR 0027](adr/0027-idempotency-key-bij-betalen.md); er staat geen logger in de hoofdcode van de backend.
+*Bron:* [ADR 0027](adr/0027-idempotency-key-bij-betalen.md), [ADR 0054](adr/0054-opentelemetry-met-otel-lgtm.md), `BetalingAdvice` en `SleutelOpDeSpan` in bank-api.
 </details>
 
 **14.2 `bank-api` komt niet ready en start steeds opnieuw. Wat zijn je eerste verdachten?**
@@ -883,7 +884,101 @@ Bij een storing van Keycloak zou Kubernetes dan gezonde pods van de bank uit de 
 
 ---
 
-## 15. Werken met AI
+## 15. Telemetrie en doorlopend verkeer
+
+**Waarom dit ertoe doet.** Bij een storing of een trage bank is de telemetrie je eerste bron. Je moet weten wat erin staat, wat er bewust niet in staat, en wat ze niet kan laten zien. Met k6 maak je zelf de load om dat te bekijken.
+
+**Basiskennis:** OpenTelemetry en OTLP, een trace met spans, het verschil tussen een counter en een histogram, Prometheus en PromQL op hoofdlijnen, een open en een gesloten loadmodel.
+
+**Dit moet je van ons systeem weten**
+- bank-api, bank-bff en Keycloak sturen hun traces, logs en metrics naar `otel-lgtm` in de namespace: één pod met de Collector, Tempo, Loki, Prometheus en Grafana (ADR 0054). Je opent het met `make grafana`.
+- Elk verzoek wordt getraced. Elk gegeven draagt `service.version`, de image-tag.
+- k6 draait vanaf de Mac met `make verkeer`, als de verkeersklanten `verkeer-1` tot en met `verkeer-5` (ADR 0055). Hoe je ermee test: [Kwaliteitscontroles, hoofdstuk 6](kwaliteitscontroles.md#6-testen-onder-load).
+- In CI draait dit alleen in de job `telemetrie`.
+
+**15.1 Een klant krijgt een foutmelding met een trace-ID. Hoe vind je wat er gebeurde?**
+<details><summary>Antwoord</summary>
+
+Zoek het trace-ID op in Grafana, in Explore met de bron Tempo. Je ziet de spans van bank-bff, bank-api en de SQL. Zoek de logregels van hetzelfde verzoek in Loki, met `{service_name="bank-api"} | trace_id="<trace-ID>"`. Elk probleembericht van bank-api heeft het veld `traceId`, ook een onverwachte fout (500, `onverwachte-fout`); de fout zelf staat dan alleen in de log. Een trace is pas na ongeveer een halve minuut te vinden.
+
+*Bron:* [ADR 0054](adr/0054-opentelemetry-met-otel-lgtm.md), `TraceIdInProbleem` en `ProbleemAdvice` in bank-api, `e2e/drivers/telemetrie/loki-driver.ts`.
+</details>
+
+**15.2 Waarom staat er geen IBAN in de traces, terwijl de paden er een bevatten, zoals `/api/rekeningen/{iban}/transacties`?**
+<details><summary>Antwoord</summary>
+
+`ZonderPersoonsgegevens`, een `ObservationFilter` in bank-api en bank-bff, vervangt elk IBAN door `{iban}` en haalt de querystring weg, want daar staan zoektermen in, zoals een naam. Dat geldt voor elk attribuut van een span en elk label van een metric van de apps. De vangrail is het scenario "De telemetrie bevat geen IBAN en geen naam van een klant", dat Tempo en Loki doorzoekt, plus `ZonderPersoonsgegevensTests`. Zonder filter stond het IBAN van Jan in drie traces.
+
+*Bron:* [ADR 0054](adr/0054-opentelemetry-met-otel-lgtm.md), de vangrailtabel in [CLAUDE.md](../CLAUDE.md).
+</details>
+
+**15.3 Iemand voegt een logregel toe met de melding van een geweigerde betaling. Wat gaat er mis, en wat vangt het?**
+<details><summary>Antwoord</summary>
+
+De melding voor de klant is voor de klant geschreven, en mag volgens ADR 0054 een naam bevatten. De huidige meldingen doen dat niet, maar een nieuwe kan dat wel. Het filter werkt op spans en metrics, niet op de tekst van een logregel. Daarom logt `BetalingAdvice` alleen het probleemtype, zoals `Betaling geweigerd: saldo-ontoereikend`. Het vangrailscenario zoekt de naam van Piet ook in Loki, maar alleen bij de verzoeken die het zelf doet. Een logregel in een andere route vangt het dus niet. Ook `Onverwachte fout` logt de hele exception; staat daar een IBAN in, bijvoorbeeld in een melding van de database, dan komt die in Loki. Dat is niet getest.
+
+*Bron:* `BetalingAdvice` en `ProbleemAdvice` in bank-api, `e2e/specs/infra/observability.spec.ts`.
+</details>
+
+**15.4 Geldt die vangrail ook voor de cijfers van k6?**
+<details><summary>Antwoord</summary>
+
+Ja, via een eigen scenario. k6 geeft standaard elk verzoek de labels `url` en `name` mee, en die bevatten de URL. Daarin stonden IBAN's van de verkeersklanten, zoektermen, en bij Keycloak een ID-token of sessiecode die bij elk bezoek anders is. Zo kwamen er bij elk bezoek reeksen bij, tot de Collector de cijfers van k6 weigerde met `request body too large`. Daarom stuurt `verkeer.js` alleen een vaste lijst labels mee (`systemTags`), en heet de stap `naam`. Het scenario "De cijfers van k6 staan per stap in Prometheus, zonder IBAN of token" bewaakt dat: geen IBAN, querystring of token in een label, en hoogstens 50 reeksen voor `k6_http_reqs_total`. Een nieuw label in `verkeer.js` moet dus ook vast zijn, en geen IBAN of naam bevatten.
+
+*Bron:* `deploy/verkeer/verkeer.js`, `e2e/specs/infra/verkeer.spec.ts`.
+</details>
+
+**15.5 Waarom draait k6 op de Mac, en niet als Deployment in de chart?**
+<details><summary>Antwoord</summary>
+
+In een pod verwijst `bank-mse.localtest.me` naar 127.0.0.1, en dat is de pod zelf. Er waren twee uitwegen, en beide zijn afgewezen. `hostAliases` naar de ingress-controller maakt de chart afhankelijk van een andere namespace. Een DNS-rewrite in CoreDNS geldt voor het hele cluster, en dat verbiedt ADR 0004. Vanaf de Mac, met `--network host`, gaat k6 door de voordeur, net als Playwright. Het gevolg: het verkeer stopt als de Mac slaapt, en k6 deelt de CPU met het cluster.
+
+*Bron:* [ADR 0055](adr/0055-doorlopend-verkeer-met-k6.md).
+</details>
+
+**15.6 Waarom betalen de verkeersklanten alleen elkaar, en niet de demo-klanten?**
+<details><summary>Antwoord</summary>
+
+Een contact hoeft geen rekening bij BankSim te hebben, en er is geen endpoint voor inkomend geld. Betaalt k6 naar buiten, dan raakt het geld op. In een kring blijft het totaal gelijk, en dat is te controleren: `verkeer.spec.ts` doet dat. De demo-huishoudens blijven zo ook zoals de generator ze maakte (ADR 0040). Laat k6 dus nooit inloggen als demo-klant.
+
+*Bron:* [ADR 0055](adr/0055-doorlopend-verkeer-met-k6.md), `Verkeersklanten` in bank-seed.
+</details>
+
+**15.7 Waarom gebruikt k6 `constant-arrival-rate`, en niet een vast aantal virtuele gebruikers?**
+<details><summary>Antwoord</summary>
+
+Met een vast aantal gebruikers wacht elke gebruiker op het antwoord voordat hij verdergaat. Wordt de bank trager, dan komen er minder verzoeken, en lijkt alles in orde. Met een vaste aankomstsnelheid blijven de bezoeken in hetzelfde tempo komen, en zie je de vertraging. Kan k6 het tempo niet halen, dan meldt het `dropped_iterations`.
+
+*Bron:* `deploy/verkeer/verkeer.js`, [observability-keuzes.md](observability-keuzes.md#doorlopend-verkeer-met-k6).
+</details>
+
+**15.8 k6 meet een veel langere duur dan het paneel "Duur van een verzoek (p95)" voor de BFF. Waar zit de tijd?**
+<details><summary>Antwoord</summary>
+
+Vóór de BFF. Een trace begint bij de BFF, omdat de ingress buiten de namespace staat. De tijd in de ingress, bij Keycloak tijdens het inloggen en het uitloggen, en op de Mac zelf zie je dus niet in Tempo. Vergelijk per stap met het label `naam` van k6: is alleen `inloggen` traag, kijk dan bij Keycloak.
+
+*Bron:* [observability-keuzes.md](observability-keuzes.md#traces-en-correlatie-met-traceparent), de panelen in `deploy/banksim-mse/files/grafana-dashboard.json`.
+</details>
+
+**15.9 Een pod van bank-api is herstart. Zie je in Grafana waarom, bijvoorbeeld een OOMKill?**
+<details><summary>Antwoord</summary>
+
+Nee. Elk proces meldt zijn eigen CPU en geheugen, zoals de JVM ze ziet. Metrics per container vragen metrics-server of rechten op de kubelet, en die gelden voor het hele cluster (ADR 0004). Een herstart en de reden zie je met `kubectl get pods` en `kubectl describe pod`. Ook de telemetrie zelf is niet blijvend: `otel-lgtm` bewaart alles in een `emptyDir`, en na een herstart van die pod is het weg.
+
+*Bron:* [ADR 0054](adr/0054-opentelemetry-met-otel-lgtm.md), `deploy/banksim-mse/templates/otel-lgtm.yaml`.
+</details>
+
+**15.10 Waarom draaien `otel-lgtm` en k6 in CI alleen in de job `telemetrie`, en wat doe je als die job langer wordt dan de acceptatiejob?**
+<details><summary>Antwoord</summary>
+
+`otel-lgtm` is zwaar: het image is 2,6 GB, en het vraagt 1 Gi geheugen. In de job `overig-1` maakte het de pipeline te lang, en het meetbare doel van ADR 0054 werd gemist. Daarom draait het in een eigen job, met alleen `observability.spec.ts` en `verkeer.spec.ts`; de andere jobs installeren met `BANKSIM_OBSERVABILITY=false`. Het doel is dat de job `telemetrie` korter blijft dan de acceptatiejob. Wordt hij langer, dan is het doel gemist: stop en beslis of de wijziging blijft of teruggaat.
+
+*Bron:* de metingen in [ADR 0054](adr/0054-opentelemetry-met-otel-lgtm.md) en [ADR 0055](adr/0055-doorlopend-verkeer-met-k6.md), `.github/workflows/ci.yml`.
+</details>
+
+---
+
+## 16. Werken met AI
 
 **Waarom dit ertoe doet.** De AI schrijft snel, dus de waarde van de mens zit in het beoordelen. Dat kun je alleen met de kennis uit de andere hoofdstukken.
 
@@ -893,7 +988,7 @@ Bij een storing van Keycloak zou Kubernetes dan gezonde pods van de bank uit de 
 - De stoppunten en wat je dan doet: [werkwijze §10.1](werkwijze-mse.md#101-controle-door-de-mens).
 - Leren is een apart doel: [werkwijze §10.2](werkwijze-mse.md#102-leren-door-de-mens).
 
-**15.1 Welke drie beslissingen blijven altijd bij de mens?**
+**16.1 Welke drie beslissingen blijven altijd bij de mens?**
 <details><summary>Antwoord</summary>
 
 Het scenario met zijn verwachte waarden, de ADR-beslissing, en de toestemming om te committen en te pushen. De AI mag voorstellen, maar besluit niet.
@@ -901,7 +996,7 @@ Het scenario met zijn verwachte waarden, de ADR-beslissing, en de toestemming om
 *Bron:* skill `atdd`, §1 en §5.
 </details>
 
-**15.2 De AI meldt "groen" en vraagt om te committen. Waar kijk je naar, als je niet alle code leest?**
+**16.2 De AI meldt "groen" en vraagt om te committen. Waar kijk je naar, als je niet alle code leest?**
 <details><summary>Antwoord</summary>
 
 Naar het rapport: was rood om de goede reden, en wat is niet geverifieerd? Naar `git diff --stat`: zijn goedgekeurde specs of beweringen in de DSL veranderd zonder dat jij dat vroeg? Lees de diff van `e2e/specs/`. Na de push: is de pipeline groen, ook de mutatietests?
@@ -909,7 +1004,7 @@ Naar het rapport: was rood om de goede reden, en wat is niet geverifieerd? Naar 
 *Bron:* [werkwijze §10.1](werkwijze-mse.md#101-controle-door-de-mens).
 </details>
 
-**15.3 Wat is er verdacht als de AI in één stap een test en de code tegelijk verandert?**
+**16.3 Wat is er verdacht als de AI in één stap een test en de code tegelijk verandert?**
 <details><summary>Antwoord</summary>
 
 Een test die meebeweegt met de code, bewijst niets. Eerst de falende test laten zien, dan de code. Hetzelfde geldt voor een losser gemaakte bewering, een uitgezette test of een nieuwe uitzondering op een vangrail.
@@ -917,7 +1012,7 @@ Een test die meebeweegt met de code, bewijst niets. Eerst de falende test laten 
 *Bron:* skill `atdd`, §2.
 </details>
 
-**15.4 De AI stelt een nieuwe library voor als klein implementatiedetail. Wat doe je?**
+**16.4 De AI stelt een nieuwe library voor als klein implementatiedetail. Wat doe je?**
 <details><summary>Antwoord</summary>
 
 Dat is geen detail, maar een ADR-kandidaat, met opties en gevolgen. Jij beslist en zet de status op Geaccepteerd.
@@ -925,7 +1020,7 @@ Dat is geen detail, maar een ADR-kandidaat, met opties en gevolgen. Jij beslist 
 *Bron:* skill `atdd`, §1 en §2; [werkwijze §10](werkwijze-mse.md#10-werken-met-ai-in-deze-lus).
 </details>
 
-**15.5 Hoe merk je dat een document of deze toets niet meer klopt met de code?**
+**16.5 Hoe merk je dat een document of deze toets niet meer klopt met de code?**
 <details><summary>Antwoord</summary>
 
 Dat merk je niet vanzelf: beschrijvingen worden niet getest. Daarom wint de bron bij een verschil, en verwijst elk antwoord hier naar een bron. De actuele uitleg krijg je met `/uitleg`, die uit de code van dat moment leest.

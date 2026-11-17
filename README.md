@@ -76,6 +76,8 @@ In Grafana zie je:
 
 Een maandafsluiting zie je door als beheerder de simulatiedatum een maand vooruit te zetten.
 
+Hoe je zo'n run voorbereidt, de uitvoer van k6 leest en een traag verzoek naar zijn oorzaak volgt, staat in [Kwaliteitscontroles, hoofdstuk 6](doc/kwaliteitscontroles.md#6-testen-onder-load).
+
 ## Werken met Claude Code
 
 De werkwijze is als Claude Code-skill vastgelegd. Zo volgt elke sessie dezelfde procedure, met stoppunten voor jou bij het scenario, bij elke ADR en bij elke commit.

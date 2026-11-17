@@ -14,6 +14,10 @@ const KANS_OP_TE_GROOT = 0.1;
 export const options = {
   // Het certificaat van de ingress is zelf ondertekend, net als bij curl -k in install.sh.
   insecureSkipTLSVerify: true,
+  // Zonder url en name (standaard ook de URL, per redirect): die bevatten IBAN's, zoektermen en bij Keycloak een token of
+  // sessiecode per bezoek. Dan groeien de reeksen met elk bezoek, tot de Collector de cijfers weigert. Ook error valt weg,
+  // want die melding kan de URL noemen. De stap staat in het eigen label naam.
+  systemTags: ['proto', 'status', 'method', 'scenario', 'expected_response', 'check', 'error_code', 'tls_version'],
   scenarios: {
     klantbezoeken: {
       // Een vaste snelheid: wordt de bank trager, dan blijft de load gelijk en zie je de vertraging.

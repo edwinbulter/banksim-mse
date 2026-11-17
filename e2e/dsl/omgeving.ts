@@ -20,6 +20,8 @@ const DEMO_SECRET = 'bank-demo';
 /** ADR 0055: de kring van verkeersklanten voor k6, en hun wachtwoord. */
 const VERKEERSKLANTEN = ['verkeer-1', 'verkeer-2', 'verkeer-3', 'verkeer-4', 'verkeer-5'];
 const VERKEER_SECRET = 'bank-verkeer';
+/** Een Nederlands IBAN, zoals de bank ze uitgeeft (NL, twee cijfers, vier letters, tien cijfers). */
+const IBAN = /NL\d{2}[A-Z]{4}\d{10}/;
 const GEMEENTE = 'Gemeente Zuidstad';
 /** Energie volgt de energieprijzen, niet de inflatie. */
 const ENERGIE = 'Groenstroom Energie';
@@ -86,6 +88,7 @@ export class Omgeving extends Stappen {
   /** Het totaal van de verkeersklanten in centen, en het aantal verzoeken per dienst, van vóór het verkeer. */
   private totaalVoorHetVerkeer?: bigint;
   private readonly verzoekenVoorHetVerkeer = new Map<string, number>();
+  private beginVanHetVerkeer?: number;
 
   constructor(
     private readonly shell: ShellDriver,
@@ -188,6 +191,7 @@ export class Omgeving extends Stappen {
   /** Via verkeer.sh, zoals make verkeer; het aantal verzoeken van daarvoor is het nulpunt voor de metrics. */
   async maaktVerkeer({ snelheid, duur }: { snelheid: number; duur: string }): Promise<void> {
     this.verzoekenVoorHetVerkeer.set('bank-bff', await this.verzoekenVan('bank-bff'));
+    this.beginVanHetVerkeer = Date.now();
     this.laatste = await this.shell.script('verkeer.sh', ['--context', this.shell.context, '--snelheid', String(snelheid), '--duur', duur]);
   }
 
@@ -208,6 +212,36 @@ export class Omgeving extends Stappen {
     await expect.poll(async () => (await this.verzoekenVan(dienst)) - voor,
       { message: `verzoeken van ${dienst} sinds het verkeer`, timeout: 60_000, intervals: [2_000] })
       .toBeGreaterThanOrEqual(minstens);
+  }
+
+  /** Alleen de reeksen die k6 sinds het begin van deze run heeft gestuurd; oudere runs tellen niet mee. */
+  async verwachtHoogstensReeksenVanK6(metric: string, hoogstens: number): Promise<void> {
+    const reeksen = await this.reeksenVanK6SindsHetVerkeer(metric);
+    expect(reeksen.length, `reeksen van ${metric} met verkeer`).toBeGreaterThan(0);
+    expect(reeksen.length, `reeksen van ${metric}`).toBeLessThanOrEqual(hoogstens);
+  }
+
+  async verwachtGeenIbanOfTokenInDeCijfersVanK6(): Promise<void> {
+    const reeksen = await this.reeksenVanK6SindsHetVerkeer('{__name__=~"k6_.+"}');
+    expect(reeksen.length, 'reeksen van k6').toBeGreaterThan(0);
+    const verboden = reeksen.flatMap((reeks) => Object.entries(reeks.labels))
+      .filter(([, waarde]) => IBAN.test(waarde) || waarde.includes('?') || waarde.includes('eyJ'))
+      .map(([label, waarde]) => `${label}=${waarde.slice(0, 120)}`);
+    expect([...new Set(verboden)], 'labels van k6 met een IBAN, een querystring of een token').toEqual([]);
+  }
+
+  async verwachtElkeReeksVanK6PerStap(metric: string, stappen: string[]): Promise<void> {
+    const reeksen = await this.reeksenVanK6SindsHetVerkeer(metric);
+    expect(reeksen.length, `reeksen van ${metric} met verkeer`).toBeGreaterThan(0);
+    const zonderStap = reeksen.filter((reeks) => !stappen.includes(reeks.labels.naam ?? ''))
+      .map((reeks) => reeks.labels.naam ?? '(geen label naam)');
+    expect([...new Set(zonderStap)], `reeksen van ${metric} zonder bekende stap`).toEqual([]);
+  }
+
+  private async reeksenVanK6SindsHetVerkeer(selector: string): Promise<{ labels: Record<string, string> }[]> {
+    if (this.beginVanHetVerkeer === undefined) throw new Error('Begin met maaktVerkeer');
+    const seconden = Math.ceil((Date.now() - this.beginVanHetVerkeer) / 1000);
+    return this.prometheus.reeksen(`last_over_time(${selector}[${seconden}s])`);
   }
 
   private async verzoekenVan(dienst: string): Promise<number> {

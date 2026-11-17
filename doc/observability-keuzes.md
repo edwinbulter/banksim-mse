@@ -69,7 +69,7 @@ Dit document noemt alleen de geadviseerde keuzes. De afgewogen alternatieven sta
 
 **Wat je ziet van de applicatie.** Waarom iets misging, doorzoekbaar over beide apps en ook nadat een pod weg is. Alle regels van één verzoek staan bij elkaar.
 
-**Waarom.** De hoofdcode van de backend heeft nu geen enkele logregel, dus dit is de grootste winst bij een storing. OTLP vraagt geen DaemonSet en blijft dus binnen ADR 0004. Stdout vangt ook wat de app bij een crash niet meer kan versturen.
+**Waarom.** De hoofdcode van de backend had geen enkele logregel, dus dit was de grootste winst bij een storing. OTLP vraagt geen DaemonSet en blijft dus binnen ADR 0004. Stdout vangt ook wat de app bij een crash niet meer kan versturen.
 
 ### Metrics uit het domein
 
@@ -81,27 +81,29 @@ Dit document noemt alleen de geadviseerde keuzes. De afgewogen alternatieven sta
 
 ## Doorlopend verkeer met k6
 
-**Wat het doet.** k6 draait als gewone Deployment, zonder operator, want die brengt CRD's mee. Het inloggen gaat via het formulier van Keycloak (`directAccessGrantsEnabled` staat uit), en het verkeer loopt door de voordeur: ingress → BFF → bank-api. Met `constant-arrival-rate` blijft de belasting gelijk als het systeem trager wordt. Een run heeft een eindige duur, dus de pod start periodiek opnieuw.
+Gebouwd onder ADR 0055. Hoe je ermee test, staat in [Kwaliteitscontroles, hoofdstuk 6](kwaliteitscontroles.md#6-testen-onder-load).
+
+**Wat het doet.** `make verkeer` start k6 op de Mac, in een container die op digest is vastgezet, met `--network host`. Het script `deploy/verkeer/verkeer.js` doet zich voor als de verkeersklanten `verkeer-1` tot en met `verkeer-5`. Het logt in via het formulier van Keycloak (`directAccessGrantsEnabled` staat uit), en het verkeer loopt door de voordeur: ingress → BFF → bank-api. Met `constant-arrival-rate` blijft de belasting gelijk als het systeem trager wordt. Een run heeft een vaste duur (`DUUR`), en Ctrl-C stopt hem eerder. De cijfers van k6 gaan via een port-forward naar `otel-lgtm`.
+
+Het voorstel was een Deployment in de chart. Dat werkte niet: in een pod verwijst `bank-mse.localtest.me` naar 127.0.0.1, en dat is de pod zelf (ADR 0055).
 
 **Wat je ziet van de applicatie.**
 
-- Gevulde grafieken en traces ook buiten testruns en demo's, zodat trends en verschillen tussen versies zichtbaar worden.
+- Gevulde grafieken en traces terwijl k6 draait, zodat je versies onder dezelfde load kunt vergelijken.
 - Vertraging onder gelijkblijvende belasting. Bij een gesloten model zou de belasting juist afnemen zodra het systeem traag wordt, en dan valt de vertraging weg.
-- De bereikbaarheid van buitenaf. Ligt de ingress eruit, dan zien de apps niets, maar k6 merkt het wel.
+- De duur zoals de klant hem ziet, inclusief de ingress en Keycloak, naast de duur die de BFF en bank-api zelf meten.
 - Echte weigeringen, doordat een klein deel van de betalingen bewust te groot is.
 
 **Waarom.** Zonder verkeer heeft de rest weinig te laten zien. k6 is weinig code en raakt de backend niet. Een eigen Java-module zou realistischer zijn, maar kost veel meer code en onderhoud. Een generator die direct in de database schrijft, geeft geen traces en omzeilt `LedgerService` (ADR 0024).
 
-**Hoe de bekende problemen worden opgelost.**
+**Hoe de bekende problemen zijn opgelost.**
 
 | Probleem | Oplossing |
 | --- | --- |
-| Het geld raakt op, omdat een contact geen rekening bij BankSim hoeft te hebben en er geen endpoint is voor inkomend geld | Een kring van verkeersklanten die elkaar betalen, aangemaakt met `bank-seed`. Het totaal blijft gelijk, en dat is te controleren |
-| Botsing met de tests, omdat de simulatiedatum voor de hele bank geldt (ADR 0014) | k6 pauzeert tijdens testruns via een Helm-waarde en staat in CI uit. De verkeersklanten krijgen eigen aliassen |
-| De database groeit, want de PVC is 1 Gi en regels uit het grootboek kun je niet weggooien (ADR 0024) | Veel lezen en weinig schrijven. Grove schatting: 2 tot 5 keer lezen per seconde en ongeveer 3 boekingen per minuut. Eerst meten, en de PVC zo nodig vergroten |
+| Het geld raakt op, omdat een contact geen rekening bij BankSim hoeft te hebben en er geen endpoint is voor inkomend geld | Een kring van verkeersklanten die elkaar betalen, aangemaakt met `bank-seed verkeer`. De Job `bank-verkeer` draait die opdracht na een installatie met `verkeer.klanten: true`, en `make verkeer` zet dat aan. Het totaal blijft gelijk, en `verkeer.spec.ts` controleert dat |
+| Botsing met de tests, omdat de simulatiedatum voor de hele bank geldt (ADR 0014) | k6 draait alleen als je `make verkeer` start, en nooit tegelijk met `make e2e`. In CI draait het een halve minuut in de job `telemetrie`, naast alleen de scenario's van `observability.spec.ts`, en die verzetten de datum niet. De verkeersklanten hebben eigen gebruikersnamen en raken de demo-klanten niet |
+| De database groeit, want de PVC is 1 Gi en regels uit het grootboek kun je niet weggooien (ADR 0024) | Veel lezen en weinig schrijven: 1 op de 20 bezoeken betaalt. Gemeten: ongeveer 0,6 KB per betaling. Bij 5 bezoeken per seconde is dat ongeveer 0,5 MB per uur, en is de PVC na ongeveer 80 dagen verkeer vol |
 | Een maandafsluiting is zeldzaam | De beheerder zet de datum in een demo met de hand vooruit |
-
-k6 is een nieuwe tool en krijgt dus een eigen ADR. Die moet uitleggen waarom dit anders is dan de seed-Deployment die ADR 0020 afwees: k6 is een demo-onderdeel achter een schakelaar, zonder extra rechten.
 
 ## Gezondheid en signalering
 
@@ -146,13 +148,13 @@ Deze regels laten zelf niets zien, maar bepalen wat er wel en niet in de telemet
 
 | Bewering | Waar |
 | --- | --- |
-| Eén betaling geeft één trace over BFF en bank-api, en na de spike ook over de SQL | `e2e/specs/infra/observability.spec.ts` |
+| Eén betaling geeft één trace over BFF en bank-api, met de SQL | `e2e/specs/infra/observability.spec.ts` |
 | De logregels van die betaling staan centraal, met hetzelfde trace-ID | Hetzelfde scenario |
-| Een onverwachte fout geeft een melding met een trace-ID dat in Tempo te vinden is | Scenario of integratietest |
+| Een geweigerde betaling staat met hetzelfde trace-ID in de melding, in Loki en in Tempo; een onverwachte fout geeft een 500 met een trace-ID | Hetzelfde bestand; `OnverwachteFoutTests` |
 | Valt de database weg, dan meldt `systeem` een fout en blijft de liveness goed | Infrascenario, `@destructief`, alleen in CI |
-| Geen namen of IBAN's in telemetrie | Nieuwe vangrail, met sabotage |
+| Geen namen of IBAN's in telemetrie | Vangrail in `observability.spec.ts` en `ZonderPersoonsgegevensTests`, rood gezien met sabotage |
 | Telemetrie staat in UTC, met `bank.datum` apart | Unittest |
-| Het totaal van de verkeersklanten blijft gelijk | Bewering via de DSL of de database |
+| Het totaal van de verkeersklanten blijft gelijk | `e2e/specs/infra/verkeer.spec.ts`, via de DSL |
 | De chart installeert ook met `observability.enabled: false`, en alles staat in `banksim-mse` | helm-unittest en `scripts/iac-check.sh` |
 
 **Waarom.** Alleen controleren of er een `traceparent`-header is, bewijst niet dat er een bruikbare trace ontstaat.
@@ -163,7 +165,7 @@ Deze regels laten zelf niets zien, maar bepalen wat er wel en niet in de telemet
 2. **ADR (eerstvolgende vrije nummer) en traces:** de starter, de chart, `make grafana` en het trace-scenario groen.
 3. **Logs:** gestructureerde regels met trace-ID, en het trace-ID in foutmeldingen.
 4. **Metrics uit het domein** en een eerste dashboard, als bestand in de chart.
-5. **k6:** de kring van verkeersklanten en de pauze tijdens tests.
+5. **k6:** de kring van verkeersklanten en `make verkeer`.
 6. **Health checks:** de groep `systeem` met de poller.
 7. **Alerts en SLO's.**
 8. **PostgreSQL.**
@@ -172,11 +174,11 @@ Deze regels laten zelf niets zien, maar bepalen wat er wel en niet in de telemet
 
 | Keuze | Advies |
 | --- | --- |
-| Staat de telemetrie aan in CI? | Aan in de job met installatiescenario's, met k6 uit. Anders bewaakt de pipeline de beweringen niet. De kosten op de runner moeten uit de spike blijken |
+| Staat de telemetrie aan in CI? | Besloten: alleen in de eigen job `telemetrie`, met een halve minuut k6 (ADR 0054 en 0055, met de metingen) |
 | Wanneer beginnen? | Direct na S11.1. De demo-data is er dan al, zodat de metingen meteen iets zeggen |
 | Welke SLO-waarden? | Geen advies zonder meting: eerst een week aan cijfers uit het doorlopende verkeer |
 | Welke vraag beantwoordt de demo? | Eén of twee, met een voor- en nameting. Mijn voorkeur: de cache van ADR 0013 of de `pg_trgm`-index |
-| Komt de Idempotency-Key als attribuut op de span? | Ja, dat maakt één betaalpoging herkenbaar. De sleutel hoort niet in telemetrie zonder die afspraak |
+| Komt de Idempotency-Key als attribuut op de span? | Besloten: ja, als `bank.idempotency_key` (ADR 0054) |
 
 ### Aanvullingen, nog zonder moment
 
@@ -190,14 +192,16 @@ Deze regels laten zelf niets zien, maar bepalen wat er wel en niet in de telemet
 | DORA-metingen van de pipeline | Niet de applicatie maar de werkwijze: hoe vaak we opleveren, hoeveel runs falen en hoe snel dat is hersteld |
 | Profiling met Pyroscope | Welke methode de CPU en het geheugen kost, als een trace zegt welke stap traag is |
 
-## Nog te controleren in de spike
+## Uitkomst van de spike
 
-Deze punten zijn aannames en kunnen een keuze hierboven veranderen.
+De spike was op 15 november 2026; de uitkomsten staan in ADR 0054 en 0055.
 
-- Het geheugengebruik van `otel-lgtm` en k6 naast de bank. De node heeft ongeveer 12 GiB, waarvan nu ongeveer 2 GiB is aangevraagd.
-- Of de `traceparent` vanzelf door de gateway van de BFF loopt.
-- Of er SQL-spans komen, en of daar iets als `datasource-micrometer` voor nodig is.
-- Of IBAN's in de spans terechtkomen, en hoe de Collector ze filtert.
-- Of de Collector in `otel-lgtm` de health-uitkomst kan pollen zonder eigen configuratie.
-- Hoe snel de database groeit bij het gekozen verkeer.
-- Of een agent en `kube-state-metrics` genoeg hebben aan een namespaced Role. Dit is alleen van belang voor de aanvullingen.
+| Aanname | Uitkomst |
+| --- | --- |
+| Het geheugengebruik van `otel-lgtm` en k6 naast de bank | `otel-lgtm` gebruikte na een paar minuten 630 MB echt geheugen, plus ongeveer 950 MB cache. k6 draait op de Mac en kost de node niets |
+| De `traceparent` loopt vanzelf door de gateway van de BFF | Klopt |
+| Er komen SQL-spans | Niet vanzelf; daarvoor is `datasource-micrometer-spring-boot` gekomen (ADR 0054) |
+| IBAN's komen in de spans terecht | Ja, in `http.url`, in drie spans per verzoek. Een `ObservationFilter` in de apps haalt ze eruit, niet de Collector |
+| De Collector kan de health-uitkomst pollen zonder eigen configuratie | Niet uitgezocht; hoort bij stap 6. De Collector heeft al een eigen configuratie, voor Keycloak |
+| Hoe snel de database groeit | Ongeveer 0,6 KB per betaling |
+| Een agent en `kube-state-metrics` hebben genoeg aan een namespaced Role | Niet uitgezocht; alleen van belang voor de aanvullingen |

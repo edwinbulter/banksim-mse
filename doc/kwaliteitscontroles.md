@@ -2,9 +2,33 @@
 
 Dit document beschrijft welke **soorten** tests en controles dit project heeft om de kwaliteit van de code hoog te houden. Per soort staat erin wat ze controleert, hoe ze dat doet, waar ze staat en wanneer ze draait.
 
+**Inhoud**
+
+- [Leeswijzer](#leeswijzer)
+1. [Uitgangspunten](#1-uitgangspunten)
+2. [Overzicht](#2-overzicht)
+3. [De soorten](#3-de-soorten)
+   - [3.1 Compiler en typecontrole](#31-compiler-en-typecontrole)
+   - [3.2 Statische analyse en linters](#32-statische-analyse-en-linters)
+   - [3.3 Unittests](#33-unittests)
+   - [3.4 Integratietests met echte afhankelijkheden](#34-integratietests-met-echte-afhankelijkheden)
+   - [3.5 Contracttests](#35-contracttests)
+   - [3.6 Architectuurvangrails](#36-architectuurvangrails)
+   - [3.7 Regels in de database](#37-regels-in-de-database)
+   - [3.8 Mutatietests](#38-mutatietests)
+   - [3.9 Infrastructuur als code](#39-infrastructuur-als-code)
+   - [3.10 Acceptatietests](#310-acceptatietests)
+   - [3.11 Installatiescenario's](#311-installatiescenarios)
+   - [3.12 Rooktests](#312-rooktests)
+   - [3.13 Controle door de mens](#313-controle-door-de-mens)
+4. [Hoe het samenkomt in de pipeline](#4-hoe-het-samenkomt-in-de-pipeline)
+   - [De uitkomst van de acceptance stage lezen](#de-uitkomst-van-de-acceptance-stage-lezen)
+5. [Een nieuwe controle toevoegen](#5-een-nieuwe-controle-toevoegen)
+6. [Testen onder load](#6-testen-onder-load)
+
 ## Leeswijzer
 
-Dit is geen lijst van alle tests. Die lijst verandert bij bijna elke commit, de soorten veranderen zelden. Daarom noemt dit document geen aantallen, versies, drempels of namen van losse testklassen. Voorbeelden staan er alleen in als er een ADR achter zit.
+Dit is geen lijst van alle tests. Die lijst verandert bij bijna elke commit, de soorten veranderen zelden. Daarom noemt dit document geen aantallen, versies, drempels of namen van losse testklassen. Voorbeelden staan er alleen in als er een ADR achter zit. Hoofdstuk 6 is een handleiding, en noemt wel commando's en getallen, steeds met de ADR waar ze vandaan komen.
 
 De actuele lijst staat op de plekken die al worden bijgehouden:
 
@@ -47,6 +71,7 @@ Verschillen dit document en die bronnen, dan wint de bron.
 | Installatiescenario's | Installeren, opnieuw installeren, upgraden en verwijderen | Playwright met de shell-driver | acceptance stage |
 | Rooktests | Dat de installatie antwoordt | `install.sh` | bij elke installatie, ook in de acceptance stage |
 | Controle door de mens | Wat een machine niet kan beoordelen | Scenario, ADR, rapport, diff van de specs, verkennend testen | buiten de pipeline, per slice |
+| Testen onder load (hoofdstuk 6) | Wat de bank doet bij doorlopend verkeer van klanten | k6 vanaf de Mac, Grafana met traces, logs en metrics | lokaal met de hand; een korte run in de acceptance stage |
 
 ## 3. De soorten
 
@@ -222,7 +247,7 @@ Een paar eigenschappen volgen uit die opbouw:
 - is dit een goede beslissing?
 - voelt de applicatie goed aan?
 
-**Hoe.** De mens controleert het scenario vóór de bouw, elke ADR en de diff van de specs. Per slice wordt er verkennend getest. Wat de controles hierboven al doen, controleert de mens niet meer met de hand. Zie [werkwijze §10.1](werkwijze-mse.md#101-controle-door-de-mens).
+**Hoe.** De mens controleert het scenario vóór de bouw, elke ADR en de diff van de specs. Per slice wordt er verkennend getest, en onder load zoals in hoofdstuk 6. Wat de controles hierboven al doen, controleert de mens niet meer met de hand. Zie [werkwijze §10.1](werkwijze-mse.md#101-controle-door-de-mens).
 
 ## 4. Hoe het samenkomt in de pipeline
 
@@ -290,3 +315,103 @@ Een nieuwe controle, of een nieuwe soort, krijgt:
 4. **Een rij in de vangrailtabel van `CLAUDE.md`**, als het een vangrail is.
 
 Dit document hoeft alleen aangepast te worden als er een echt nieuwe **soort** bijkomt. Een nieuwe test of vangrail binnen een bestaande soort hoort alleen in de bronnen uit de leeswijzer.
+
+## 6. Testen onder load
+
+**Wat.** Wat de bank doet als er steeds klanten zijn: worden verzoeken trager, stijgen CPU en geheugen, en gaan er dingen mis die bij één klant niet misgaan? Dit is verkennend testen (3.13), met hulpmiddelen. Je kijkt zelf, en er is geen grens die de bank rood maakt, behalve de thresholds van k6.
+
+**Hoe.** k6 doet zich voor als vijf klanten, de verkeersklanten `verkeer-1` tot en met `verkeer-5` (ADR 0055). Eén klantbezoek is:
+1. inloggen via het formulier van Keycloak;
+2. het overzicht en de transacties van de betaalrekening bekijken;
+3. in 1 op de 20 bezoeken een betaling aan een andere verkeersklant, met een eigen Idempotency-Key, net als de app;
+4. uitloggen, ook bij Keycloak.
+
+Ongeveer 1 op de 10 betalingen is bewust groter dan het saldo, en de bank weigert die. Zo zie je ook weigeringen. Het verkeer gaat door de voordeur, net als bij Playwright: de ingress, Keycloak, de BFF, bank-api en de database. De bank stuurt haar traces, logs en metrics naar `otel-lgtm` (ADR 0054), en k6 stuurt zijn eigen cijfers daar ook naartoe. In Grafana zie je beide naast elkaar.
+
+**Waar.** Het script staat in `deploy/verkeer/verkeer.js` en het startscript in `deploy/scripts/verkeer.sh`. In de acceptance stage draait k6 een halve minuut in het scenario `Bij doorlopend verkeer blijft het geld in de kring` (`e2e/specs/infra/verkeer.spec.ts`, job `telemetrie`). Dat is het geautomatiseerde deel. De rest van dit hoofdstuk is met de hand.
+
+### Voorbereiden
+
+- **Installeer eerst de versie die je wilt testen.** `make verkeer` bouwt niets: het installeert opnieuw met de images die er al staan, en zet daarbij de verkeersklanten aan. Na een codewijziging doe je dus eerst `make commit-stage` en `make install`. Controleer daarna de versie met `curl -sk https://bank-mse.localtest.me/api/versie`.
+- **Draai geen tests tegelijk.** De simulatiedatum geldt voor de hele bank (ADR 0014). Een scenario met `@simulatiedatum` verzet hem, en dan ziet k6 andere saldi. Gebruik dus niet tegelijk `make e2e`, `make e2e-infra` of `make acceptance`.
+- **Houd de Mac wakker.** Het verkeer komt van je eigen machine en stopt als de Mac slaapt. Gebruik `caffeinate -i make verkeer …` voor een lange run.
+- **De Mac doet twee dingen tegelijk.** k6 draait op dezelfde machine als het kind-cluster, en gebruikt dus ook CPU. Bij een hoge snelheid meet je ook k6 zelf. Vergelijk daarom alleen runs op dezelfde machine, en met dezelfde snelheid.
+
+### Starten
+
+```bash
+make verkeer SNELHEID=5 DUUR=30m   # terminal 1; Ctrl-C stopt k6 en de port-forward
+make grafana                        # terminal 2; Grafana op http://localhost:3000
+```
+
+- **`SNELHEID`** is het aantal klantbezoeken dat per seconde begint; standaard is dat 2. Eén bezoek telt meerdere HTTP-verzoeken, want k6 telt elke redirect van het inloggen en uitloggen apart. k6 gebruikt een vaste aankomstsnelheid (`constant-arrival-rate`). Wordt de bank trager, dan komen de bezoeken toch in hetzelfde tempo binnen, en lopen er meer tegelijk. Zo zie je de vertraging, in plaats van dat de load vanzelf afneemt.
+- **`DUUR`** is de duur van de run, zoals `30s`, `10m` of `2h`; standaard is dat 10 minuten.
+- **Kies de snelheid** naar wat je wilt zien. Met 2 per seconde zie je normaal gedrag in het dashboard. Met 5 per seconde laat je een demo zien. Wil je weten waar de grens ligt, verhoog de snelheid dan per run, bijvoorbeeld 5, 10 en 20, en kijk wanneer de duur van een verzoek of de foutkans omhooggaat.
+
+### De uitvoer van k6 lezen
+
+Tijdens de run toont k6 niets, door `--quiet`. Aan het eind volgt een samenvatting:
+
+| Regel | Wat ze zegt |
+| --- | --- |
+| `checks` | Het deel van de controles in `verkeer.js` dat slaagde, zoals "ingelogd, terug op BankSim" en "betaling geboekt of geweigerd zoals verwacht". Een mislukte controle staat er met haar naam bij. |
+| `http_req_failed` | Het deel van de HTTP-verzoeken met een fout. Een geweigerde betaling (422) telt niet als fout: dat is een antwoord van de bank. |
+| `http_req_duration` | De duur van een verzoek zoals k6 hem ziet, met gemiddelde, mediaan en p95. Dat is inclusief de ingress, Keycloak en het netwerk. |
+| `iterations` | Het aantal klantbezoeken. Ligt dat duidelijk onder snelheid × duur, dan had k6 te weinig virtuele gebruikers, omdat de bank te traag werd (zie `dropped_iterations`). |
+| De thresholds, met ✓ of ✗ | Mislukt meer dan 1% van de checks, of geeft meer dan 1% van de verzoeken een fout, dan krijgt de threshold een ✗ (ADR 0055). |
+
+Mislukt een threshold, dan stopt `make verkeer` met een foutcode, en dan is de run rood. Dat is dezelfde grens als in het scenario in de pipeline.
+
+### Kijken in Grafana
+
+Open het dashboard "BankSim-MSE" (Dashboards). Het ververst elke 10 seconden, want zo vaak sturen de apps hun metrics.
+
+| Paneel | Wat je bij een gewone run ziet | Waar je op let |
+| --- | --- | --- |
+| Verzoeken per seconde | Een vlakke lijn per dienst, die past bij de snelheid | Een lijn die zakt terwijl k6 doorloopt: de bank of de ingress antwoordt niet meer |
+| Duur van een verzoek (p95) | Een vlakke lijn | Een stijgende lijn bij een gelijke snelheid: de bank wordt trager |
+| CPU in cores | Per proces een fractie van één core | Een proces dat vastloopt op zijn limiet |
+| Geheugen van de JVM | Een zaagtand: het geheugen loopt op, en de garbage collector ruimt op | Een bodem die steeds hoger komt te liggen: een mogelijk geheugenlek |
+| Garbage collection (tijd per seconde) | Laag en gelijkmatig | Pieken die samenvallen met trage verzoeken |
+| Boekingen en weigeringen per minuut | Betalingen, en weigeringen met de reden `saldo-ontoereikend` | Andere redenen, zoals `naam-past-niet`, of herhalingen met dezelfde Idempotency-Key: k6 maakt per betaling een nieuwe sleutel, dus die komen niet van k6 |
+| Gemiddelde duur van de maandafsluiting (per uur) | Meestal leeg: de afsluiting draait 's nachts en na een wijziging van de simulatiedatum, en k6 verzet de datum niet | Zie hieronder |
+
+**De cijfers van k6** staan in Prometheus onder `k6_…` (Explore, bron Prometheus). Het label `naam` geeft de stap van het bezoek, zoals `inloggen` of `betalen`. Vergelijk bijvoorbeeld:
+- `histogram_quantile(0.95, sum by (le, naam) (rate(k6_http_req_duration_milliseconds_bucket[1m])))`: de duur per stap, zoals de klant hem ziet;
+- het paneel "Duur van een verzoek (p95)": de duur zoals de BFF en bank-api hem zelf meten.
+
+Is k6 veel trager dan de BFF, dan zit de vertraging vóór de BFF: in de ingress, bij Keycloak, of op de Mac zelf.
+
+**Van een traag verzoek naar de oorzaak:**
+1. Kies in Explore de bron Tempo. Zoek met `{ resource.service.name = "bank-bff" && duration > 500ms }`: de verzoeken aan de BFF die langer dan een halve seconde duurden.
+2. Open de trace. Je ziet de spans van de BFF, van bank-api en de SQL-spans van de database, met hun duur. De langste span wijst de plek aan.
+3. Ga naar de logregels van dezelfde trace. Gebruik de knop bij de span, of zoek in Loki met `{service_name="bank-api"} | trace_id="<trace-ID>"`.
+
+Een trace is pas na ongeveer een halve minuut te vinden in Tempo.
+
+**Een maandafsluiting** maakt k6 niet. Wil je haar onder load zien, verzet dan als beheerder de simulatiedatum: elke wijziging start de maandafsluiting (ADR 0028). Kies de laatste dag van een maand, dan wordt er ook rente bijgeschreven, op de spaarrekeningen waarvan die maand nog niet is afgesloten. De verkeersklanten hebben geen spaarrekening. De span heet `bank.maandafsluiting`, en het paneel "Gemiddelde duur van de maandafsluiting (per uur)" vult zich. Zet de datum daarna terug: k6 betaalt op de datum die de bank op dat moment heeft.
+
+### Na de run
+
+- **Het geld is in de kring gebleven.** De verkeersklanten betalen alleen elkaar, dus het totaal van hun saldi verandert niet. Bij een verse installatie is dat 5 × € 1.000,00. Een betaling is één overboeking met twee kanten (ADR 0024). Ook als je k6 halverwege stopt, klopt het totaal. Het scenario in de pipeline controleert dit. Met de hand log je in als verkeersklant, met het wachtwoord uit het Secret `bank-verkeer`:
+  ```bash
+  kubectl --context kind-single-node -n banksim-mse get secret bank-verkeer -o jsonpath='{.data.VERKEER_WACHTWOORD}' | base64 -d
+  ```
+- **De database groeit** met ongeveer 0,6 KB per betaling, en regels uit het grootboek gooi je niet weg (ADR 0024, 0055). De grootte zie je zo:
+  ```bash
+  kubectl --context kind-single-node -n banksim-mse exec postgres-0 -- sh -c 'psql -U "$POSTGRES_USER" -d bank -tAc "select pg_size_pretty(pg_database_size(current_database()))"'
+  ```
+  De PVC is 1 Gi. Wordt hij te vol, dan maakt `make uninstall` hem leeg, maar dat wist ook de demo-data.
+- **Wat blijft staan:** de verkeersklanten en hun betalingen. De telemetrie in `otel-lgtm` staat in een `emptyDir`, en is weg na een herstart van die pod.
+- **Resten van een afgebroken run.** Bij Ctrl-C of een normaal einde stopt `verkeer.sh` de port-forward en de k6-container zelf. Wordt het script hard gestopt (`kill -9`), dan kan het dat niet. Ruim de resten dan zo op:
+  ```bash
+  docker ps --filter name=banksim-verkeer -q | xargs docker stop
+  pkill -f 'port-forward svc/otel-lgtm :4318'
+  ```
+
+### Wat dit niet laat zien
+
+- **PostgreSQL zelf:** de metrics van de database komen nog niet binnen (stap 8 in [observability-keuzes.md](observability-keuzes.md)). Een trage query zie je wel als SQL-span in de trace.
+- **Containers:** het geheugen van een container tegen zijn limiet, en een OOMKill. Daarvoor zijn metrics van het hele cluster nodig, en die verbiedt ADR 0004. Een herstart zie je met `kubectl --context kind-single-node -n banksim-mse get pods`, in de kolom RESTARTS.
+- **Alarmen:** er zijn geen alerts en geen SLO's. Je moet zelf kijken.
+- **Echte productie:** één node, één replica per dienst, en de load komt van dezelfde machine. De cijfers zeggen iets over verschillen tussen versies op deze machine, niet over de capaciteit van een echte bank.

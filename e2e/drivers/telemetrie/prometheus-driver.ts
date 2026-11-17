@@ -16,7 +16,8 @@ export class PrometheusDriver {
     const resultaat = await this.shell.kubectl([
       'get', '--raw', `/api/v1/namespaces/${this.namespace}/services/otel-lgtm:9090/proxy/api/v1/query?${new URLSearchParams({ query })}`,
     ]);
-    if (resultaat.code !== 0) return [];
+    // Een fout is geen lege uitkomst: anders lijkt een onbereikbare Prometheus op een teller die op nul staat.
+    if (resultaat.code !== 0) throw new Error(`Prometheus gaf geen antwoord op ${query}: ${resultaat.uitvoer.trim()}`);
     return (JSON.parse(resultaat.stdout) as PrometheusAntwoord).data.result.map((reeks) => ({
       labels: reeks.metric,
       waarde: Number(reeks.value[1]),
