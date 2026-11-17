@@ -5,9 +5,7 @@ import { test } from '../../dsl/fixtures';
  * draait dit in de job telemetrie, met otel-lgtm (ADR 0054).
  */
 
-// Na elkaar, in één worker: een tweede run van k6 tegelijk zou de saldi verschuiven terwijl het eerste scenario ze telt.
-test.describe.configure({ mode: 'default' });
-test('Bij doorlopend verkeer blijft het geld in de kring', async ({ omgeving }) => {
+test('Bij doorlopend verkeer blijft het geld in de kring, en staan de cijfers van k6 per stap in Prometheus, zonder IBAN of token', async ({ omgeving }) => {
   await omgeving.gegeven('de verkeersklanten verkeer-1 tot en met verkeer-5, die elkaar als contact hebben', () =>
     omgeving.heeftVerkeersklanten(),
   );
@@ -22,14 +20,7 @@ test('Bij doorlopend verkeer blijft het geld in de kring', async ({ omgeving }) 
   await omgeving.en('heeft bank-bff in die halve minuut minstens 30 verzoeken geteld', () =>
     omgeving.verwachtVerzoekenSindsHetVerkeer('bank-bff', 30),
   );
-});
-
-test('De cijfers van k6 staan per stap in Prometheus, zonder IBAN of token', async ({ omgeving }) => {
-  await omgeving.gegeven('de verkeersklanten', () => omgeving.heeftVerkeersklanten());
-  await omgeving.als('k6 een halve minuut verkeer maakt, met 2 klantbezoeken per seconde', () =>
-    omgeving.maaktVerkeer({ snelheid: 2, duur: '30s' }),
-  );
-  await omgeving.dan('heeft k6_http_reqs_total hoogstens 50 reeksen', () =>
+  await omgeving.en('heeft k6_http_reqs_total hoogstens 50 reeksen', () =>
     omgeving.verwachtHoogstensReeksenVanK6('k6_http_reqs_total', 50),
   );
   await omgeving.en('staat in geen enkel label van k6 een IBAN, een querystring of een token ("eyJ")', () =>
