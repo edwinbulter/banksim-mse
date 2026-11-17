@@ -26,7 +26,7 @@ De skill geeft:
 | **Stoppunten** | Claude stopt bij drie momenten: (1) het scenario en de verwachte waarden, (2) een architectuurbeslissing, (3) commit en push. Jij blijft eigenaar van de voorbeelden en de beslissingen |
 | **Harde regels** | Eén falend scenario tegelijk, geen code zonder rode test, test en code nooit in dezelfde stap, refactoren alleen op groen, nieuwe tools alleen met een ADR |
 | **Bewaarde kennis** | Valkuilen en sjablonen per stack, ontleend aan code die echt gedraaid heeft |
-| **Controleerbaar rapport** | Na elke iteratie: welke tests rood zijn gezien en waarom, wat groen is (lokaal en in CI) en wat níet is geverifieerd. Plus een korte uitleg: de route door de code, de ontwerpkeuze en de kritische punten |
+| **Controleerbaar rapport** | Na elke iteratie: welke tests rood zijn gezien en waarom, wat groen is (lokaal en in CI), wat er is gerefactord met welk doel, en wat níet is geverifieerd. Plus een korte uitleg: de route door de code, de ontwerpkeuze en de kritische punten |
 
 ### Wat de skill níet doet
 
@@ -95,7 +95,7 @@ Je hoeft de skill niet te noemen. Bij verzoeken als "begin aan de volgende featu
 7. ⛔ **Claude vraagt toestemming om te committen**, pusht daarna en volgt de pipeline.
 8. Je krijgt het rapport.
 
-Lees vooral punt 2 ("rood gezien") en punt 4 ("niet geverifieerd") van het rapport. Daar zie je of de tests echt iets bewijzen.
+Lees vooral punt 2 ("rood gezien") en punt 5 ("niet geverifieerd") van het rapport. Daar zie je of de tests echt iets bewijzen.
 
 ## In andere projecten gebruiken
 

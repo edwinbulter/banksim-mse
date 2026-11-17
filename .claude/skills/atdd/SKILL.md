@@ -40,11 +40,32 @@ Eén iteratie is één voorbeeld, van scenario tot groene pipeline. ⛔ markeert
 4. **Binnenste lus, outside-in.** Begin bij de buitenste klasse die het scenario raakt, bijvoorbeeld een controller of een component. Per stap:
    1. **Rood.** Schrijf een unittest en laat zien dat hij faalt, met de melding erbij. Collaborators die nog niet bestaan, vervang je door een test double. Zo ontdek je hun interface vanuit het gebruik.
    2. **Groen.** Schrijf de kleinste code die de test laat slagen.
-   3. **Refactor.** Alleen op groen, als aparte stap. Refactor ook de tests. De vangrails (§4) draaien mee; een rode vangrail wijst op een ontwerpfout in de code, niet in de vangrail.
+   3. **Refactor.** Alleen op groen, als aparte stap. Loop de checklist hieronder na, voor de code en de tests. De vangrails (§4) draaien mee; een rode vangrail wijst op een ontwerpfout in de code, niet in de vangrail.
 
    Ga zo een laag naar binnen tot alle lagen echt bestaan. Een test double (een nep-versie van een onderdeel) blijft alleen staan op een echte grens: de klok, een extern systeem of een andere service.
 
    Zo'n double doet wat jij denkt dat de andere kant doet. Verandert de echte kant, dan merkt de double dat niet, en blijft de test groen terwijl het in productie misgaat. Staat de double voor een andere service, dan moet een contracttest controleren dat de echte service nog doet wat de double nadoet (§4).
+
+   Is het scenario groen, loop de checklist dan nog één keer na over de hele iteratie, met de extra vragen voor de buitenste lus.
+
+   **Checklist voor de refactor-stap.** Groen voelt als klaar; daardoor sla je deze stap snel over. Beantwoord daarom elke vraag, ook als het antwoord "nee" is:
+   - **Herhaling.** Staat dezelfde logica, query, berekening of testopzet nu op twee of meer plekken?
+   - **Plaats.** Staat elke regel in de module waar hij hoort, of lekt een business-regel naar een controller, de database of de UI (cohesie, §4)?
+   - **Namen.** Zeggen de namen van klassen, methodes, fields en tests in domeintaal wat ze doen? Past een naam nog na wat je net hebt toegevoegd?
+   - **Eenvoud.** Is er code, een parameter, een uitzondering of een abstractie die geen test afdwingt (YAGNI)?
+   - **Harde regels.** Schendt de diff een regel uit *Anti-AI-slop* (§4) die nog geen vangrail is?
+   - **Tests.** Is er herhaalde opzet, een test die de implementatie test in plaats van het gedrag, of een testnaam die het gedrag niet beschrijft?
+
+   Extra in de buitenste lus, als het scenario groen is:
+   - **DSL en drivers.** Doen twee drivermethodes bijna hetzelfde? Kon een nieuwe DSL-methode een bestaande hergebruiken? Staat er een bewering in een driver in plaats van in de DSL?
+   - **Over lagen heen.** Zie je nu alle lagen bestaan herhaling of een verkeerde grens die je per unit niet zag?
+   - **ADR.** Klopt de ADR nog met hoe het ontwerp is uitgevallen?
+
+   Bij elke refactor die je doet:
+   - Geef hem een meetbaar doel, bijvoorbeeld "één plek voor de berekening van de rente in plaats van drie" of "de methode van 40 naar onder 15 regels". Haal je het doel niet, draai hem dan terug of leg het voor.
+   - Refactor de code of de tests, niet allebei in dezelfde stap. De beweringen blijven gelijk; alle tests blijven groen.
+   - Is de refactor groter dan deze iteratie, of raakt hij code buiten dit voorbeeld? Zet hem dan op de backlog, met het doel erbij, en doe hem niet nu.
+   - Komt dezelfde bevinding steeds terug? Stel dan een vangrail voor (§4): die vangt hem voortaan automatisch.
 5. **Architectuurkeuze nodig?** Schrijf dan een ADR-concept volgens [references/adr-sjabloon.md](references/adr-sjabloon.md), met opties, gevolgen en Bewaking.
    ⛔ De gebruiker beslist en zet de status op Geaccepteerd. Een nieuwe library of tool is altijd een ADR-kandidaat.
 6. **Lokaal verifiëren.**
@@ -148,12 +169,13 @@ Een slice of feature is klaar als:
 1. **Scenario:** de naam, en in welke drivers het draait.
 2. **Rood gezien:** per test de melding, en waarom dat de goede reden was.
 3. **Groen:** wat lokaal groen is, of de pipeline groen is (met run-id of link), en de mutatiescore met de levende mutanten.
-4. **Niet geverifieerd:** wat je niet hebt kunnen controleren, en waarom.
-5. **ADR's:** nieuw, gewijzigd of voorgesteld.
-6. **Uitleg:** vijf tot tien regels voor de developer die hier straks verder bouwt:
+4. **Refactor:** per refactor wat er veranderd is, het meetbare doel en of het gehaald is. Noem ook wat de checklist (§1, stap 4) vond en wat je naar de backlog hebt gezet. Was er niets te refactoren, schrijf dan "niets" en per vraag van de checklist in een paar woorden waarom niet.
+5. **Niet geverifieerd:** wat je niet hebt kunnen controleren, en waarom.
+6. **ADR's:** nieuw, gewijzigd of voorgesteld.
+7. **Uitleg:** vijf tot tien regels voor de developer die hier straks verder bouwt:
    - **Route:** hoe het scenario door de lagen loopt, met `bestand:regel` per stap;
    - **Ontwerpkeuze:** waarom de code zo is opgebouwd, met de ADR als die er is;
    - **Kritische punten:** waar een volgende wijziging het makkelijkst misgaat, en wat de tests níet afdekken;
    - **Resilience:** waarom de mutaties in deze slice idempotent zijn en hoe de module-grenzen zijn bewaakt.
    Schrijf alleen op wat je in de code hebt gezien. Voor meer diepgang is er de skill `uitleg`.
-7. **Volgende stap:** het volgende voorbeeld uit de backlog, of wat er open staat.
+8. **Volgende stap:** het volgende voorbeeld uit de backlog, of wat er open staat.
