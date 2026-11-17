@@ -64,6 +64,7 @@ Eén iteratie is één voorbeeld, van scenario tot groene pipeline. ⛔ markeert
    Bij elke refactor die je doet:
    - Geef hem een meetbaar doel, bijvoorbeeld "één plek voor de berekening van de rente in plaats van drie" of "de methode van 40 naar onder 15 regels". Haal je het doel niet, draai hem dan terug of leg het voor.
    - Refactor de code of de tests, niet allebei in dezelfde stap. De beweringen blijven gelijk; alle tests blijven groen.
+   - Refactor je een scenario, de DSL of een driver, laat het scenario dan daarna één keer rood zien. Bij een acceptatietest is de test zelf het vangnet: groen blijven bewijst niet dat hij nog iets controleert, en de mutation testing in de commit stage draait de acceptatietests niet. Saboteer tijdelijk de verwachte waarde of het systeem, en controleer dat het scenario faalt met een bruikbare melding, in elke driver die je hebt aangeraakt. Draai het vóór en na de refactor tegen dezelfde installatie.
    - Is de refactor groter dan deze iteratie, of raakt hij code buiten dit voorbeeld? Zet hem dan op de backlog, met het doel erbij, en doe hem niet nu.
    - Komt dezelfde bevinding steeds terug? Stel dan een vangrail voor (§4): die vangt hem voortaan automatisch.
 5. **Architectuurkeuze nodig?** Schrijf dan een ADR-concept volgens [references/adr-sjabloon.md](references/adr-sjabloon.md), met opties, gevolgen en Bewaking.
@@ -169,7 +170,7 @@ Een slice of feature is klaar als:
 1. **Scenario:** de naam, en in welke drivers het draait.
 2. **Rood gezien:** per test de melding, en waarom dat de goede reden was.
 3. **Groen:** wat lokaal groen is, of de pipeline groen is (met run-id of link), en de mutatiescore met de levende mutanten.
-4. **Refactor:** per refactor wat er veranderd is, het meetbare doel en of het gehaald is. Noem ook wat de checklist (§1, stap 4) vond en wat je naar de backlog hebt gezet. Was er niets te refactoren, schrijf dan "niets" en per vraag van de checklist in een paar woorden waarom niet.
+4. **Refactor:** per refactor wat er veranderd is, het meetbare doel en of het gehaald is. Bij een refactor van een scenario, de DSL of een driver ook de sabotage en de melding waarmee het scenario rood werd. Noem ook wat de checklist (§1, stap 4) vond en wat je naar de backlog hebt gezet. Was er niets te refactoren, schrijf dan "niets" en per vraag van de checklist in een paar woorden waarom niet.
 5. **Niet geverifieerd:** wat je niet hebt kunnen controleren, en waarom.
 6. **ADR's:** nieuw, gewijzigd of voorgesteld.
 7. **Uitleg:** vijf tot tien regels voor de developer die hier straks verder bouwt:
