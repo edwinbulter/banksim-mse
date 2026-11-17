@@ -25,6 +25,8 @@ interface TempoTrace {
  */
 const WACHTTIJD_MS = 90_000;
 const INTERVAL_MS = 1_000;
+/** De 404 van Tempo zelf, door de service-proxy heen; niet de 404 van een service die er niet is. */
+const NIET_GEVONDEN = /\(NotFound\): the server could not find the requested resource/;
 
 /**
  * Leest Tempo in otel-lgtm (ADR 0054) via de service-proxy van de API-server. Er is dus geen port-forward en geen
@@ -75,7 +77,11 @@ export class TempoDriver {
     const resultaat = await this.shell.kubectl([
       'get', '--raw', `/api/v1/namespaces/${this.namespace}/services/otel-lgtm:3200/proxy/${pad}`,
     ]);
-    return resultaat.code === 0 ? (JSON.parse(resultaat.stdout) as T) : undefined;
+    if (resultaat.code === 0) return JSON.parse(resultaat.stdout) as T;
+    // Een trace die Tempo nog niet heeft, geeft 404; daar wachten tracesMet en trace op. Elke andere fout is geen lege
+    // uitkomst: anders lijkt een onbereikbare Tempo op een trace die er niet is.
+    if (NIET_GEVONDEN.test(resultaat.uitvoer)) return undefined;
+    throw new Error(`Tempo gaf geen antwoord op ${pad}: ${resultaat.uitvoer.trim()}`);
   }
 }
 

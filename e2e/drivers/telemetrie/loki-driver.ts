@@ -42,7 +42,8 @@ export class LokiDriver {
     const resultaat = await this.shell.kubectl([
       'get', '--raw', `/api/v1/namespaces/${this.namespace}/services/otel-lgtm:3100/proxy/loki/api/v1/query_range?${parameters}`,
     ]);
-    if (resultaat.code !== 0) return [];
+    // Een fout is geen lege uitkomst: anders lijkt een onbereikbare Loki op een log zonder IBAN.
+    if (resultaat.code !== 0) throw new Error(`Loki gaf geen antwoord op ${query}: ${resultaat.uitvoer.trim()}`);
     return (JSON.parse(resultaat.stdout) as LokiAntwoord).data.result.flatMap((stroom) =>
       stroom.values.map(([, tekst]) => ({ dienst: stroom.stream.service_name ?? '', tekst })),
     );
