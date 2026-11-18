@@ -59,6 +59,22 @@ test('De telemetrie bevat geen IBAN en geen naam van een klant', async ({ omgevi
   );
 });
 
+test('Een betaling naar een IBAN met een tikfout zet dat IBAN niet in de telemetrie', async ({ omgeving, bank }) => {
+  const jan = bank.klant('Jan');
+  // De goede vorm, maar een fout controlegetal (mod 97): zoals een tikfout in het IBAN van een echte rekening.
+  const metTikfout = 'NL00SIMB0000000001';
+  await omgeving.gegeven('BankSim-MSE is geïnstalleerd', () => omgeving.installeerAlsDatNodigIs());
+  await omgeving.en('klant Jan met een betaalrekening met saldo 100,00', () => jan.heeftBetaalrekening({ saldo: '100.00' }));
+  await omgeving.als(`Jan 12,50 probeert te betalen aan ${metTikfout}, met de naam Piet`, () =>
+    jan.probeertTeBetalenAanIban({ bedrag: '12.50', iban: metTikfout, naam: 'Piet' }),
+  );
+  await omgeving.dan('weigert de bank de betaling als ongeldige invoer', () => jan.verwachtWeigering('ongeldige-invoer'));
+  await omgeving.en(`staat ${metTikfout} nergens in Tempo of Loki`, async () => {
+    await omgeving.verwachtEenTraceVanDeBetaling(jan);
+    await omgeving.verwachtNietInDeTelemetrie(metTikfout, 'het IBAN met de tikfout');
+  });
+});
+
 test('Een geweigerde betaling telt mee in de metrics', async ({ omgeving, bank }) => {
   const jan = bank.klant('Jan');
   const sanne = bank.klant('Sanne');

@@ -516,6 +516,12 @@ export class Klant {
     this.uitkomst = await (await this.sessie()).betaal({ bedrag, naam, iban: aan.iban() });
   }
 
+  /** Zoals probeertTeBetalen, maar naar een los IBAN dat bij geen klant hoort, bijvoorbeeld met een tikfout. */
+  async probeertTeBetalenAanIban({ bedrag, iban, naam }: { bedrag: string; iban: string; naam: string }): Promise<void> {
+    await this.opentBetaalrekening();
+    this.uitkomst = await (await this.sessie()).betaal({ bedrag, naam, iban });
+  }
+
   /** S7.1 (CFR): dezelfde betaling, met twee keer dezelfde bevestiging; de bank boekt hem één keer. */
   async betaaltDubbel({ bedrag, aan }: { bedrag: string; aan: Klant }): Promise<void> {
     await this.opentBetaalrekening();
