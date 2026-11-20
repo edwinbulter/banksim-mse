@@ -170,6 +170,20 @@ jobs:
           path: ~/.cache/ms-playwright
           # De browsers horen bij de Playwright-versie, en die staat in de lockfile.
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+      - name: Systeempakketten van Playwright, de map
+        id: apt
+        # ADR 0056: apt bewaart de pakketten in een map van de runner, zodat de cache ze kan terugzetten en bewaren.
+        # ImageVersion hoort in de sleutel: een nieuw runner-image kan andere versies van de pakketten nodig hebben.
+        run: |
+          mkdir -p "$HOME/apt-archief/partial"
+          echo "Dir::Cache::Archives \"$HOME/apt-archief\";" | sudo tee /etc/apt/apt.conf.d/90-apt-archief
+          echo "runner=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+      - name: Systeempakketten van Playwright uit de cache
+        id: apt-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archief/*.deb
+          key: apt-chromium-firefox-webkit-${{ steps.apt.outputs.runner }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Playwright-browsers
         timeout-minutes: 15
         env:
@@ -182,6 +196,13 @@ jobs:
           else
             npm --prefix e2e run install-browsers
           fi
+      - name: Systeempakketten van Playwright in de cache
+        # Direct na install-deps, niet aan het eind van de job: dan vult ook een job die later faalt de cache.
+        if: steps.apt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archief/*.deb
+          key: ${{ steps.apt-cache.outputs.cache-primary-key }}
       - name: Acceptatietests
         run: npm --prefix e2e test
       - name: Clusterstatus bij falen
@@ -246,6 +267,20 @@ jobs:
           path: ~/.cache/ms-playwright
           # Een eigen sleutel: deze cache heeft alleen chromium, die van de acceptatietests alle drie.
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+      - name: Systeempakketten van Playwright, de map
+        id: apt
+        # ADR 0056: apt bewaart de pakketten in een map van de runner, zodat de cache ze kan terugzetten en bewaren.
+        # ImageVersion hoort in de sleutel: een nieuw runner-image kan andere versies van de pakketten nodig hebben.
+        run: |
+          mkdir -p "$HOME/apt-archief/partial"
+          echo "Dir::Cache::Archives \"$HOME/apt-archief\";" | sudo tee /etc/apt/apt.conf.d/90-apt-archief
+          echo "runner=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+      - name: Systeempakketten van Playwright uit de cache
+        id: apt-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archief/*.deb
+          key: apt-chromium-${{ steps.apt.outputs.runner }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Playwright met chromium
         # Alleen chromium: het upgradescenario logt na de upgrade in via de browser.
         timeout-minutes: 15
@@ -258,6 +293,13 @@ jobs:
           else
             npm --prefix e2e exec -- playwright install --with-deps chromium
           fi
+      - name: Systeempakketten van Playwright in de cache
+        # Direct na install-deps, niet aan het eind van de job: dan vult ook een job die later faalt de cache.
+        if: steps.apt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archief/*.deb
+          key: ${{ steps.apt-cache.outputs.cache-primary-key }}
       - name: Nep-origineel in namespace banksim
         # Zodat "Het origineel blijft onaangeroerd" ook hier iets controleert (doc/werkwijze-mse.md, 9.2).
         # Het bank-web-image staat al op de node; er komt geen nieuw image bij.
