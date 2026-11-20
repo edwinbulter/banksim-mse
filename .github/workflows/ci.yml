@@ -170,14 +170,6 @@ jobs:
           path: ~/.cache/ms-playwright
           # De browsers horen bij de Playwright-versie, en die staat in de lockfile.
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
-      - name: Ubuntu-mirror vastzetten
-        # Backlog fase 7 punt 8: de mirror die de runner zelf koos (us-east-2.ec2.archive.ubuntu.com) leverde op
-        # 18 en 20 november een paar pakketten per minuut, en install-deps liep tegen zijn time-out. Met
-        # azure.archive.ubuntu.com, de mirror van de laatste groene run, kostte dezelfde stap 15 s.
-        run: |
-          cat /etc/apt/apt-mirrors.txt
-          printf 'http://azure.archive.ubuntu.com/ubuntu/\tpriority:1\nhttp://archive.ubuntu.com/ubuntu/\tpriority:2\nhttp://security.ubuntu.com/ubuntu/\tpriority:3\n' \
-            | sudo tee /etc/apt/apt-mirrors.txt
       - name: Playwright-browsers
         timeout-minutes: 15
         env:
@@ -254,14 +246,6 @@ jobs:
           path: ~/.cache/ms-playwright
           # Een eigen sleutel: deze cache heeft alleen chromium, die van de acceptatietests alle drie.
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
-      - name: Ubuntu-mirror vastzetten
-        # Backlog fase 7 punt 8: de mirror die de runner zelf koos (us-east-2.ec2.archive.ubuntu.com) leverde op
-        # 18 en 20 november een paar pakketten per minuut, en install-deps liep tegen zijn time-out. Met
-        # azure.archive.ubuntu.com, de mirror van de laatste groene run, kostte dezelfde stap 15 s.
-        run: |
-          cat /etc/apt/apt-mirrors.txt
-          printf 'http://azure.archive.ubuntu.com/ubuntu/\tpriority:1\nhttp://archive.ubuntu.com/ubuntu/\tpriority:2\nhttp://security.ubuntu.com/ubuntu/\tpriority:3\n' \
-            | sudo tee /etc/apt/apt-mirrors.txt
       - name: Playwright met chromium
         # Alleen chromium: het upgradescenario logt na de upgrade in via de browser.
         timeout-minutes: 15
