@@ -171,19 +171,18 @@ jobs:
           # De browsers horen bij de Playwright-versie, en die staat in de lockfile.
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Systeempakketten van Playwright, de map
-        id: apt
         # ADR 0056: apt bewaart de pakketten in een map van de runner, zodat de cache ze kan terugzetten en bewaren.
-        # ImageVersion hoort in de sleutel: een nieuw runner-image kan andere versies van de pakketten nodig hebben.
+        # Niet de versie van het runner-image in de sleutel: runners met verschillende versies draaien door elkaar, en
+        # dan vindt een job de cache van de vorige run niet. Een verouderd pakket haalt apt gewoon opnieuw op.
         run: |
           mkdir -p "$HOME/apt-archief/partial"
           echo "Dir::Cache::Archives \"$HOME/apt-archief\";" | sudo tee /etc/apt/apt.conf.d/90-apt-archief
-          echo "runner=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
       - name: Systeempakketten van Playwright uit de cache
         id: apt-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/apt-archief/*.deb
-          key: apt-chromium-firefox-webkit-${{ steps.apt.outputs.runner }}-${{ hashFiles('e2e/package-lock.json') }}
+          key: apt-chromium-firefox-webkit-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Playwright-browsers
         timeout-minutes: 15
         env:
@@ -268,19 +267,18 @@ jobs:
           # Een eigen sleutel: deze cache heeft alleen chromium, die van de acceptatietests alle drie.
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Systeempakketten van Playwright, de map
-        id: apt
         # ADR 0056: apt bewaart de pakketten in een map van de runner, zodat de cache ze kan terugzetten en bewaren.
-        # ImageVersion hoort in de sleutel: een nieuw runner-image kan andere versies van de pakketten nodig hebben.
+        # Niet de versie van het runner-image in de sleutel: runners met verschillende versies draaien door elkaar, en
+        # dan vindt een job de cache van de vorige run niet. Een verouderd pakket haalt apt gewoon opnieuw op.
         run: |
           mkdir -p "$HOME/apt-archief/partial"
           echo "Dir::Cache::Archives \"$HOME/apt-archief\";" | sudo tee /etc/apt/apt.conf.d/90-apt-archief
-          echo "runner=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
       - name: Systeempakketten van Playwright uit de cache
         id: apt-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/apt-archief/*.deb
-          key: apt-chromium-${{ steps.apt.outputs.runner }}-${{ hashFiles('e2e/package-lock.json') }}
+          key: apt-chromium-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Playwright met chromium
         # Alleen chromium: het upgradescenario logt na de upgrade in via de browser.
         timeout-minutes: 15

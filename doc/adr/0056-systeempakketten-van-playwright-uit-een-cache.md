@@ -22,13 +22,13 @@ Opties:
 Optie 1: de systeempakketten van Playwright komen in CI uit een cache, per job-soort.
 - Een bestand in `/etc/apt/apt.conf.d/` zet de map voor gedownloade pakketten (`Dir::Cache::Archives`) op een map van de runner-gebruiker, zodat `actions/cache` hem kan terugzetten en bewaren.
 - `actions/cache/restore` vóór en `actions/cache/save` direct ná de stap met `install-deps`, beide op SHA vastgezet zoals de andere actions. Niet het gewone `actions/cache`: dat bewaart pas aan het eind van een geslaagde job, en een job die later faalt, vult de cache dan nooit.
-- De sleutel bevat de versie van het runner-image (`ImageVersion`), de Playwright-versie uit `e2e/package-lock.json` en de browsers van de job.
+- De sleutel bevat de browsers van de job en de Playwright-versie uit `e2e/package-lock.json`, niet de versie van het runner-image. In run 44807145564 draaiden runners met twee versies van het image (`20261116.376.1` en `20261116.133.1`) door elkaar; met de versie in de sleutel vond een job de cache van een vorige run dan vaak niet.
 
 ## Gevolgen
 - Met een warme cache downloadt apt niets of bijna niets; alleen `apt-get update` gaat nog over het netwerk, en dat was ook in de trage runs snel.
 - Geen nieuw image en geen nieuwe tool; de teststappen blijven zoals ze zijn.
-- Een lege cache met een trage mirror faalt nog steeds. Dat gebeurt na een nieuwe Playwright-versie en na een nieuw runner-image; hoe vaak GitHub het runner-image vervangt, hebben we niet gemeten. Een nieuwe poging vult de cache dan, zodra één job de pakketten binnen heeft.
-- Een nieuwere versie van een pakket in `noble-updates` haalt apt alsnog bij de mirror, tot het runner-image en dus de sleutel verandert.
+- Een lege cache met een trage mirror faalt nog steeds. Dat gebeurt na een nieuwe Playwright-versie, en als GitHub de cache opruimt omdat hij zeven dagen niet gebruikt is. Een nieuwe poging vult de cache dan, zodra één job de pakketten binnen heeft.
+- Een nieuwere versie van een pakket in `noble-updates` haalt apt alsnog bij de mirror, en die komt niet in de cache: een cache met een bestaande sleutel wordt niet overschreven. Hoe meer pakketten verouderen, hoe meer er weer over de mirror gaat; een nieuwe Playwright-versie geeft een nieuwe sleutel en dus een verse cache.
 - De cache kost ruimte in de 10 GB van de repository: een paar honderd MB voor de acceptatiejob, minder voor de installatiejobs.
 - Optie 2 hoeft geen apt meer, maar trekt elke run een image van ongeveer 2 GB (niet gemeten) en verandert hoe de tests draaien. Dat bewaren we voor als optie 1 niet genoeg blijkt.
 
