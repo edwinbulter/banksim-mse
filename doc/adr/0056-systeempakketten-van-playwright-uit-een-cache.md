@@ -6,7 +6,7 @@ Status: Geaccepteerd
 ## Context
 De browsers van Playwright staan in CI al in een cache (`~/.cache/ms-playwright`). De systeempakketten die ze nodig hebben niet: elke job draait `playwright install-deps`, en dat haalt ze met `apt-get` bij een Ubuntu-mirror. Voor de acceptatiejob zijn dat ongeveer 180 pakketten (chromium, firefox en webkit), voor de installatiejobs ongeveer 30 (alleen chromium).
 
-Op 18 en 20 november liep de stap "Playwright-browsers" van de acceptatiejob drie keer tegen zijn time-out van 15 minuten, en draaide er geen scenario (backlog fase 7 punt 8). Wat de logs laten zien:
+Op 18 en 20 november liep de stap "Playwright-browsers" van de acceptatiejob drie keer tegen zijn time-out van 15 minuten, en draaide er geen scenario (backlog fase 7 punt 11). Wat de logs laten zien:
 - Run 44296631242 (18 november): mirror `us-east-2.ec2.archive.ubuntu.com`, 141 pakketten in 15 minuten.
 - Run 44776053202 (20 november): mirror `azure.archive.ubuntu.com`, de mirror van de laatste groene run. De acceptatiejob kreeg in 15 minuten 56 pakketten binnen. In de installatiejob overig-1 duurde het downloaden 9 min 14 s (32,1 MB, 57,9 kB/s), in de drie andere installatiejobs onder 1 minuut.
 - `apt-get update` was in beide jobs van 20 november snel: 13 MB in 1 à 2 s. Alleen het downloaden van de pakketten was traag.
@@ -34,5 +34,5 @@ Optie 1: de systeempakketten van Playwright komen in CI uit een cache, per job-s
 
 ## Bewaking
 - actionlint in de commit stage (`make iac`).
-- Meetbaar doel (backlog fase 7 punt 8): met een warme cache duurt de stap met `install-deps` hoogstens 1 minuut, en het log toont geen download van een Ubuntu-mirror. Gemeten in één run met een lege cache en de run daarna.
+- Meetbaar doel (backlog fase 7 punt 11): met een warme cache duurt de stap met `install-deps` hoogstens 1 minuut, en het log toont geen download van een Ubuntu-mirror. Gemeten in één run met een lege cache en de run daarna.
 - Faalt de stap toch weer op apt met een warme cache, dan is deze beslissing niet genoeg en volgt optie 2 in een nieuwe ADR.
